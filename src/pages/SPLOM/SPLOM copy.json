@@ -1,0 +1,57 @@
+{
+    "Layers": {
+        "background": {},
+        "marks": {
+            "scatterplots": "circle"
+        },
+        "axes": {
+            "xaxis": {
+                "domain": "line",
+                "header": "text",
+                "tick": "line",
+                "tick_label": "text"
+            },
+            "yaxis": {
+                "domain": "line",
+                "header": "text",
+                "tick": "line",
+                "tick_label": "text"
+            }
+        },
+        "legends": {}
+    },
+    "interactions": [
+        {
+            "Trigger": {
+                "Trigger": "Pan",
+                "Target": "Layers.background.*"
+            },
+            "Feedback": [
+                {
+                    "Action": "Pan",
+                    "Apply_to": [
+                        "Layers.marks.scatterplots",
+                        "Layers.axes.xaxis",
+                        "Layers.axes.yaxis"
+                    ]
+                }
+            ]
+        },
+        {
+            "Trigger":{
+                "Trigger":"Zoom",
+                "Target":"Layers.background.*"
+            },
+            "Feedback":[
+                {
+                    "Action":"Zoom",
+                    "Apply_to":[
+                        "Layers.marks.scatterplots",
+                        "Layers.axes.xaxis",
+                        "Layers.axes.yaxis"
+                    ]
+                }
+            ]
+        }
+    ]
+}

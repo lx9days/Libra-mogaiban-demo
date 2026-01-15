@@ -1,0 +1,5 @@
+{
+  "name": "Alice",
+  "role": "admin",
+  "features": ["create", "edit", "delete"]
+}

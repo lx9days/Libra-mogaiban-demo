@@ -1,0 +1,34 @@
+{
+    "DimpVis Instrument": {
+        "combination": {
+            "Point_Selection_Instrument": {
+                "Trigger": "hover",
+                "Target": ".marks > .circle > *",
+                "Feedback":{
+                    "start":{"Action":"add_timeline_hintpath"},
+                    "running":{},
+                    "finish":{"Action":"remove_timeline_hintpath"}
+                }
+            },
+            "Drag_Selection_Instrument": {
+                "Trigger": "drag",
+                "Target": ".marks > .timeline_hintpath > #handle",
+                "Feedback":{
+                    "start":{},
+                    "running":{
+                        "Action":"DimpVis_Redraw_Process",
+                        "Redraw_Channel":"coordinates"
+                    },
+                    "finish":{}
+                }
+            }
+        },
+        "Trigger":"Point_selection_Instrument.Trigger",
+        "Target":"Point_selection_Instrument.Target",
+        "Feedback":{
+            "start":"Point_selection_Instrument.Feedback.start",
+            "running":"Drag_selection_Instrument.Feedback.running",
+            "finish":"Point_selection_Instrument.Feedback.finish"
+        }
+    }
+}

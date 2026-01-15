@@ -1,0 +1,69 @@
+{
+    "Layers": {
+        "views": {
+            "background": "rect",
+            "marks": {
+                "scatterplots": "circle",
+                "centroids": "rect",
+                "Magnets": "rect"
+            },
+            "axes": {
+                "xaxis": {
+                    "domain": "line",
+                    "header": "text",
+                    "tick": "line",
+                    "tick_label": "text"
+                },
+                "yaxis": {
+                    "domain": "line",
+                    "header": "text",
+                    "tick": "line",
+                    "tick_label": "text"
+                }
+            },
+            "legends": {}
+        }
+    },
+    "interactions": [
+        {
+            "Trigger": {
+                "Trigger": "Drag",
+                "Target": "Layers.views.marks.centroids.*"
+            },
+            "Feedback": [
+                {
+                    "Action": "Move_with_cursor",
+                    "Apply_to": "Event_Target"
+                },
+                {
+                    "Action":"calculate_K-means",
+                    "Apply_to": ["Layers.views.marks.centroids", "Layers.views.marks.scatterplots"]
+                }
+            ]
+        },
+        {
+            "Trigger": {
+                "Trigger": "Drag_horizontally",
+                "Target": ["Layer.views.axes.xaxis.header.*", "Layer.views.axes.yaxis.header.*"]
+            },
+            "Feedback": [
+                {
+                    "Action":"Reorder_by_Drop_Position_X",
+                    "Apply_to": ["layers.views"]
+                }
+            ]
+        },
+        {
+            "Trigger": {
+                "Trigger": "Drag_vertically",
+                "Target": ["Layer.views.axes.xaxis.header.*", "Layer.views.axes.yaxis.header.*"]
+            },
+            "Feedback": [
+                {
+                    "Action":"Reorder_by_Drop_Position_Y",
+                    "Apply_to": ["layers.views"]
+                }
+            ]
+        }
+    ]
+}

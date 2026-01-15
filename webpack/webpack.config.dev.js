@@ -18,6 +18,7 @@ module.exports = merge(common, {
       logging: 'error',
     },
     hot: true,
+    historyApiFallback: true,
   },
   plugins: [
     new Webpack.DefinePlugin({
@@ -35,12 +36,22 @@ module.exports = merge(common, {
   module: {
     rules: [
       {
+        test: /\.css$/i,
+        include: /node_modules/,
+        use: [
+          'style-loader',
+          'css-loader',
+        ],
+      },
+      {
         test: /\.js$/,
         include: Path.resolve(__dirname, '../src'),
+        resourceQuery: { not: [/raw/] },
         loader: 'babel-loader',
       },
       {
         test: /\.s?css$/i,
+        exclude: /node_modules/,
         use: [
           'style-loader',
           {

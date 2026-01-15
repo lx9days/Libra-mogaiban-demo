@@ -24,12 +24,22 @@ module.exports = merge(common, {
   module: {
     rules: [
       {
+        test: /\.css$/i,
+        include: /node_modules/,
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader',
+        ],
+      },
+      {
         test: /\.js$/,
         exclude: /node_modules/,
+        resourceQuery: { not: [/raw/] },
         use: 'babel-loader',
       },
       {
         test: /\.s?css/i,
+        exclude: /node_modules/,
         use: [MiniCssExtractPlugin.loader, 'css-loader', 'postcss-loader', 'sass-loader'],
       },
     ],

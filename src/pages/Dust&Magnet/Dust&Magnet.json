@@ -1,0 +1,49 @@
+{
+    "Layers": {
+        "background": "rect",
+        "marks": {
+            "Dusts": "circle",
+            "Magnets": {
+                "Magnet_rect": "rect",
+                "Magnet_text": "text"
+            }
+        },
+        "axes": {},
+        "legends": {}
+    },
+    "interactions": [
+        {
+            "Trigger": {
+                "Trigger": "Click",
+                "Target": "Layers.background.*"
+            },
+            "Feedback": [
+                {
+                    "Action": "Create_Rect",
+                    "Apply_to": "Layers.Magnets.Magnet_rect"
+                },
+                {
+                    "Action": "Create_Text",
+                    "Apply_to": "Layers.Magnets.Magnet_text"
+                }
+            ]
+        },
+        {
+            "Trigger": {
+                "Trigger": "Drag",
+                "Target": "Layers.marks.Magnets"
+            },
+            "Feedback": [
+                {
+                    "Action": "Move_with_cursor",
+                    "Apply_to": "Layers.marks.Magnets.Event_Target"
+                },
+                {
+                    "Action": "Move",
+                    "Apply_to": "Layers.marks.Dusts",
+                    "Strategy": "Magnetic attraction"
+                }
+            ]
+        }
+    ]
+}

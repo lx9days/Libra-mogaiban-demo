@@ -1,0 +1,195 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/interaction.schema.json",
+  "title": "Visualization Interaction DSL Schema",
+  "description": "A list of interaction rules, where each rule defines a visualization interaction using a Trigger-Target-Feedback model.",
+  
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/interactionRule"
+  },
+
+  "$defs": {
+    "interactionRule": {
+      "type": "object",
+      "properties": {
+        "trigger": { "$ref": "#/$defs/trigger" },
+        "target": { "$ref": "#/$defs/target" },
+        "feedback": { "$ref": "#/$defs/feedback" }
+      },
+      "required": ["trigger", "target", "feedback"]
+    },
+
+    "trigger": {
+      "description": "Defines the user action that initiates the interaction. Can be a simple string or a complex object with modifiers.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["Hover", "Click", "Brush", "Drag", "Pan", "Zoom", "Resize", "DoubleClick", "Longpress", "KeyDown", "Wheel"]
+        },
+        {
+          "oneOf": [
+            { "$ref": "#/$defs/triggers/genericTrigger" },
+            { "$ref": "#/$defs/triggers/brushTrigger" },
+            { "$ref": "#/$defs/triggers/panTrigger" },
+            { "$ref": "#/$defs/triggers/zoomTrigger" }
+          ]
+        }
+      ]
+    },
+
+    "target": {
+      "type": "object",
+      "properties": {
+        "select": {
+          "type": "string",
+          "enum": [
+            "mark-rect", "mark-line", "mark-area", "mark-symbol", "mark-text", "mark-rule", "mark-path", "mark-group", "mark-image", "mark-trail", "mark-arc",
+            "role-axis-ticks", "role-axis-label", "role-axis-title",
+            "role-legend-symbol", "role-legend-label", "role-legend-title",
+            "background",
+            "$brushed_items", "triggered mark", "rows", "columns"
+          ]
+        },
+        "filter": {
+          "type": "object",
+          "properties": {
+            "is_in_same_row_as": { "type": "string", "const": "$triggered" },
+            "is_in_same_column_as": { "type": "string", "const": "$triggered" },
+            "has_same_data_as": { "type": "string", "const": "$triggered" },
+            "has_same_field_value_as": { "$ref": "#/$defs/filters/fieldValueFilter" },
+            "inside_of": { "type": "string", "const": "$brush_area" },
+            "in_x_range_of": { "type": "string", "const": "$brush_area" },
+            "in_y_range_of": { "type": "string", "const": "$brush_area" },
+            "is_nearest_to": { "type": "string", "const": "$cursor_position" },
+            "equals": { "$ref": "#/$defs/filters/fieldValueFilter" },
+            "is_greater_than": { "$ref": "#/$defs/filters/fieldValueFilter" },
+            "is_in_range": { "$ref": "#/$defs/filters/fieldRangeFilter" },
+            "is_one_of": { "$ref": "#/$defs/filters/fieldValuesFilter" }
+          },
+          "additionalProperties": false
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["union", "intersection", "difference", "replace", "add", "subtract", "toggle", "inverse"]
+        }
+      },
+      "required": ["select"]
+    },
+
+    "feedback": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/feedbackItem" }
+    },
+
+    "feedbackItem": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "object",
+          "oneOf": [
+            { "$ref": "#/$defs/actions/highlight" }, { "$ref": "#/$defs/actions/transition" },
+            { "$ref": "#/$defs/actions/pan" }, { "$ref": "#/$defs/actions/zoom" }, { "$ref": "#/$defs/actions/focus" },
+            { "$ref": "#/$defs/actions/drop" }, { "$ref": "#/$defs/actions/filter" }, { "$ref": "#/$defs/actions/link" },
+            { "$ref": "#/$defs/actions/tooltip" }, { "$ref": "#/$defs/actions/annotate" }
+          ],
+          "required": ["type"]
+        },
+        "apply_to": {
+          "oneOf": [
+            { "type": "string", "enum": ["Target"] },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      },
+      "required": ["action"]
+    },
+
+    "modifierKey": {
+      "oneOf": [
+        { "type": "string", "enum": ["Ctrl", "Shift", "Alt"] },
+        { "type": "array", "items": { "type": "string", "enum": ["Ctrl", "Shift", "Alt"] }, "uniqueItems": true }
+      ]
+    },
+
+    "triggers": {
+      "genericTrigger": {
+        "type": "object",
+        "properties": {
+          "on": { "enum": ["Hover", "Click", "Drag", "Resize", "DoubleClick", "Longpress", "KeyDown", "Wheel"] },
+          "key": { "$ref": "#/$defs/modifierKey" }
+        },
+        "required": ["on"]
+      },
+      "brushTrigger": {
+        "type": "object",
+        "properties": {
+          "on": { "const": "Brush" },
+          "key": { "$ref": "#/$defs/modifierKey" },
+          "shape": { "enum": ["rectangle", "circle", "x-axis", "y-axis", "radial"] }
+        },
+        "required": ["on"]
+      },
+      "panTrigger": {
+        "type": "object",
+        "properties": {
+          "on": { "const": "Pan" },
+          "key": { "$ref": "#/$defs/modifierKey" },
+          "direction": { "enum": ["x-axis", "y-axis", "radial"] }
+        },
+        "required": ["on"]
+      },
+      "zoomTrigger": {
+        "type": "object",
+        "properties": {
+          "on": { "const": "Zoom" },
+          "key": { "$ref": "#/$defs/modifierKey" },
+          "direction": { "enum": ["x-axis", "y-axis"] }
+        },
+        "required": ["on"]
+      }
+    },
+
+    "filters": {
+      "fieldValueFilter": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string" },
+          "value": { "type": ["string", "number", "boolean"] },
+          "of": { "type": "string", "const": "$triggered" }
+        },
+        "oneOf": [ { "required": ["field", "value"] }, { "required": ["field", "of"] } ]
+      },
+      "fieldRangeFilter": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string" },
+          "range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+        },
+        "required": ["field", "range"]
+      },
+      "fieldValuesFilter": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string" },
+          "values": { "type": "array", "items": { "type": ["string", "number", "boolean"] } }
+        },
+        "required": ["field", "values"]
+      }
+    },
+
+    "actions": {
+      "highlight": { "properties": { "type": { "const": "highlight" }, "style": { "type": "object" } }, "required": ["type", "style"] },
+      "transition": { "properties": { "type": { "const": "transition" }, "to_style": { "type": "object" }, "duration": { "type": "number", "minimum": 0 } }, "required": ["type", "to_style"] },
+      "pan": { "properties": { "type": { "const": "pan" } }, "required": ["type"] },
+      "zoom": { "properties": { "type": { "const": "zoom" } }, "required": ["type"] },
+      "focus": { "properties": { "type": { "const": "focus" }, "duration": { "type": "number", "minimum": 0 } }, "required": ["type"] },
+      "drop": { "properties": { "type": { "const": "drop" }, "effect": { "enum": ["reorder", "position", "assign"] } }, "required": ["type", "effect"] },
+      "filter": { "properties": { "type": { "const": "filter" } }, "required": ["type"] },
+      "link": { "properties": { "type": { "const": "link" }, "style": { "type": "object" } }, "required": ["type"] },
+      "tooltip": { "properties": { "type": { "const": "tooltip" }, "content": { "type": "object" } }, "required": ["type", "content"] },
+      "annotate": { "properties": { "type": { "const": "annotate" }, "content": { "type": "object" }, "style": { "type": "object" } }, "required": ["type", "content"] }
+    }
+  }
+}

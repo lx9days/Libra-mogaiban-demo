@@ -1,0 +1,56 @@
+[
+    {
+        "reorderInstruments": {
+            "Triggers": [
+                {
+                    "Trigger": "Drag",
+                    "Target": ".Layers > .axes > .x_axes > .header.*",
+                    "Feedback": {
+                        "start": [],
+                        "running": [
+                            {
+                                "service": "copy",
+                                "params": {
+                                    "copy-direction": "column"
+                                }
+                            }
+                        ],
+                        "end": [
+                            {
+                                "service": "reorder",
+                                "params": {
+                                    "reorder-direction": "x"
+                                },
+                                "redraw": "redraw-matrix"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "Trigger": "Drag",
+                    "Target": ".Layers > .axes > .y_axes > .header.*",
+                    "Feedback": {
+                        "start": [],
+                        "running": [
+                            {
+                                "service": "copy",
+                                "params": {
+                                    "copy-direction": "row"
+                                }
+                            }
+                        ],
+                        "end": [
+                            {
+                                "service": "reorder",
+                                "params": {
+                                    "reorder-direction": "y"
+                                },
+                                "redraw": "redraw-matrix"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+]

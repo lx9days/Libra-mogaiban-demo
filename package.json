@@ -43,6 +43,7 @@
     "html-loader": "^4.2.0",
     "html-webpack-plugin": "^5.5.0",
     "mini-css-extract-plugin": "^2.7.1",
+    "monaco-editor-webpack-plugin": "^7.1.1",
     "node-sass": "^8.0.0",
     "postcss-loader": "^7.0.2",
     "postcss-preset-env": "^7.8.3",
@@ -58,6 +59,9 @@
   },
   "dependencies": {
     "@babel/polyfill": "^7.12.1",
-    "core-js": "^3.26.1"
+    "core-js": "^3.26.1",
+    "d3": "^7.9.0",
+    "monaco-editor": "^0.54.0",
+    "vega-embed": "^7.1.0"
   }
 }

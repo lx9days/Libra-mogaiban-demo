@@ -1,0 +1,32 @@
+[
+    {
+        "reorderInstruments": {
+            "Triggers": [
+                {
+                    "Trigger": "Drag",
+                    "Target": ".Layers > .axes > .parallel_axes > .header.*",
+                    "Feedback": {
+                        "start": [],
+                        "running": [
+                            {
+                                "service": "copy",
+                                "params": {
+                                    "copy-direction": "column"
+                                }
+                            }
+                        ],
+                        "end": [
+                            {
+                                "service": "reorder",
+                                "params": {
+                                    "reorder-direction": "x"
+                                },
+                                "redraw": "redraw-parallelCoordinates"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+]

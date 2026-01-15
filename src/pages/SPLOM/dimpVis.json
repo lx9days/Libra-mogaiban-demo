@@ -1,0 +1,147 @@
+{
+    "Layers": {
+        "background": {
+            "canvas": "rect",
+            "grid": "line",
+            "year": "text"
+        },
+        "marks": {
+            "scatterplots": "circle"
+        },
+        "axes": {
+            "xaxis": {
+                "domain": "line",
+                "header": "text",
+                "tick": "line",
+                "tick_label": "text"
+            },
+            "yaxis": {
+                "domain": "line",
+                "header": "text",
+                "tick": "line",
+                "tick_label": "text"
+            }
+        },
+        "legends": {
+            "title": "text",
+            "icon": "circle",
+            "legend": "text"
+        }
+    },
+    "interactions": [
+        {
+            "Trigger": {
+                "Trigger": "Hover",
+                "Target": ".Layers > .marks > .scatterplots > *"
+            },
+            "Feedback": [
+                {
+                    "on": "mouseenter",
+                    "Action": "new_Layer",
+                    "config": {
+                        "class_name": "transient_Timeline",
+                        "container": ".Layers > .marks"
+                    }
+                },
+                {
+                    "on": "mouseenter",
+                    "Action": "draw_text",
+                    "config": {
+                        "class_name": "contry_label",
+                        "container": ".Layers > .marks > .transient_Timeline",
+                        "text": "${Event_Target.country_name}",
+                        "coordinate": "cursor_position"
+                    }
+                },
+                {
+                    "on": "mouseenter",
+                    "Action": "draw_multiple_text",
+                    "config": {
+                        "class_name": "year_label",
+                        "container": ".Layers > .marks > .transient_Timeline",
+                        "strategy": {
+                            "data_query": {
+                                "source": "Global_Dataset",
+                                "filter_by": {
+                                    "field": "country", 
+                                    "match": "${Event_Target.country}"
+                                },
+                                "return_data_as": "timeline_data"
+                            },
+                            "coordinate": {
+                                "x": { "field": "fertility", "scale": "xaxis" },       
+                                "y": { "field": "life_expectancy", "scale": "yaxis" }  
+                            },
+                            "text": "${year}"  
+                        }
+                    }
+                },
+                {
+                    "on": "mouseenter",
+                    "Action": "draw_polyline",
+                    "config": {
+                        "class_name": "timeline",
+                        "container": ".Layers > .marks > .transient_Timeline",
+                        "strategy": {
+                            "data_source": "timeline_data",
+                            "encoding": {
+                                "x": { "field": "fertility", "scale": "xaxis" },
+                                "y": { "field": "life_expectancy", "scale": "yaxis" }
+                            },
+                            "sort_by": "year"
+                        }
+                    }
+                },
+                {
+                    "on": "mouseleave",
+                    "Action": "remove_Layer",
+                    "Apply_to": ".Layers > .marks > .transient_Timeline"
+                }
+            ]
+        },
+        {
+            "Trigger": {
+                "Trigger": "Drag",
+                "Target": ".Layers > .marks > .scatterplots > *"
+            },
+            "Feedback": [
+                {
+                    "on": "drag",
+                    "Action": "move_mark",
+                    "Apply_to": "Event_Target",
+                    "strategy": {
+                        "coordinate_Algo": "nearest_point_to_cursor",
+                        "parameter": ".Layers > .marks > .transient_Timeline > .timeline",
+                        "return_data_as": "interpolated_year"
+                    }
+                },
+                {
+                    "on": "drag",
+                    "Action": "move_mark",
+                    "Apply_to": ".Layers > .marks > .transient_Timeline > .contry_label",
+                    "strategy": {
+                        "coordinate_Algo": "nearest_point_to_cursor",
+                        "parameter": ".Layers > .marks > .transient_Timeline > .timeline"
+                    }
+                },
+                {
+                    "on": "drag",
+                    "Action": "change_mark",
+                    "Apply_to": ".Layers > .background > .year",
+                    "strategy": {
+                        "text": "interpolated_year"
+                    }
+                },
+                {
+                    "on": "drag",
+                    "Action": "change_mark",
+                    "Apply_to": ".Layers > .marks > .scatterplots > *",
+                    "strategy": {
+                        "coordinate_Algo": "interpolate_coordinates",
+                        "parameter": "interpolated_year"
+                    }
+                }
+            ]
+        }
+    ]
+}
