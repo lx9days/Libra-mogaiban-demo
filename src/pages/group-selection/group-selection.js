@@ -86,8 +86,7 @@ function renderStaticVisualization() {
     .attr("writing-mode", "tb")
     .style(
       "transform",
-      `translate(${-MARGIN.left / 2}px,${
-        HEIGHT / 2
+      `translate(${-MARGIN.left / 2}px,${HEIGHT / 2
       }px) rotate(180deg)`
     );
 
@@ -178,14 +177,24 @@ function renderMainVisualization() {
 
 async function mountInteraction(layer) {
   // Attach HoverInstrument to the main layer
-  LibraManager.buildPointSelectionInstrument(layer, {
-    Trigger: "pan",
-    HighlightColor: (d) => color(d[FIELD_COLOR]),
-    Tooltip: {
-      Prefix: "Cylinders: ",
-      Fields: ["Cylinders"],
+  // LibraManager.buildPointSelectionInstrument(layer, {
+  //   Trigger: "pan",
+  //   HighlightColor: (d) => color(d[FIELD_COLOR]),
+  //   Tooltip: {
+  //     Prefix: "Cylinders: ",
+  //     Fields: ["Cylinders"],
+  //   },
+  // });
+  Libra.Interaction.build({
+    inherit: "BrushInstrument",
+    layers: [layer],
+    sharedVar: {
+      highlightColor: (d) => color(d[FIELD_COLOR]),
+      remnantKey: "Shift",
+      // modifierKey: "Ctrl",
     },
   });
+
   await Libra.createHistoryTrrack();
 }
 

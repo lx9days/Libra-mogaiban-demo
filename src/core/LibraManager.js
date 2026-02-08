@@ -37,11 +37,16 @@ export default class LibraManager {
             };
         }
 
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: `${triggerPascal}Instrument`,
             layers: [layer],
             sharedVar: sharedVar,
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
     static buildGroupSelectionInstrument(layer, context) {
         if (!this.checkInput(layer, context)) return;
@@ -62,11 +67,16 @@ export default class LibraManager {
             };
         }
 
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: `${triggerPascal}Instrument`,
             layers: [layer],
             sharedVar: sharedVar,
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
 
     static buildAxisSelectionInstrument(layer, context) {
@@ -584,7 +594,7 @@ export default class LibraManager {
         });
 
 
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: `Link${triggerPascal}Instrument`,
             layers: [layer],
             sharedVar: sharedVar,
@@ -612,7 +622,12 @@ export default class LibraManager {
                     ],
                 }
             ]
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
 
     static getOrCreateLayer(svg, className, width, height, x = 0, y = 0) {
@@ -1066,7 +1081,7 @@ export default class LibraManager {
                 });
             },
         });
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: "ReorderInstrument",
             layers: [layer],
             insert: [
@@ -1102,7 +1117,12 @@ export default class LibraManager {
                 layoutOffset: context.offset || { x: 0, y: 0 },
                 offset: context.offset || { x: 0, y: 0 }
             },
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
 
     static buildPanInstrument(layer, context) {
@@ -1117,11 +1137,16 @@ export default class LibraManager {
         if (context.scaleX) sharedVar.scaleX = context.scaleX;
         if (context.scaleY) sharedVar.scaleY = context.scaleY;
 
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: "PanInstrument",
             layers: [layer],
             sharedVar: sharedVar,
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
 
     static buildGeometricZoomInstrument(layer, context) {
@@ -1136,11 +1161,16 @@ export default class LibraManager {
         if (context.scaleX) sharedVar.scaleX = context.scaleX;
         if (context.scaleY) sharedVar.scaleY = context.scaleY;
 
-        Libra.Interaction.build({
+        const buildOptions = {
             inherit: "GeometricZoomInstrument",
             layers: [layer],
             sharedVar: sharedVar,
-        });
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
     }
 
     static buildGeometricTransformer(layer, context) {

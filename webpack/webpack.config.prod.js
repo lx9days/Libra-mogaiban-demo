@@ -40,7 +40,18 @@ module.exports = merge(common, {
       {
         test: /\.s?css/i,
         exclude: /node_modules/,
-        use: [MiniCssExtractPlugin.loader, 'css-loader', 'postcss-loader', 'sass-loader'],
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader',
+          'postcss-loader',
+          {
+            loader: 'sass-loader',
+            options: {
+              api: 'modern-compiler',
+              implementation: require('sass'),
+            },
+          },
+        ],
       },
     ],
   },

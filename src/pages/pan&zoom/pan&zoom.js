@@ -195,15 +195,17 @@ async function mountInteraction(layer, transformer) {
   LibraManager.buildGroupSelectionInstrument(layer, {
     Trigger: "brush",
     HighlightColor: "red",
-    
+    modifierKey: "ctrl",
+    priority: 2,
+    stopPropagation: true,
   });
-    LibraManager.buildPointSelectionInstrument(layer, {
-      Trigger: "hover",
-      HighlightColor: "blue",
-      Tooltip: {
-        Prefix: "Cylinders: "
-      },
-    });
+    // LibraManager.buildPointSelectionInstrument(layer, {
+    //   Trigger: "hover",
+    //   HighlightColor: "blue",
+    //   Tooltip: {
+    //     Prefix: "Cylinders: "
+    //   },
+    // });
   // 历史记录（撤销/重做）
   if (Libra.createHistoryTrack) {
     await Libra.createHistoryTrack();

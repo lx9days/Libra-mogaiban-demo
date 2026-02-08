@@ -403,19 +403,19 @@ function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WI
     // 2. Create Axis Layers (Middle)
     const axisLayers = {};
     dimensions.forEach(dim => {
-        const layerName = dim.replace(/\./g, '_');
-                             let axisLayer = null;
-            axisLayer = LibraManager.getOrCreateLayer(svg, "axisLayer-" + layerName, x.bandwidth(), HEIGHT,  x(dim)+MARGIN.left, MARGIN.top);
-            console.log("newlayer");
-            
-        
-        
-        
+            const layerName = dim.replace(/\./g, '_');
+        let axisLayer = null;
+        axisLayer = LibraManager.getOrCreateLayer(svg, "axisLayer-" + layerName, x.bandwidth(), HEIGHT, x(dim) + MARGIN.left, MARGIN.top);
+        console.log("newlayer");
+
+
+
+
         axisLayers[dim] = axisLayer;
 
         const axisG = d3.select(axisLayer.getGraphic());
         axisG.attr("class", "axis");
-        
+
         // Clear previous content and create a centered group
         axisG.selectAll("*").remove();
         const centeredG = axisG.append("g")
@@ -496,6 +496,11 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             if (layer) {
 
                 layer.setOffsetCascade(newX(dim) + MARGIN.left, MARGIN.top);
+                const axisG = d3.select(layer.getGraphic());
+                const centeredG = axisG.select("g");
+                if (!centeredG.empty()) {
+                    centeredG.call(d3.axisLeft(y[dim]));
+                }
             }
         });
 
@@ -532,7 +537,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     //     Trigger: "hover",
     //     // Priority: 2,
     //     highlightAttrValues: {
-    //         stroke: "#ff0000",
+    //         stroke: "#00ff00",
     //     },
     // });
     // LibraManager.buildGroupSelectionInstrument(linesLayer, {
@@ -542,12 +547,37 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     //     },
     // });
 
+
     Object.keys(axisLayers).forEach(dim => {
         // if (dim !== "Enjolras") {
         //     return;
         // }
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
+
+        LibraManager.buildGeometricZoomInstrument(axisLayer, {
+            Trigger: "zoom",
+            fixRange: true,
+            scaleY: y[dim],
+        });
+
+        LibraManager.buildPanInstrument(axisLayer, {
+            Trigger: "pan",
+            fixRange: true,
+            scaleY: y[dim],
+            ModifierKey: "Alt"
+        });
+
+        LibraManager.buildGeometricTransformer(axisLayer, {
+            scaleY: y[dim],
+            redraw: (sX, sY) => {
+                if (sY) {
+                    y[dim] = sY;
+                    redrawParallel(x.domain(), x);
+                }
+            }
+        });
+
         LibraManager.buildAxisSelectionInstrument(axisLayer, {
             Trigger: "brushy",
             highlightAttrValues: {
@@ -561,6 +591,32 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             scale: y[dim],
             BaseOpacity: 1
         });
+
+    //     Libra.Interaction.build({
+    //         inherit: "HoverInstrument",
+    //         layers: [{layer:axisLayer,options: {
+    //     pointerEvents: "visiblePainted",
+    //   }}],
+    //         insert: [
+    //             {
+    //                 find: "SelectionService",
+    //                 flow: [
+    //                     {
+    //                         comp: "LineTransformer",
+    //                         sharedVar: {
+    //                             orientation: ["horizontal"],
+    //                             scaleY: y[dim],
+    //                         },
+    //                     },
+    //                 ],
+    //             },
+    //         ],
+    //         sharedVar: {
+    //             tooltip: {
+    //                 prefix: "value: ",
+    //             },
+    //         },
+    //     });
     });
 
     await Libra.createHistoryTrrack();

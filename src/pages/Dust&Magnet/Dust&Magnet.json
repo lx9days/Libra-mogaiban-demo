@@ -1,49 +1,41 @@
 {
-    "Layers": {
-        "background": "rect",
-        "marks": {
-            "Dusts": "circle",
-            "Magnets": {
-                "Magnet_rect": "rect",
-                "Magnet_text": "text"
-            }
-        },
-        "axes": {},
-        "legends": {}
-    },
     "interactions": [
         {
-            "Trigger": {
-                "Trigger": "Click",
-                "Target": "Layers.background.*"
-            },
-            "Feedback": [
-                {
-                    "Action": "Create_Rect",
-                    "Apply_to": "Layers.Magnets.Magnet_rect"
-                },
-                {
-                    "Action": "Create_Text",
-                    "Apply_to": "Layers.Magnets.Magnet_text"
-                }
-            ]
+            "Interaction": "Dragging",
+            "Trigger": "drag",
+            "Target layer": "magnetLayer",
+            "priority": 3,
+            "callback": "moveDusts(function)",
+            "stopPropagation": true
         },
         {
-            "Trigger": {
-                "Trigger": "Drag",
-                "Target": "Layers.marks.Magnets"
+            "Interaction": "Point Selection",
+            "Trigger": "click",
+            "Target layer": "backgroundLayer",
+            "priority": 1,
+            "callback": "createMagnet(function)",
+            "stopPropagation": true
+        },
+        {
+            "Interaction": "Point Selection",
+            "Trigger": "click",
+            "Target layer": "dustLayer",
+            "Feedback options": {
+                "Highlight": "greenyellow"
             },
-            "Feedback": [
-                {
-                    "Action": "Move_with_cursor",
-                    "Apply_to": "Layers.marks.Magnets.Event_Target"
-                },
-                {
-                    "Action": "Move",
-                    "Apply_to": "Layers.marks.Dusts",
-                    "Strategy": "Magnetic attraction"
-                }
-            ]
+            "priority": 2,
+            "stopPropagation": true
+        },
+        {
+            "Interaction": "Group Selection",
+            "Trigger": "brush",
+            "Target layer": "dustLayer",
+            "Feedback options": {
+                "Highlight": "red"
+            },
+            "modifierKey": "Shift",
+            "priority": 4,
+            "stopPropagation": true
         }
     ]
 }

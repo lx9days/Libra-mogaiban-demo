@@ -1,0 +1,26 @@
+{
+    "interactions": [
+        {
+            "Interaction": "group selection",
+            "Trigger": "brush",
+            "Target layer": "mainLayer",
+            "Feedback options":{
+                "Highlight": "greenyellow",
+                "Dim":0.5
+            }
+        },
+        {
+            "Interaction": "pan",
+            "Trigger": "pan",
+            "Target layer": "mainLayer",
+            "Feedback options":{
+                "scaleX":"${scaleX}",
+                "scaleY":"${scaleY}",
+                "direction":"xy"
+            },
+            "modifierKey": "ctrl",
+            "priority": 2,
+            "stopPropagation": true
+        }
+    ]
+}

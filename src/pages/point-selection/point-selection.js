@@ -181,15 +181,19 @@ async function mountInteraction(layer) {
   LibraManager.buildGroupSelectionInstrument(layer, {
     Trigger: "brush",
     Priority: 2,
+    stopPropagation: true,
     HighlightColor: (d) => color(d[FIELD_COLOR]),
    
   });
     LibraManager.buildPointSelectionInstrument(layer, {
     Trigger: "hover",
-    Priority: 2,highlightAttrValues: {
+    Priority: 1,
+    stopPropagation: true,
+    highlightAttrValues: {
       stroke: "#ff0000",    // 只改描边颜色
       "stroke-width": 2,    // 可选：顺便改线宽
     },
+    // ModifierKey: "Shift",
   });
   await Libra.createHistoryTrrack();
 }

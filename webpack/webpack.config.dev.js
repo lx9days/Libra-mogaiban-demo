@@ -61,7 +61,13 @@ module.exports = merge(common, {
             },
           },
           'postcss-loader',
-          'sass-loader',
+          {
+            loader: 'sass-loader',
+            options: {
+              api: 'modern-compiler',
+              implementation: require('sass'),
+            },
+          },
         ],
       },
     ],
