@@ -1,7 +1,7 @@
 {
     "interactions": [
         {
-            "Interaction": "group selection",
+            "Instrument": "group selection",
             "Trigger": "brush",
             "Target layer": "mainLayer",
             "Feedback options":{
@@ -10,7 +10,7 @@
             }
         },
         {
-            "Interaction": "pan",
+            "Instrument": "pan",
             "Trigger": "pan",
             "Target layer": "mainLayer",
             "Feedback options":{

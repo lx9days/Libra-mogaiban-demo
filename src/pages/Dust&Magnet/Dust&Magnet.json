@@ -1,7 +1,7 @@
 {
     "interactions": [
         {
-            "Interaction": "Dragging",
+            "Instrument": "Drag",
             "Trigger": "drag",
             "Target layer": "magnetLayer",
             "priority": 3,
@@ -9,7 +9,7 @@
             "stopPropagation": true
         },
         {
-            "Interaction": "Point Selection",
+            "Instrument": "Point Selection",
             "Trigger": "click",
             "Target layer": "backgroundLayer",
             "priority": 1,
@@ -17,7 +17,7 @@
             "stopPropagation": true
         },
         {
-            "Interaction": "Point Selection",
+            "Instrument": "Point Selection",
             "Trigger": "click",
             "Target layer": "dustLayer",
             "Feedback options": {
@@ -27,7 +27,7 @@
             "stopPropagation": true
         },
         {
-            "Interaction": "Group Selection",
+            "Instrument": "Group Selection",
             "Trigger": "brush",
             "Target layer": "dustLayer",
             "Feedback options": {

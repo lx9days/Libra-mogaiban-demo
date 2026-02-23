@@ -1,14 +1,14 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 // global constants
 const MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
 const HEIGHT = 380 - MARGIN.top - MARGIN.bottom;
-const FIELD_X = "Horsepower";
-const FIELD_Y = "Miles_per_Gallon";
-const FIELD_COLOR = "Origin";
+const FIELD_X = "sepal_length";
+const FIELD_Y = "petal_length";
+const FIELD_COLOR = "class";
 
 // global variables
 let data = [];
@@ -19,9 +19,16 @@ let y = null;
 let color = null;
 
 async function loadData() {
-  data = (await d3.json("./data/cars.json")).filter(
-    (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
-  );
+  const raw = await d3.csv("/public/data/bezdekIris.csv");
+  data = raw
+    .map((d) => ({
+      ...d,
+      sepal_length: parseFloat(d.sepal_length),
+      petal_length: parseFloat(d.petal_length),
+    }))
+    .filter(
+      (d) => !isNaN(d[FIELD_X]) && !isNaN(d[FIELD_Y])
+    );
 }
 
 function renderStaticVisualization() {
@@ -44,8 +51,8 @@ function renderStaticVisualization() {
       "translate(" + MARGIN.left + "," + MARGIN.top + ")"
     );
 
-  const extentX = [0, d3.max(data, (d) => d[FIELD_X])];
-  const extentY = [0, d3.max(data, (d) => d[FIELD_Y])];
+  const extentX = d3.extent(data, (d) => d[FIELD_X]);
+  const extentY = d3.extent(data, (d) => d[FIELD_Y]);
 
   // Add X axis
   x = d3
@@ -144,7 +151,7 @@ async function main() {
   await loadData();
   renderStaticVisualization();
   const mainLayer = renderMainVisualization();
-  mountInteraction(mainLayer);
+  await mountInteraction(mainLayer);
 }
 
 function renderMainVisualization() {
@@ -159,6 +166,8 @@ function renderMainVisualization() {
     offset: { x: MARGIN.left, y: MARGIN.top },
     container: svg.node(),
   });
+  console.log(Libra.Layer.findLayer("mainLayer"));
+  
   const g = d3.select(mainLayer.getGraphic());
 
   // Draw points code from the input static visualization
@@ -168,7 +177,7 @@ function renderMainVisualization() {
     .attr("class", "mark")
     .attr("fill", "white")
     .attr("stroke-width", 1)
-    .attr("stroke", "gray")
+    .attr("stroke", (d) => color(d[FIELD_COLOR]))
     .attr("cx", (d) => x(d[FIELD_X]))
     .attr("cy", (d) => y(d[FIELD_Y]))
     .attr("r", 5);
@@ -178,24 +187,22 @@ function renderMainVisualization() {
 
 async function mountInteraction(layer) {
   // Attach HoverInstrument to the main layer
-  LibraManager.buildGroupSelectionInstrument(layer, {
-    Trigger: "brush",
-    Priority: 2,
-    stopPropagation: true,
-    HighlightColor: (d) => color(d[FIELD_COLOR]),
-   
-  });
-    LibraManager.buildPointSelectionInstrument(layer, {
-    Trigger: "hover",
-    Priority: 1,
-    stopPropagation: true,
-    highlightAttrValues: {
-      stroke: "#ff0000",    // 只改描边颜色
-      "stroke-width": 2,    // 可选：顺便改线宽
+  const interactions = [
+    {
+      Instrument: "point selection",
+      Trigger: "hover",
+      "Target layer": "mainLayer",
+      "Feedback options": {
+        Highlight: "#ff0000",
+      },
+      priority: 1,
+      stopPropagation: true,
     },
-    // ModifierKey: "Shift",
-  });
-  await Libra.createHistoryTrrack();
+  ];
+  await compileInteractionsDSL(interactions);
+  if (Libra.createHistoryTrack) {
+    await Libra.createHistoryTrack();
+  }
 }
 
 main();

@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import excentricLabeling from "excentric-labeling";
 
 export default class LibraManager {
     constructor() {
@@ -635,29 +636,37 @@ export default class LibraManager {
         const existingGroup = svg.select("." + className);
 
         if (existingGroup.empty()) {
-            if (x)
-                layer = Libra.Layer.initialize("D3Layer", {
-                    name: className,
-                    width: width,
-                    height: height,
-                    offset: { x: x, y: y },
-                    container: svg.node(),
-                });
+            layer = Libra.Layer.initialize("D3Layer", {
+                name: className,
+                width: width,
+                height: height,
+                offset: { x: x, y: y },
+                container: svg.node(),
+            });
             d3.select(layer.getGraphic()).attr("class", className);
         } else {
-            // If we can't easily retrieve the layer object from DOM, we construct a fake one or just return nothing
-            // But since renderMatrix needs to return layers for init(), and init() clears container,
-            // this else block is only hit during redraws.
-            // In redraws, we only need the graphic to draw on, which we get via d3.select("." + className) inside getOrCreateLayer?
-            // No, getOrCreateLayer is supposed to return the layer object.
-
-            // For our purpose, let's just make sure we can get the graphic.
-            // But renderMatrix uses `d3.select(cellLayer.getGraphic())`.
-            // So we need an object with `getGraphic()`.
-
-            layer = {
-                getGraphic: () => existingGroup.node()
-            };
+            // Try to retrieve the original Libra.Layer instance by name
+            const found = Libra.Layer.findLayer(className);
+            const foundLayer = Array.isArray(found)
+                ? found.find((l) => l && typeof l.getGraphic === "function" && l.getGraphic() === existingGroup.node()) ||
+                  found.find((l) => l && typeof l.getGraphic === "function") ||
+                  null
+                : found;
+            if (foundLayer && typeof foundLayer.getGraphic === "function") {
+                if (typeof foundLayer.setOffsetCascade === "function") {
+                    foundLayer.setOffsetCascade(x, y);
+                } else {
+                    const g = d3.select(foundLayer.getGraphic());
+                    g.attr("transform", `translate(${x},${y})`);
+                }
+                layer = foundLayer;
+            } else {
+                // Fallback: update DOM group transform and return a minimal wrapper
+                existingGroup.attr("transform", `translate(${x},${y})`);
+                layer = {
+                    getGraphic: () => existingGroup.node()
+                };
+            }
         }
         return layer;
     }
@@ -1171,6 +1180,315 @@ export default class LibraManager {
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
 
         Libra.Interaction.build(buildOptions);
+    }
+
+    static buildExcentricLabelingInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        if (!LibraManager.__excentricLabelingInstrumentRegistered) {
+            Libra.Interaction.build({
+                inherit: "HoverInstrument",
+                name: "ExcentricLabelingInstrument",
+                sharedVar: {
+                    renderSelection: false,
+                    r: 20,
+                    stroke: "green",
+                    strokeWidth: 2,
+                    countLabelDistance: 20,
+                    fontSize: 12,
+                    countLabelWidth: 40,
+                    maxLabelsNum: 10,
+                    labelAccessor: (circleElem) => d3.select(circleElem).datum()?.Name,
+                    colorAccessor: () => "black",
+                    modifierKey: "Shift",
+                },
+                override: [
+                    {
+                        find: "SelectionService",
+                        comp: "CircleSelectionService",
+                    },
+                ],
+                insert: [
+                    {
+                        find: "CircleSelectionService",
+                        flow: [
+                            {
+                                comp: "ExcentricLabelingLayoutService",
+                                resultAlias: "result",
+                                evaluate({
+                                    labelAccessor,
+                                    colorAccessor,
+                                    r,
+                                    maxLabelsNum,
+                                    event,
+                                    layer,
+                                    result: circles,
+                                }) {
+                                    if (!event) return [];
+
+                                    const [layerX, layerY] = d3.pointer(event, layer.getGraphic());
+                                    const rootBBox = layer.getContainerGraphic().getBoundingClientRect();
+                                    const layerBBox =
+                                        layer.getGraphic().transform.baseVal.consolidate()?.matrix ?? {
+                                            a: 0,
+                                            b: 0,
+                                            c: 0,
+                                            d: 0,
+                                            e: 0,
+                                            f: 0,
+                                        };
+
+                                    function getRawInfos(objs, labelAccessorInner, colorAccessorInner) {
+                                        const rawInfos = objs.map((obj) => {
+                                            const bbox = obj.__libra__screenElement.getBoundingClientRect();
+                                            const x =
+                                                bbox.x + (bbox.width >> 1) - rootBBox.x - layerBBox.e;
+                                            const y =
+                                                bbox.y + (bbox.height >> 1) - rootBBox.y - layerBBox.f;
+                                            const labelName = labelAccessorInner(obj);
+                                            const color = colorAccessorInner(obj);
+                                            return {
+                                                x,
+                                                y,
+                                                labelWidth: 0,
+                                                labelHeight: 0,
+                                                color,
+                                                labelName,
+                                            };
+                                        });
+                                        return rawInfos;
+                                    }
+
+                                    function computeSizeOfLabels(rawInfos, root) {
+                                        const tempInfoAttr = "labelText";
+                                        const tempClass = "temp" + String(new Date().getMilliseconds());
+                                        const tempMountPoint = root.append("svg:g").attr("class", tempClass);
+                                        rawInfos.forEach(
+                                            (rawInfo) =>
+                                                (rawInfo[tempInfoAttr] = tempMountPoint
+                                                    .append("text")
+                                                    .attr("opacity", "0")
+                                                    .attr("x", -Number.MAX_SAFE_INTEGER)
+                                                    .attr("y", -Number.MAX_SAFE_INTEGER)
+                                                    .text(rawInfo.labelName)
+                                                    .node())
+                                        );
+                                        root.node().appendChild(tempMountPoint.node());
+                                        rawInfos.forEach((rawInfo) => {
+                                            const labelBBox = rawInfo[tempInfoAttr].getBBox();
+                                            rawInfo.labelWidth = labelBBox.width;
+                                            rawInfo.labelHeight = 21;
+                                        });
+                                        root.select("." + tempClass).remove();
+                                        rawInfos.forEach((rawInfo) => delete rawInfo[tempInfoAttr]);
+                                    }
+
+                                    const rawInfos = getRawInfos(circles, labelAccessor, colorAccessor);
+                                    computeSizeOfLabels(rawInfos, d3.select(layer.getGraphic()));
+
+                                    const compute = excentricLabeling()
+                                        .radius(r)
+                                        .horizontallyCoherent(true)
+                                        .maxLabelsNum(maxLabelsNum);
+                                    const result = compute(rawInfos, layerX, layerY);
+                                    return result;
+                                },
+                            },
+                            (layer) => ({
+                                comp: "DrawLabelTransformer",
+                                layer: layer.getLayerFromQueue("LabelLayer"),
+                                sharedVar: {
+                                    result: [],
+                                },
+                                redraw({ layer, transformer }) {
+                                    function renderLines(root, result) {
+                                        const lineGroup = root.append("g").attr("class", "exentric-labeling-line");
+                                        const lineGenerator = d3
+                                            .line()
+                                            .x((d) => d.x)
+                                            .y((d) => d.y);
+                                        lineGroup
+                                            .selectAll("path")
+                                            .data(result)
+                                            .join("path")
+                                            .attr("fill", "none")
+                                            .attr("stroke", (layoutInfo) => layoutInfo.rawInfo.color)
+                                            .attr("d", (layoutInfo) => lineGenerator(layoutInfo.controlPoints));
+                                    }
+
+                                    function renderBBoxs(root, result) {
+                                        const bboxGroup = root.append("g").attr("class", "exentric-labeling-bbox");
+                                        bboxGroup
+                                            .selectAll("rect")
+                                            .data(result)
+                                            .join("rect")
+                                            .attr("class", "labelBBox")
+                                            .attr("fill", "none")
+                                            .attr("stroke", (layoutInfo) => layoutInfo.rawInfo.color)
+                                            .attr("x", (layoutInfo) => layoutInfo.labelBBox.x)
+                                            .attr("y", (layoutInfo) => layoutInfo.labelBBox.y)
+                                            .attr("width", (layoutInfo) => layoutInfo.labelBBox.width)
+                                            .attr("height", (layoutInfo) => layoutInfo.labelBBox.height);
+                                    }
+
+                                    function renderTexts(root, result) {
+                                        const textGroup = root.append("g").attr("class", "exentric-labeling-text");
+                                        textGroup
+                                            .selectAll("text")
+                                            .data(result)
+                                            .join("text")
+                                            .attr("x", (d) => d.labelBBox.x + d.labelBBox.width / 2)
+                                            .attr("y", (d) => d.labelBBox.y + d.labelBBox.height / 2 + 4)
+                                            .attr("text-anchor", "middle")
+                                            .text((d) => d.rawInfo.labelName)
+                                            .attr("fill", "black")
+                                            .attr("font-size", "12px");
+                                    }
+
+                                    layer.setLayersOrder({ selectionLayer: 1 });
+
+                                    const result = transformer.getSharedVar("result");
+                                    const root = d3.select(layer.getGraphic());
+                                    root.selectAll("*").remove();
+                                    if (result && result.length > 0) {
+                                        renderLines(root, result);
+                                        renderBBoxs(root, result);
+                                        renderTexts(root, result);
+                                    }
+                                    layer.postUpdate();
+                                },
+                            }),
+                        ],
+                    },
+                    {
+                        find: "CircleSelectionService",
+                        flow: [
+                            {
+                                comp: "AggregateService",
+                                resultAlias: "count",
+                                sharedVar: {
+                                    ops: ["count"],
+                                },
+                            },
+                            (layer) => ({
+                                comp: "DrawTextTransformer",
+                                layer: layer.getLayerFromQueue("LensLayer"),
+                                sharedVar: {
+                                    x: 0,
+                                    y: 0,
+                                    count: 0,
+                                },
+                                redraw({ layer, transformer }) {
+                                    const cx =
+                                        transformer.getSharedVar("x") -
+                                        layer
+                                            .getLayerFromQueue("mainLayer")
+                                            .getGraphic()
+                                            .getBoundingClientRect().left;
+                                    const cy =
+                                        transformer.getSharedVar("y") -
+                                        layer
+                                            .getLayerFromQueue("mainLayer")
+                                            .getGraphic()
+                                            .getBoundingClientRect().top;
+                                    const opacity = 1;
+                                    const lensRadius = transformer.getSharedVar("r");
+                                    const stroke = transformer.getSharedVar("stroke");
+                                    const strokeWidth = transformer.getSharedVar("strokeWidth");
+                                    const count = transformer.getSharedVar("count");
+                                    const countLabelDistance = transformer.getSharedVar("countLabelDistance");
+                                    const fontSize = transformer.getSharedVar("fontSize");
+                                    const countLabelWidth = transformer.getSharedVar("countLabelWidth");
+
+                                    const root = d3.select(layer.getGraphic());
+                                    root.selectAll("*").remove();
+
+                                    const group = root
+                                        .append("g")
+                                        .attr("opacity", opacity)
+                                        .attr("transform", `translate(${cx}, ${cy})`);
+
+                                    group
+                                        .append("circle")
+                                        .attr("class", "lensCircle")
+                                        .attr("cx", 0)
+                                        .attr("r", lensRadius)
+                                        .attr("fill", "none")
+                                        .attr("stroke", stroke)
+                                        .attr("stroke-width", strokeWidth);
+                                    const countLabel = group
+                                        .append("text")
+                                        .attr("y", -(countLabelDistance + lensRadius))
+                                        .attr("font-size", fontSize)
+                                        .attr("text-anchor", "middle")
+                                        .attr("fill", stroke)
+                                        .text(count);
+                                    const countLabelBBox = countLabel.node().getBBox();
+                                    group
+                                        .append("rect")
+                                        .attr("class", "lensLabelBorder")
+                                        .attr("stroke", stroke)
+                                        .attr("stroke-width", strokeWidth)
+                                        .attr("fill", "none")
+                                        .attr("x", (-countLabelWidth) >> 1)
+                                        .attr("y", countLabelBBox.y)
+                                        .attr("width", countLabelWidth)
+                                        .attr("height", countLabelBBox.height);
+                                    group
+                                        .append("line")
+                                        .attr("stroke", stroke)
+                                        .attr("stroke-width", strokeWidth)
+                                        .attr("y1", -lensRadius)
+                                        .attr("y2", countLabelBBox.y + countLabelBBox.height);
+                                },
+                            }),
+                        ],
+                    },
+                ],
+            });
+            LibraManager.__excentricLabelingInstrumentRegistered = true;
+        }
+
+        const sharedVar = {};
+        if (context.labelAccessor) sharedVar.labelAccessor = context.labelAccessor;
+        if (context.colorAccessor) sharedVar.colorAccessor = context.colorAccessor;
+        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        if (context.renderSelection !== undefined) sharedVar.renderSelection = context.renderSelection;
+        if (context.r !== undefined) sharedVar.r = context.r;
+        if (context.stroke !== undefined) sharedVar.stroke = context.stroke;
+        if (context.strokeWidth !== undefined) sharedVar.strokeWidth = context.strokeWidth;
+        if (context.countLabelDistance !== undefined)
+            sharedVar.countLabelDistance = context.countLabelDistance;
+        if (context.fontSize !== undefined) sharedVar.fontSize = context.fontSize;
+        if (context.countLabelWidth !== undefined) sharedVar.countLabelWidth = context.countLabelWidth;
+        if (context.maxLabelsNum !== undefined) sharedVar.maxLabelsNum = context.maxLabelsNum;
+
+        const buildOptions = {
+            inherit: "ExcentricLabelingInstrument",
+            layers: [layer],
+            sharedVar,
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+
+        const labelsLayer = layer.getLayerFromQueue("LabelLayer");
+        if (labelsLayer) {
+            const labelHoverBuildOptions = {
+                inherit: "HoverInstrument",
+                layers: [{ layer: labelsLayer, options: { pointerEvents: "viewPort" } }],
+                sharedVar: {
+                    highlightAttrValues:
+                        context.labelHoverHighlightAttrValues ||
+                        context.labelHoverHighlight ||
+                        {
+                            stroke: "#ff0000",
+                            "stroke-width": 2,
+                        },
+                },
+            };
+            Libra.Interaction.build(labelHoverBuildOptions);
+        }
     }
 
     static buildGeometricTransformer(layer, context) {

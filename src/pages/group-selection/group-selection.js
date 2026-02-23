@@ -1,14 +1,14 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 // global constants
 const MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
 const HEIGHT = 380 - MARGIN.top - MARGIN.bottom;
-const FIELD_X = "Horsepower";
-const FIELD_Y = "Miles_per_Gallon";
-const FIELD_COLOR = "Origin";
+const FIELD_X = "sepal_length";
+const FIELD_Y = "petal_length";
+const FIELD_COLOR = "class";
 
 // global variables
 let data = [];
@@ -19,9 +19,14 @@ let y = null;
 let color = null;
 
 async function loadData() {
-  data = (await d3.json("./data/cars.json")).filter(
-    (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
-  );
+  const raw = await d3.csv("/public/data/bezdekIris.csv");
+  data = raw
+    .map((d) => ({
+      ...d,
+      sepal_length: parseFloat(d.sepal_length),
+      petal_length: parseFloat(d.petal_length),
+    }))
+    .filter((d) => !isNaN(d[FIELD_X]) && !isNaN(d[FIELD_Y]));
 }
 
 function renderStaticVisualization() {
@@ -44,8 +49,8 @@ function renderStaticVisualization() {
       "translate(" + MARGIN.left + "," + MARGIN.top + ")"
     );
 
-  const extentX = [0, d3.max(data, (d) => d[FIELD_X])];
-  const extentY = [0, d3.max(data, (d) => d[FIELD_Y])];
+  const extentX = d3.extent(data, (d) => d[FIELD_X]);
+  const extentY = d3.extent(data, (d) => d[FIELD_Y]);
 
   // Add X axis
   x = d3
@@ -93,9 +98,7 @@ function renderStaticVisualization() {
   // Add Legend
   color = d3
     .scaleOrdinal()
-    .domain(
-      new Set(data.map((d) => d[FIELD_COLOR])).values()
-    )
+    .domain(new Set(data.map((d) => d[FIELD_COLOR])).values())
     .range(d3.schemeTableau10);
   svg
     .append("g")
@@ -143,7 +146,7 @@ async function main() {
   await loadData();
   renderStaticVisualization();
   const mainLayer = renderMainVisualization();
-  mountInteraction(mainLayer);
+  await mountInteraction(mainLayer);
 }
 
 function renderMainVisualization() {
@@ -167,7 +170,7 @@ function renderMainVisualization() {
     .attr("class", "mark")
     .attr("fill", "white")
     .attr("stroke-width", 1)
-    .attr("stroke", "gray")
+    .attr("stroke", (d) => color(d[FIELD_COLOR]))
     .attr("cx", (d) => x(d[FIELD_X]))
     .attr("cy", (d) => y(d[FIELD_Y]))
     .attr("r", 5);
@@ -176,26 +179,22 @@ function renderMainVisualization() {
 }
 
 async function mountInteraction(layer) {
-  // Attach HoverInstrument to the main layer
-  // LibraManager.buildPointSelectionInstrument(layer, {
-  //   Trigger: "pan",
-  //   HighlightColor: (d) => color(d[FIELD_COLOR]),
-  //   Tooltip: {
-  //     Prefix: "Cylinders: ",
-  //     Fields: ["Cylinders"],
-  //   },
-  // });
-  Libra.Interaction.build({
-    inherit: "BrushInstrument",
-    layers: [layer],
-    sharedVar: {
-      highlightColor: (d) => color(d[FIELD_COLOR]),
-      remnantKey: "Shift",
-      // modifierKey: "Ctrl",
+  const interactions = [
+    {
+      Instrument: "group selection",
+      Trigger: "brush",
+      "Target layer": "mainLayer",
+      "Feedback options": {
+        Highlight: "#00ff1aff",
+      },
+      priority: 1,
+      stopPropagation: true,
     },
-  });
-
-  await Libra.createHistoryTrrack();
+  ];
+  await compileInteractionsDSL(interactions);
+  if (Libra.createHistoryTrack) {
+    await Libra.createHistoryTrack();
+  }
 }
 
 main();

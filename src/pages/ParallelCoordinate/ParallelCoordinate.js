@@ -2,6 +2,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 export default async function init() {
     const container = document.getElementById("LibraPlayground");
@@ -523,15 +524,25 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
 
 
-    LibraManager.buildReorderInstrument(headersLayer, {
-        direction: "x",
-        trigger: "Drag",
-        copyFrom: axisLayers,
-        names: dimensions,
-        scaleX: x,
-        scaleY: null,
-        redraw: redrawParallel,
-        offset: { x: MARGIN.left, y: 0 }
+    const interactions = [
+        {
+            Instrument: "reordering",
+            Trigger: "Drag",
+            "Target layer": "headersLayer",
+            Direction: "x",
+            "Feedback options": {
+                redrawRef: redrawParallel,
+                contextRef: {
+                    names: dimensions,
+                    scales: { x },
+                    copyFrom: Object.values(axisLayers),
+                    offset: { x: MARGIN.left, y: 0 }
+                }
+            }
+        }
+    ];
+    await compileInteractionsDSL(interactions, {
+        layersByName: { headersLayer }
     });
     // LibraManager.buildPointSelectionInstrument(linesLayer, {
     //     Trigger: "hover",
@@ -555,18 +566,18 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
 
-        LibraManager.buildGeometricZoomInstrument(axisLayer, {
-            Trigger: "zoom",
-            fixRange: true,
-            scaleY: y[dim],
-        });
+        // LibraManager.buildGeometricZoomInstrument(axisLayer, {
+        //     Trigger: "zoom",
+        //     fixRange: true,
+        //     scaleY: y[dim],
+        // });
 
-        LibraManager.buildPanInstrument(axisLayer, {
-            Trigger: "pan",
-            fixRange: true,
-            scaleY: y[dim],
-            ModifierKey: "Alt"
-        });
+        // LibraManager.buildPanInstrument(axisLayer, {
+        //     Trigger: "pan",
+        //     fixRange: true,
+        //     scaleY: y[dim],
+        //     ModifierKey: "Alt"
+        // });
 
         LibraManager.buildGeometricTransformer(axisLayer, {
             scaleY: y[dim],

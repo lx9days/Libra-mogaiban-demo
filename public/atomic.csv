@@ -1,0 +1,12 @@
+Categories,Instruments,Available Triggers,Available Feedback Options
+selection,point selection,Hover Click,Highlighting/Tooltip/Dim
+,group selection,Brush,Highlighting/Dim
+,axis selection,Brush,Highlighting/Dim
+,link selection,Hover Click Brush,Highlighting/Dim/Intersection or Rescale
+Rearrangement,moving,Drag,callback function
+,reordering,Drag,callback function
+Navigation,panning,Pan,direction
+,zooming,Zoom,direction
+VisualAid,Lens,Hover,Radius/ExcentricLabeling/count/HighlightFiltered
+,helperLine,Hover,direction/value/intersectedData/HighlightFiltered
+,,,

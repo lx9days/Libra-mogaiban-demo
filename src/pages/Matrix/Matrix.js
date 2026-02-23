@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 80, right: 20, bottom: 20, left: 80 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
@@ -472,31 +473,40 @@ function loadData() {
 }
 
 async function mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, matrixData) {
-
-
-
-    const redrawMatrix = (newNames, newScaleX, newScaleY) => {
-        renderMatrix(cellLayer, xAxisLayer, yAxisLayer, matrixData, newNames, newScaleX, newScaleY, color);
+    const reorderContext = {
+        names,
+        scales: { x: scaleX, y: scaleY },
+        copyFrom: cellLayer,
+        offset: { x: 0, y: 0 },
+        autoRedraw: true,
     };
+    const interactions = [
+        {
+            Instrument: "reordering",
+            Trigger: "Drag",
+            "Target layer": "xAxisLayer",
+            Direction: "x",
+            "Feedback options": {
+                contextRef: {
+                    ...reorderContext,
+                },
+            },
+        },
+        {
+            Instrument: "reordering",
+            Trigger: "Drag",
+            "Target layer": "yAxisLayer",
+            Direction: "y",
+            "Feedback options": {
+                contextRef: {
+                    ...reorderContext,
+                },
+            },
+        },
+    ];
 
-    LibraManager.buildReorderInstrument(xAxisLayer, {
-        direction: "x",
-        trigger: "Drag",
-        copyFrom: cellLayer,
-        names: names,
-        scaleX: scaleX,
-        scaleY: scaleY,
-        redraw: redrawMatrix
-    });
-
-    LibraManager.buildReorderInstrument(yAxisLayer, {
-        direction: "y",
-        trigger: "Drag",
-        copyFrom: cellLayer,
-        names: names,
-        scaleX: scaleX,
-        scaleY: scaleY,
-        redraw: redrawMatrix
+    await compileInteractionsDSL(interactions, {
+        layersByName: { xAxisLayer, yAxisLayer },
     });
 
     await Libra.createHistoryTrrack();

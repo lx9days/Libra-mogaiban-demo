@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "A light foundation for your next frontend project based on webpack.",
   "scripts": {
-    "lint": "npm run lint:styles; npm run lint:scripts",
-    "lint:styles": "stylelint src",
+    "lint": "npm run lint:styles && npm run lint:scripts",
+    "lint:styles": "stylelint \"src/**/*.{css,scss,sass,less}\"",
     "lint:scripts": "eslint src",
     "build": "cross-env NODE_ENV=production webpack --config webpack/webpack.config.prod.js",
     "start": "webpack serve --config webpack/webpack.config.dev.js"
