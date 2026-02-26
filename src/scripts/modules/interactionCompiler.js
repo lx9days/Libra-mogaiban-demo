@@ -8,6 +8,7 @@ const triggerToInstrument = {
   hover: "HoverInstrument",
   click: "ClickInstrument",
   brush: "BrushInstrument",
+  drag: "DragInstrument",
   pan: "PanInstrument",
   zoom: "GeometricZoomInstrument",
   // You can extend this map: click -> ClickInstrument, brush -> BrushInstrument, etc.
@@ -621,13 +622,50 @@ export function compileInteractionsDSL(specList = [], ctx) {
         spec?.stopPropagation !== undefined
           ? spec.stopPropagation
           : spec?.StopPropagation;
+      const remove = spec?.remove ?? spec?.Remove;
+      const insert = spec?.insert ?? spec?.Insert;
+      const override = spec?.override ?? spec?.Override;
+      const onMap = spec?.on ?? spec?.On;
 
       const buildOptions = { inherit, layers, sharedVar };
       if (priority !== undefined) buildOptions.priority = priority;
       if (stopPropagation !== undefined)
         buildOptions.stopPropagation = stopPropagation;
+      if (Array.isArray(remove)) buildOptions.remove = remove;
+      if (Array.isArray(insert)) buildOptions.insert = insert;
+      if (Array.isArray(override)) buildOptions.override = override;
 
-      Libra.Interaction.build(buildOptions);
+      const interactionInstance = Libra.Interaction.build(buildOptions);
+      if (
+        onMap &&
+        typeof onMap === "object" &&
+        interactionInstance &&
+        typeof interactionInstance.on === "function"
+      ) {
+        Object.entries(onMap).forEach(([actionName, handlerValue]) => {
+          const rawHandlers = Array.isArray(handlerValue)
+            ? handlerValue
+            : [handlerValue];
+          rawHandlers.forEach((rawHandler) => {
+            let handler = rawHandler;
+            if (typeof rawHandler === "string" && handlers) {
+              handler = handlers[rawHandler];
+            }
+            if (typeof handler === "function") {
+              interactionInstance.on(actionName, handler);
+            } else if (handler && typeof handler.execute === "function") {
+              interactionInstance.on(actionName, handler);
+            }
+          });
+        });
+      }
+      if (instrumentName) {
+        instrumentRegistry.set(instrumentName, {
+          type: interaction || inherit,
+          layer: layers[0],
+          instrument: interactionInstance,
+        });
+      }
     }
   });
 }

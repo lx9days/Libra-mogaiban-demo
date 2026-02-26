@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 // global constants
 const START_YEAR = 1980;
@@ -278,6 +279,10 @@ function renderMainVisualization(
 }
 
 async function mountInteraction(layer) {
+  const selectionState = {
+    country: null,
+  };
+
   // Register TraceTransformer
   Libra.GraphicalTransformer.register("TraceTransformer", {
     redraw: function ({ layer }) {
@@ -329,14 +334,72 @@ async function mountInteraction(layer) {
     },
   });
 
+  Libra.Service.register("DimpVisSelectedPointService", {
+    evaluate({ self }) {
+      const selectedState = self.getSharedVar("selectedState");
+      const selectedCountry = selectedState?.country;
+      if (!selectedCountry) return [];
+      const currentDataAccessor = self.getSharedVar("currentDataAccessor");
+      const currentData =
+        typeof currentDataAccessor === "function"
+          ? currentDataAccessor()
+          : interpolatedData;
+      const selectedPoint = (currentData || []).find(
+        (d) => d.country === selectedCountry
+      );
+      return selectedPoint ? [selectedPoint] : [];
+    },
+  });
+
+  Libra.Service.register("DimpVisCountryTraceService", {
+    evaluate({ self }) {
+      const selectedState = self.getSharedVar("selectedState");
+      const selectedCountry = selectedState?.country;
+      if (!selectedCountry) return [];
+      return data
+        .filter((d) => d.country === selectedCountry)
+        .slice()
+        .sort((a, b) => a.year - b.year);
+    },
+  });
+
+  function pickCountryFromEvent(event, activeLayer) {
+    const pointer = event?.changedTouches ? event.changedTouches[0] : event;
+    if (!pointer || !activeLayer) return null;
+    const layerGraphic = activeLayer.getGraphic();
+    const hitElem = document
+      .elementsFromPoint(pointer.clientX, pointer.clientY)
+      .find(
+        (elem) =>
+          elem?.tagName?.toLowerCase?.() === "circle" &&
+          layerGraphic.contains(elem)
+      );
+    if (!hitElem) return null;
+    const datum = d3.select(hitElem).datum();
+    return datum?.country || null;
+  }
+
+  function refreshHover(activeLayer, event) {
+    const pointer = event?.changedTouches ? event.changedTouches[0] : event;
+    if (!pointer || !activeLayer) return;
+    const layerGraphic = activeLayer.getGraphic();
+    if (!layerGraphic || typeof layerGraphic.dispatchEvent !== "function") return;
+    layerGraphic.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        clientX: pointer.clientX,
+        clientY: pointer.clientY,
+      })
+    );
+  }
+
   const useTraceTransformerFlow = {
     find: "SelectionService",
     flow: [
       {
-        comp: "FilterService",
+        comp: "DimpVisCountryTraceService",
         sharedVar: {
-          data: data,
-          fields: ["country"],
+          selectedState: selectionState,
         },
       },
       {
@@ -348,6 +411,13 @@ async function mountInteraction(layer) {
   const useCountryFlow = {
     find: "SelectionService",
     flow: [
+      {
+        comp: "DimpVisSelectedPointService",
+        sharedVar: {
+          selectedState: selectionState,
+          currentDataAccessor: () => interpolatedData,
+        },
+      },
       {
         comp: "TextTransformer",
         layer: layer.getLayerFromQueue("countryLayer"),
@@ -365,75 +435,132 @@ async function mountInteraction(layer) {
     ],
   };
 
-  Libra.Interaction.build({
-    inherit: "HoverInstrument",
-    layers: [layer],
-    remove: [{ find: "SelectionTransformer" }],
-    insert: [useTraceTransformerFlow, useCountryFlow],
-  }).on(
-    "click",
-    Libra.Command.initialize("RecordInterpolatedYear", {
-      async execute() {},
-    })
-  );
-
-  Libra.Interaction.build({
-    inherit: "DragInstrument",
-    layers: [layer],
-    remove: [{ find: "SelectionTransformer" }],
-    insert: [
-      useTraceTransformerFlow,
-      useCountryFlow,
+  const dragInterpolationFlow = {
+    find: "SelectionService",
+    flow: [
       {
-        find: "SelectionService",
-        flow: [
-          {
-            comp: "NearestPointService",
-            sharedVar: { layer: layer.getLayerFromQueue("transientLayer") },
-            evaluate(options) {
-              const { layer, offsetx, offsety } = options;
-              const point = [offsetx, offsety];
-              if (layer && offsetx && offsety) {
-                const year = d3
-                  .select(layer.getGraphic())
-                  .select(".trace")
-                  .selectAll("text")
-                  .data();
-                const trace = d3
-                  .select(layer.getGraphic())
-                  .select("path")
-                  .attr("d");
-                const poly = trace
-                  .slice(1)
-                  .split("L")
-                  .map((pStr) => pStr.split(",").map((num) => parseFloat(num)));
-                return {
-                  data: year,
-                  interpolatedNum: interpolateNNPointFromPoly(
-                    [point[0] - layer._offset.x, point[1] - layer._offset.y],
-                    poly
-                  ),
-                };
-              }
-              return null;
-            },
+        comp: "DimpVisSelectedPointService",
+        sharedVar: {
+          selectedState: selectionState,
+          currentDataAccessor: () => interpolatedData,
+        },
+      },
+      {
+        comp: "NearestPointService",
+        sharedVar: { layer: layer.getLayerFromQueue("transientLayer") },
+        evaluate(options) {
+          const { layer, offsetx, offsety, dragAllowed, result } = options;
+          if (!dragAllowed) return null;
+          if (!Array.isArray(result) || result.length <= 0) return null;
+          const point = [offsetx, offsety];
+          if (!layer || !Number.isFinite(offsetx) || !Number.isFinite(offsety)) {
+            return null;
+          }
+
+          const traceGroup = d3.select(layer.getGraphic()).select(".trace");
+          if (traceGroup.empty()) return null;
+          const year = traceGroup.selectAll("text").data();
+          const tracePath = traceGroup.select("path");
+          if (tracePath.empty()) return null;
+          const trace = tracePath.attr("d");
+          if (typeof trace !== "string" || !trace.startsWith("M")) return null;
+
+          const poly = trace
+            .slice(1)
+            .split("L")
+            .map((pStr) => pStr.split(",").map((num) => parseFloat(num)))
+            .filter(
+              (pointPair) =>
+                Array.isArray(pointPair) &&
+                pointPair.length === 2 &&
+                Number.isFinite(pointPair[0]) &&
+                Number.isFinite(pointPair[1])
+            );
+          if (poly.length < 2) return null;
+          return {
+            data: year,
+            interpolatedNum: interpolateNNPointFromPoly(
+              [point[0] - layer._offset.x, point[1] - layer._offset.y],
+              poly
+            ),
+          };
+        },
+      },
+      {
+        comp: "InterpolationService",
+        sharedVar: {
+          data: data,
+          field: "year",
+          formula: {
+            year: (d) => Math.floor(d.year / 5) * 5, // Year divisible by 5
           },
-          {
-            comp: "InterpolationService",
-            sharedVar: {
-              data: data,
-              field: "year",
-              formula: {
-                year: (d) => Math.floor(d.year / 5) * 5, // Year divisible by 5
-              },
-            },
-          },
-          {
-            comp: "MainTransformer",
-          },
-        ],
+        },
+      },
+      {
+        comp: "MainTransformer",
       },
     ],
+  };
+
+  const handlers = {
+    toggleSelection: ({ event, layer: activeLayer }) => {
+      const clickedCountry = pickCountryFromEvent(event, activeLayer);
+      if (!clickedCountry) return;
+      selectionState.country =
+        selectionState.country === clickedCountry ? null : clickedCountry;
+      refreshHover(activeLayer, event);
+    },
+    guardDragStart: ({ event, layer: activeLayer, instrument }) => {
+      const draggedCountry = pickCountryFromEvent(event, activeLayer);
+      const dragAllowed =
+        !!selectionState.country && draggedCountry === selectionState.country;
+      instrument.services.setSharedVars(
+        {
+          dragAllowed,
+        },
+        { layer: activeLayer }
+      );
+    },
+    resetDragGuard: ({ layer: activeLayer, instrument }) => {
+      instrument.services.setSharedVars(
+        {
+          dragAllowed: false,
+        },
+        { layer: activeLayer }
+      );
+    },
+  };
+
+  const interactions = [
+    {
+      Name: "Hover",
+      Instrument: "point selection",
+      Trigger: "hover",
+      "Target layer": "mainLayer",
+      Remove: [{ find: "SelectionTransformer" }],
+      Insert: [useTraceTransformerFlow, useCountryFlow],
+      On: {
+        click: "toggleSelection",
+      },
+    },
+    {
+      Name: "Drag",
+      Instrument: "moving",
+      Trigger: "drag",
+      "Target Instrument": "Hover",
+      Remove: [{ find: "SelectionTransformer" }],
+      Insert: [useTraceTransformerFlow, useCountryFlow, dragInterpolationFlow],
+      On: {
+        dragstart: "guardDragStart",
+        dragend: "resetDragGuard",
+        dragabort: "resetDragGuard",
+      },
+    },
+  ];
+
+  await compileInteractionsDSL(interactions, {
+    layersByName: { mainLayer: layer },
+    handlers,
   });
   if (Libra.createHistoryTrack) {
     await Libra.createHistoryTrack();
@@ -446,5 +573,3 @@ export default async function init() {
   const mainLayer = await renderMainVisualization();
   await mountInteraction(mainLayer);
 }
-
-
