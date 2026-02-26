@@ -1182,8 +1182,65 @@ export default class LibraManager {
         Libra.Interaction.build(buildOptions);
     }
 
+    static __resolveExcentricBindingKey(layer, context = {}) {
+        const layerName = layer?._name || "layer";
+        const rawBindingKey =
+            context.bindingKey ??
+            context.BindingKey ??
+            context.instrumentName ??
+            context.name;
+        if (typeof rawBindingKey === "string" && rawBindingKey.trim()) {
+            return `${layerName}::${rawBindingKey.trim()}`;
+        }
+        return `${layerName}::default`;
+    }
+
+    static __ensureExcentricLensState(layer, context = {}) {
+        if (!LibraManager.__excentricLensStateMap) {
+            LibraManager.__excentricLensStateMap = new Map();
+        }
+
+        const stateKey = LibraManager.__resolveExcentricBindingKey(layer, context);
+        let state = LibraManager.__excentricLensStateMap.get(stateKey);
+        if (!state) {
+            state = {
+                pinned: false,
+                layerX: 0,
+                layerY: 0,
+                clientX: 0,
+                clientY: 0,
+                pointerDownX: 0,
+                pointerDownY: 0,
+                hasPointerDown: false,
+                r: Number.isFinite(context.r) ? context.r : 20,
+                count: 0,
+            };
+            LibraManager.__excentricLensStateMap.set(stateKey, state);
+        } else if (Number.isFinite(context.r) && !state.pinned) {
+            state.r = context.r;
+        }
+
+        return { stateKey, state };
+    }
+
+    static __dispatchExcentricLensRefresh(layer, state) {
+        if (!layer || !state || !Number.isFinite(state.clientX) || !Number.isFinite(state.clientY)) {
+            return;
+        }
+        const graphic = layer.getGraphic ? layer.getGraphic() : null;
+        if (!graphic || typeof graphic.dispatchEvent !== "function") return;
+        graphic.dispatchEvent(
+            new MouseEvent("mousemove", {
+                bubbles: true,
+                clientX: state.clientX,
+                clientY: state.clientY,
+            })
+        );
+    }
+
     static buildExcentricLabelingInstrument(layer, context = {}) {
         if (!layer) return;
+        const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
 
         if (!LibraManager.__excentricLabelingInstrumentRegistered) {
             Libra.Interaction.build({
@@ -1222,11 +1279,29 @@ export default class LibraManager {
                                     maxLabelsNum,
                                     event,
                                     layer,
+                                    lensState,
                                     result: circles,
                                 }) {
-                                    if (!event) return [];
+                                    const pinned =
+                                        lensState &&
+                                        lensState.pinned &&
+                                        Number.isFinite(lensState.layerX) &&
+                                        Number.isFinite(lensState.layerY);
+                                    if (!event && !pinned) {
+                                        if (lensState) lensState.count = 0;
+                                        return [];
+                                    }
 
-                                    const [layerX, layerY] = d3.pointer(event, layer.getGraphic());
+                                    let layerX = 0;
+                                    let layerY = 0;
+                                    if (pinned) {
+                                        layerX = lensState.layerX;
+                                        layerY = lensState.layerY;
+                                    } else {
+                                        [layerX, layerY] = d3.pointer(event, layer.getGraphic());
+                                    }
+                                    const lensRadius =
+                                        lensState && Number.isFinite(lensState.r) ? lensState.r : r;
                                     const rootBBox = layer.getContainerGraphic().getBoundingClientRect();
                                     const layerBBox =
                                         layer.getGraphic().transform.baseVal.consolidate()?.matrix ?? {
@@ -1238,23 +1313,44 @@ export default class LibraManager {
                                             f: 0,
                                         };
 
-                                    function getRawInfos(objs, labelAccessorInner, colorAccessorInner) {
-                                        const rawInfos = objs.map((obj) => {
-                                            const bbox = obj.__libra__screenElement.getBoundingClientRect();
+                                    function getRawInfos(
+                                        objs,
+                                        labelAccessorInner,
+                                        colorAccessorInner,
+                                        center,
+                                        radius
+                                    ) {
+                                        const radiusSquare = radius * radius;
+                                        const rawInfos = [];
+                                        objs.forEach((obj) => {
+                                            const screenElem = obj?.__libra__screenElement || obj;
+                                            if (
+                                                !screenElem ||
+                                                typeof screenElem.getBoundingClientRect !== "function"
+                                            ) {
+                                                return;
+                                            }
+                                            const bbox = screenElem.getBoundingClientRect();
                                             const x =
                                                 bbox.x + (bbox.width >> 1) - rootBBox.x - layerBBox.e;
                                             const y =
                                                 bbox.y + (bbox.height >> 1) - rootBBox.y - layerBBox.f;
-                                            const labelName = labelAccessorInner(obj);
-                                            const color = colorAccessorInner(obj);
-                                            return {
+                                            const dx = x - center.x;
+                                            const dy = y - center.y;
+                                            if (dx * dx + dy * dy > radiusSquare) return;
+                                            const labelName = labelAccessorInner(screenElem);
+                                            if (labelName === undefined || labelName === null || labelName === "") {
+                                                return;
+                                            }
+                                            const color = colorAccessorInner(screenElem);
+                                            rawInfos.push({
                                                 x,
                                                 y,
                                                 labelWidth: 0,
                                                 labelHeight: 0,
                                                 color,
                                                 labelName,
-                                            };
+                                            });
                                         });
                                         return rawInfos;
                                     }
@@ -1283,11 +1379,24 @@ export default class LibraManager {
                                         rawInfos.forEach((rawInfo) => delete rawInfo[tempInfoAttr]);
                                     }
 
-                                    const rawInfos = getRawInfos(circles, labelAccessor, colorAccessor);
+                                    const sourceObjects = pinned
+                                        ? layer.getVisualElements()
+                                        : Array.isArray(circles)
+                                          ? circles
+                                          : [];
+                                    const rawInfos = getRawInfos(
+                                        sourceObjects,
+                                        labelAccessor,
+                                        colorAccessor,
+                                        { x: layerX, y: layerY },
+                                        lensRadius
+                                    );
+                                    if (lensState) lensState.count = rawInfos.length;
+                                    if (!rawInfos.length) return [];
                                     computeSizeOfLabels(rawInfos, d3.select(layer.getGraphic()));
 
                                     const compute = excentricLabeling()
-                                        .radius(r)
+                                        .radius(lensRadius)
                                         .horizontallyCoherent(true)
                                         .maxLabelsNum(maxLabelsNum);
                                     const result = compute(rawInfos, layerX, layerY);
@@ -1379,23 +1488,38 @@ export default class LibraManager {
                                     count: 0,
                                 },
                                 redraw({ layer, transformer }) {
-                                    const cx =
-                                        transformer.getSharedVar("x") -
-                                        layer
-                                            .getLayerFromQueue("mainLayer")
-                                            .getGraphic()
-                                            .getBoundingClientRect().left;
-                                    const cy =
-                                        transformer.getSharedVar("y") -
-                                        layer
-                                            .getLayerFromQueue("mainLayer")
-                                            .getGraphic()
-                                            .getBoundingClientRect().top;
+                                    const lensState = transformer.getSharedVar("lensState");
+                                    const pinned =
+                                        lensState &&
+                                        lensState.pinned &&
+                                        Number.isFinite(lensState.layerX) &&
+                                        Number.isFinite(lensState.layerY);
+                                    const cx = pinned
+                                        ? lensState.layerX
+                                        : transformer.getSharedVar("x") -
+                                          layer
+                                              .getLayerFromQueue("mainLayer")
+                                              .getGraphic()
+                                              .getBoundingClientRect().left;
+                                    const cy = pinned
+                                        ? lensState.layerY
+                                        : transformer.getSharedVar("y") -
+                                          layer
+                                              .getLayerFromQueue("mainLayer")
+                                              .getGraphic()
+                                              .getBoundingClientRect().top;
                                     const opacity = 1;
-                                    const lensRadius = transformer.getSharedVar("r");
+                                    const lensRadius =
+                                        lensState && Number.isFinite(lensState.r)
+                                            ? lensState.r
+                                            : transformer.getSharedVar("r");
                                     const stroke = transformer.getSharedVar("stroke");
                                     const strokeWidth = transformer.getSharedVar("strokeWidth");
                                     const count = transformer.getSharedVar("count");
+                                    const displayCount =
+                                        lensState && Number.isFinite(lensState.count)
+                                            ? lensState.count
+                                            : count;
                                     const countLabelDistance = transformer.getSharedVar("countLabelDistance");
                                     const fontSize = transformer.getSharedVar("fontSize");
                                     const countLabelWidth = transformer.getSharedVar("countLabelWidth");
@@ -1422,7 +1546,7 @@ export default class LibraManager {
                                         .attr("font-size", fontSize)
                                         .attr("text-anchor", "middle")
                                         .attr("fill", stroke)
-                                        .text(count);
+                                        .text(displayCount);
                                     const countLabelBBox = countLabel.node().getBBox();
                                     group
                                         .append("rect")
@@ -1462,6 +1586,7 @@ export default class LibraManager {
         if (context.fontSize !== undefined) sharedVar.fontSize = context.fontSize;
         if (context.countLabelWidth !== undefined) sharedVar.countLabelWidth = context.countLabelWidth;
         if (context.maxLabelsNum !== undefined) sharedVar.maxLabelsNum = context.maxLabelsNum;
+        sharedVar.lensState = state;
 
         const buildOptions = {
             inherit: "ExcentricLabelingInstrument",
@@ -1489,6 +1614,201 @@ export default class LibraManager {
             };
             Libra.Interaction.build(labelHoverBuildOptions);
         }
+        return stateKey;
+    }
+
+    static buildExcentricLabelingClickInstrument(layer, context = {}) {
+        if (!layer) return;
+        const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
+        const pinThreshold = Number.isFinite(context.pinThreshold) ? context.pinThreshold : 2;
+        const togglePin = !!context.togglePin;
+
+        const pickPointerEvent = (event) => {
+            if (event && event.changedTouches && event.changedTouches[0]) return event.changedTouches[0];
+            return event;
+        };
+
+        const onPointerDown = ({ event }) => {
+            const pointer = pickPointerEvent(event);
+            if (!pointer) return;
+            state.pointerDownX = pointer.clientX;
+            state.pointerDownY = pointer.clientY;
+            state.hasPointerDown = true;
+        };
+
+        const onPointerUp = ({ event, layer: activeLayer }) => {
+            const pointer = pickPointerEvent(event);
+            if (!pointer || !state.hasPointerDown) return;
+            state.hasPointerDown = false;
+
+            const deltaX = pointer.clientX - state.pointerDownX;
+            const deltaY = pointer.clientY - state.pointerDownY;
+            if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > pinThreshold) return;
+
+            const [layerX, layerY] = d3.pointer(pointer, activeLayer.getGraphic());
+            if (togglePin && state.pinned) {
+                const pinnedDx = layerX - state.layerX;
+                const pinnedDy = layerY - state.layerY;
+                if (Math.sqrt(pinnedDx * pinnedDx + pinnedDy * pinnedDy) <= pinThreshold) {
+                    state.pinned = false;
+                    LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
+                    return;
+                }
+            }
+
+            state.pinned = true;
+            state.layerX = layerX;
+            state.layerY = layerY;
+            state.clientX = pointer.clientX;
+            state.clientY = pointer.clientY;
+            LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
+        };
+
+        const onPointerAbort = ({ event, layer: activeLayer }) => {
+            const pointer = pickPointerEvent(event);
+            if (event && typeof event.preventDefault === "function") event.preventDefault();
+            state.hasPointerDown = false;
+            state.pinned = false;
+            if (pointer && Number.isFinite(pointer.clientX) && Number.isFinite(pointer.clientY)) {
+                state.clientX = pointer.clientX;
+                state.clientY = pointer.clientY;
+            }
+            LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
+        };
+
+        const mouseTraceActions = [
+            {
+                action: "dragabort",
+                events: ["mousedown[event.button==2]", "mouseup[event.button==2]"],
+                transition: [["start", "start"], ["drag", "start"]],
+                sideEffect: onPointerAbort,
+            },
+            {
+                action: "dragstart",
+                events: ["mousedown"],
+                transition: [["start", "drag"]],
+                sideEffect: onPointerDown,
+            },
+            {
+                action: "drag",
+                events: ["mousemove"],
+                transition: [["drag", "drag"]],
+            },
+            {
+                action: "dragend",
+                events: ["mouseup[event.button==0]"],
+                transition: [["drag", "start"]],
+                sideEffect: onPointerUp,
+            },
+        ];
+
+        const touchTraceActions = [
+            {
+                action: "dragstart",
+                events: ["touchstart"],
+                transition: [["start", "drag"]],
+                sideEffect: onPointerDown,
+            },
+            {
+                action: "drag",
+                events: ["touchmove"],
+                transition: [["drag", "drag"]],
+            },
+            {
+                action: "dragend",
+                events: ["touchend"],
+                transition: [["drag", "start"]],
+                sideEffect: onPointerUp,
+            },
+        ];
+
+        const sharedVar = {};
+        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        const buildOptions = {
+            inherit: "ClickInstrument",
+            layers: [layer],
+            sharedVar,
+            override: [
+                { find: "MouseTraceInteractor", actions: mouseTraceActions },
+                { find: "TouchTraceInteractor", actions: touchTraceActions },
+            ],
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+        return stateKey;
+    }
+
+    static buildExcentricLabelingZoomInstrument(layer, context = {}) {
+        if (!layer) return;
+        const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
+        const minRadius =
+            Number.isFinite(context.minR) ? context.minR : Number.isFinite(context.minRadius) ? context.minRadius : 8;
+        const maxRadius =
+            Number.isFinite(context.maxR) ? context.maxR : Number.isFinite(context.maxRadius) ? context.maxRadius : 120;
+        const radiusStep =
+            Number.isFinite(context.step)
+                ? context.step
+                : Number.isFinite(context.radiusStep)
+                  ? context.radiusStep
+                  : 2;
+
+        const mouseWheelActions = [
+            {
+                action: "enter",
+                events: ["mouseenter"],
+                transition: [["start", "running"]],
+            },
+            {
+                action: "wheel",
+                events: ["wheel", "mousewheel"],
+                transition: [["start", "running"], ["running", "running"]],
+                sideEffect: ({ event, layer: activeLayer }) => {
+                    if (!state.pinned) return;
+                    if (event && typeof event.preventDefault === "function") event.preventDefault();
+                    const rawDelta =
+                        typeof event.deltaY === "number"
+                            ? event.deltaY
+                            : typeof event.wheelDelta === "number"
+                              ? -event.wheelDelta
+                              : 0;
+                    if (!rawDelta) return;
+                    const direction = rawDelta < 0 ? 1 : -1;
+                    const nextRadius = Math.max(
+                        minRadius,
+                        Math.min(maxRadius, state.r + direction * radiusStep)
+                    );
+                    if (nextRadius === state.r) return;
+                    state.r = nextRadius;
+                    LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
+                },
+            },
+            {
+                action: "leave",
+                events: ["mouseleave"],
+                transition: [["running", "start"], ["start", "start"]],
+            },
+            {
+                action: "abort",
+                events: ["mouseup[event.button==2]"],
+                transition: [["running", "running"], ["start", "start"]],
+            },
+        ];
+
+        const sharedVar = {};
+        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        const buildOptions = {
+            inherit: "GeometricZoomInstrument",
+            layers: [layer],
+            sharedVar,
+            override: [{ find: "MouseWheelInteractor", actions: mouseWheelActions }],
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+        return stateKey;
     }
 
     static buildGeometricTransformer(layer, context) {

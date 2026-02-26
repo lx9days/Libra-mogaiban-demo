@@ -13,6 +13,11 @@ const triggerToInstrument = {
   // You can extend this map: click -> ClickInstrument, brush -> BrushInstrument, etc.
 };
 
+const interactionAlias = {
+  zoom: "zooming",
+  pan: "panning",
+};
+
 function stripInlineComment(str) {
   if (typeof str !== "string") return str;
   const idx = str.indexOf("//");
@@ -244,6 +249,8 @@ export function compileInteractionsDSL(specList = [], ctx) {
     else load.finally(fn);
   };
   ensureLoaded(() => {
+    const instrumentRegistry = new Map();
+    let autoLensBindingIndex = 0;
     for (const spec of list) {
       const instrumentRaw =
         spec?.Instrument ??
@@ -254,15 +261,33 @@ export function compileInteractionsDSL(specList = [], ctx) {
         typeof instrumentRaw === "string"
           ? stripInlineComment(instrumentRaw).toLowerCase()
           : "";
+      const interactionForAtomic = interactionAlias[interaction] || interaction;
       if (interaction && atomic.instruments.size > 0) {
-        if (!atomic.instruments.has(interaction)) continue;
+        if (!atomic.instruments.has(interactionForAtomic)) continue;
       }
       const triggerRaw = spec?.Trigger || spec?.trigger;
       const trigger = stripInlineComment(
         typeof triggerRaw === "string" ? triggerRaw.toLowerCase() : ""
       );
-      if (interaction && atomic.triggers.has(interaction)) {
-        const allowed = atomic.triggers.get(interaction);
+      const instrumentNameRaw =
+        spec?.Name ??
+        spec?.name ??
+        spec?.["Instrument Name"] ??
+        spec?.instrumentName;
+      const instrumentName =
+        typeof instrumentNameRaw === "string"
+          ? stripInlineComment(instrumentNameRaw)
+          : "";
+      const targetInstrumentRaw =
+        spec?.["Target Instrument"] ??
+        spec?.targetInstrument ??
+        spec?.TargetInstrument;
+      const targetInstrumentName =
+        typeof targetInstrumentRaw === "string"
+          ? stripInlineComment(targetInstrumentRaw)
+          : "";
+      if (interactionForAtomic && atomic.triggers.has(interactionForAtomic)) {
+        const allowed = atomic.triggers.get(interactionForAtomic);
         if (allowed && !allowed.has(trigger)) continue;
       }
       const inherit = triggerToInstrument[trigger] || (trigger ? trigger : "");
@@ -289,17 +314,22 @@ export function compileInteractionsDSL(specList = [], ctx) {
           }
         });
       } else {
-        let resolved =
-          (typeof targetName === "string" && layersByName[targetName]) ||
-          layersByName.mainLayer ||
-          layersByName.layer ||
-          null;
-        if (resolved) {
-          layers = Array.isArray(resolved) ? resolved : [resolved];
-        } else if (typeof targetName === "string") {
-          const found = Libra.Layer.findLayer(targetName);
-          if (Array.isArray(found)) layers = found;
-          else if (found) layers = [found];
+        if (targetInstrumentName && instrumentRegistry.has(targetInstrumentName)) {
+          const targetInstrument = instrumentRegistry.get(targetInstrumentName);
+          if (targetInstrument?.layer) layers = [targetInstrument.layer];
+        } else {
+          let resolved =
+            (typeof targetName === "string" && layersByName[targetName]) ||
+            layersByName.mainLayer ||
+            layersByName.layer ||
+            null;
+          if (resolved) {
+            layers = Array.isArray(resolved) ? resolved : [resolved];
+          } else if (typeof targetName === "string") {
+            const found = Libra.Layer.findLayer(targetName);
+            if (Array.isArray(found)) layers = found;
+            else if (found) layers = [found];
+          }
         }
       }
       if (!layers || layers.length === 0) continue;
@@ -374,13 +404,127 @@ export function compileInteractionsDSL(specList = [], ctx) {
             buildContext.modifierKey = modifierKeyRaw
               .map((k) => stripInlineComment(k))
               .filter((k) => !!k);
+          } else if (modifierKeyRaw === null) {
+            buildContext.modifierKey = null;
+          }
+          const bindingKeyRaw =
+            buildContext.bindingKey ??
+            buildContext.BindingKey ??
+            spec?.bindingKey ??
+            spec?.BindingKey ??
+            (instrumentName || `lens_${autoLensBindingIndex++}`);
+          if (typeof bindingKeyRaw === "string") {
+            buildContext.bindingKey = stripInlineComment(bindingKeyRaw);
+          }
+          const persistOnClick =
+            buildContext.persistOnClick ??
+            buildContext.PersistOnClick ??
+            buildContext.pinOnClick ??
+            buildContext.PinOnClick ??
+            buildContext.persistByClick ??
+            buildContext.PersistByClick ??
+            false;
+          const clickPriorityRaw =
+            buildContext.clickPriority ??
+            buildContext.ClickPriority;
+          let clickPriority = clickPriorityRaw;
+          if (clickPriority === undefined && stopPropagation === true) {
+            const basePriority =
+              typeof priority === "number" ? priority : 0;
+            clickPriority = basePriority + 1;
           }
           if (priority !== undefined) buildContext.priority = priority;
           if (stopPropagation !== undefined)
             buildContext.stopPropagation = stopPropagation;
 
           for (const layer of layers) {
-            LibraManager.buildExcentricLabelingInstrument(layer, buildContext);
+            const stateKey = LibraManager.buildExcentricLabelingInstrument(layer, buildContext);
+            if (persistOnClick) {
+              LibraManager.buildExcentricLabelingClickInstrument(layer, {
+                bindingKey: buildContext.bindingKey,
+                modifierKey:
+                  buildContext.clickModifierKey ??
+                  buildContext.ClickModifierKey ??
+                  buildContext.modifierKey,
+                pinThreshold:
+                  buildContext.pinThreshold ??
+                  buildContext.PinThreshold,
+                togglePin:
+                  buildContext.togglePin ??
+                  buildContext.TogglePin,
+                priority: clickPriority,
+                stopPropagation,
+              });
+            }
+            const registryName = instrumentName || buildContext.bindingKey;
+            if (registryName) {
+              instrumentRegistry.set(registryName, {
+                type: "lens",
+                layer,
+                bindingKey: buildContext.bindingKey,
+                stateKey,
+              });
+            }
+          }
+          continue;
+        }
+      }
+
+      if (
+        interaction === "zoom" &&
+        targetInstrumentName &&
+        instrumentRegistry.has(targetInstrumentName)
+      ) {
+        const targetInstrument = instrumentRegistry.get(targetInstrumentName);
+        if (targetInstrument?.type === "lens") {
+          const lensZoomOptionsRaw =
+            feedbackOptions?.LensZoom ??
+            feedbackOptions?.lensZoom ??
+            feedbackOptions?.RadiusZoom ??
+            feedbackOptions?.radiusZoom ??
+            feedbackOptions;
+          const lensZoomOptions =
+            lensZoomOptionsRaw && typeof lensZoomOptionsRaw === "object"
+              ? lensZoomOptionsRaw
+              : {};
+          const zoomContext = { ...lensZoomOptions };
+          if (targetInstrument.bindingKey) {
+            zoomContext.bindingKey = targetInstrument.bindingKey;
+          }
+          const modifierKeyRaw =
+            spec?.modifierKey ??
+            spec?.ModifierKey ??
+            feedbackOptions?.modifierKey ??
+            feedbackOptions?.ModifierKey ??
+            zoomContext?.modifierKey ??
+            zoomContext?.ModifierKey;
+          if (typeof modifierKeyRaw === "string") {
+            zoomContext.modifierKey = stripInlineComment(modifierKeyRaw);
+          } else if (Array.isArray(modifierKeyRaw)) {
+            zoomContext.modifierKey = modifierKeyRaw
+              .map((k) => stripInlineComment(k))
+              .filter((k) => !!k);
+          } else if (modifierKeyRaw === null) {
+            zoomContext.modifierKey = null;
+          }
+          const priority =
+            spec?.priority !== undefined ? spec.priority : spec?.Priority;
+          const stopPropagation =
+            spec?.stopPropagation !== undefined
+              ? spec.stopPropagation
+              : spec?.StopPropagation;
+          if (priority !== undefined) zoomContext.priority = priority;
+          if (stopPropagation !== undefined)
+            zoomContext.stopPropagation = stopPropagation;
+
+          for (const layer of layers) {
+            LibraManager.buildExcentricLabelingZoomInstrument(layer, zoomContext);
+          }
+          if (instrumentName) {
+            instrumentRegistry.set(instrumentName, {
+              type: "zoom",
+              layer: layers[0],
+            });
           }
           continue;
         }
@@ -467,6 +611,8 @@ export function compileInteractionsDSL(specList = [], ctx) {
         sharedVar.modifierKey = modifierKeyRaw
           .map((k) => stripInlineComment(k))
           .filter((k) => !!k);
+      } else if (modifierKeyRaw === null) {
+        sharedVar.modifierKey = null;
       }
 
       const priority =

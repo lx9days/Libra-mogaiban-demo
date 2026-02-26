@@ -182,6 +182,7 @@ function renderMainVisualization() {
 async function mountInteraction(layer) {
     const interactions = [
         {
+            Name: "lensMain",
             Instrument: "Lens",
             Trigger: "hover",
             "Target layer": "mainLayer",
@@ -195,13 +196,28 @@ async function mountInteraction(layer) {
                     fontSize: 12,
                     countLabelWidth: 40,
                     maxLabelsNum: 10,
-                    modifierKey: "Shift",
+                    modifierKey: null,
+                    persistOnClick: true,
+                    pinThreshold: 2,
                     labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
                     colorAccessor: (circleElem) => color(d3.select(circleElem).datum()[FIELD_COLOR]),
                     labelHoverHighlightAttrValues: {
                         stroke: "#ff0000",
                         "stroke-width": 2,
                     },
+                },
+            },
+            stopPropagation: true,
+        },
+        {
+            Instrument: "Zoom",
+            Trigger: "zoom",
+            "Target Instrument": "lensMain",
+            "Feedback options": {
+                LensZoom: {
+                    step: 2,
+                    minR: 8,
+                    maxR: 120,
                 },
             },
             stopPropagation: true,
