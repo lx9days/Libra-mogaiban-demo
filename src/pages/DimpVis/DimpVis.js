@@ -437,70 +437,93 @@ async function mountInteraction(layer) {
 
   const dragInterpolationFlow = {
     find: "SelectionService",
-    flow: [
-      {
-        comp: "DimpVisSelectedPointService",
-        sharedVar: {
-          selectedState: selectionState,
-          currentDataAccessor: () => interpolatedData,
-        },
-      },
-      {
-        comp: "NearestPointService",
-        sharedVar: { layer: layer.getLayerFromQueue("transientLayer") },
-        evaluate(options) {
-          const { layer, offsetx, offsety, dragAllowed, result } = options;
-          if (!dragAllowed) return null;
-          if (!Array.isArray(result) || result.length <= 0) return null;
-          const point = [offsetx, offsety];
-          if (!layer || !Number.isFinite(offsetx) || !Number.isFinite(offsety)) {
-            return null;
-          }
+    Operator: (options) => {
+      const { offsetx, offsety, dragAllowed, self } = options;
+      if (!dragAllowed) return null;
 
-          const traceGroup = d3.select(layer.getGraphic()).select(".trace");
-          if (traceGroup.empty()) return null;
-          const year = traceGroup.selectAll("text").data();
-          const tracePath = traceGroup.select("path");
-          if (tracePath.empty()) return null;
-          const trace = tracePath.attr("d");
-          if (typeof trace !== "string" || !trace.startsWith("M")) return null;
+      const selectedCountry = selectionState?.country;
+      if (!selectedCountry) return null;
 
-          const poly = trace
-            .slice(1)
-            .split("L")
-            .map((pStr) => pStr.split(",").map((num) => parseFloat(num)))
-            .filter(
-              (pointPair) =>
-                Array.isArray(pointPair) &&
-                pointPair.length === 2 &&
-                Number.isFinite(pointPair[0]) &&
-                Number.isFinite(pointPair[1])
-            );
-          if (poly.length < 2) return null;
-          return {
-            data: year,
-            interpolatedNum: interpolateNNPointFromPoly(
-              [point[0] - layer._offset.x, point[1] - layer._offset.y],
-              poly
-            ),
-          };
-        },
-      },
-      {
-        comp: "InterpolationService",
-        sharedVar: {
-          data: data,
-          field: "year",
-          formula: {
-            year: (d) => Math.floor(d.year / 5) * 5, // Year divisible by 5
-          },
-        },
-      },
-      {
-        comp: "MainTransformer",
-      },
-    ],
+      const layer = options.hostLayer || self?._layerInstances?.[0];
+      const transientLayer = layer ? layer.getLayerFromQueue("transientLayer") : null;
+      if (!transientLayer || !Number.isFinite(offsetx) || !Number.isFinite(offsety)) return null;
+
+      const point = [offsetx, offsety];
+
+      const traceGroup = d3.select(transientLayer.getGraphic()).select(".trace");
+      if (traceGroup.empty()) return null;
+      const yearData = traceGroup.selectAll("text").data();
+      const tracePath = traceGroup.select("path");
+      if (tracePath.empty()) return null;
+      const trace = tracePath.attr("d");
+      if (typeof trace !== "string" || !trace.startsWith("M")) return null;
+
+      const poly = trace
+        .slice(1)
+        .split("L")
+        .map((pStr) => pStr.split(",").map((num) => parseFloat(num)))
+        .filter(
+          (pointPair) =>
+            Array.isArray(pointPair) &&
+            pointPair.length === 2 &&
+            Number.isFinite(pointPair[0]) &&
+            Number.isFinite(pointPair[1])
+        );
+      if (poly.length < 2) return null;
+
+      const interpolatedNum = interpolateNNPointFromPoly(
+        [point[0] - transientLayer._offset.x, point[1] - transientLayer._offset.y],
+        poly
+      );
+
+      if (!Array.isArray(yearData) || yearData.length === 0) return null;
+
+      const baseNum = Math.floor(interpolatedNum);
+      if (baseNum < 0 || baseNum >= yearData.length) return null;
+
+      const baseYearObj = yearData[baseNum];
+      if (!baseYearObj || !Number.isFinite(baseYearObj.year)) return null;
+
+      const nextNum = baseNum + 1;
+      const interpolate = interpolatedNum - baseNum;
+
+      let newInterpolatedData = data
+        .filter((d) => d.year === baseYearObj.year)
+        .map((d) => ({ ...d }));
+
+      if (interpolate > 0 && nextNum < yearData.length && yearData[nextNum] && Number.isFinite(yearData[nextNum].year)) {
+        const nextYearObj = yearData[nextNum];
+        newInterpolatedData = newInterpolatedData.map((baseDatum) => {
+          const nextDatum = data.find(
+            (d) => d.country === baseDatum.country && d.year === nextYearObj.year
+          );
+          if (!nextDatum) return baseDatum;
+          return Object.fromEntries(
+            Object.entries(baseDatum).map(([k, v]) => {
+              if (typeof v === "number" && typeof nextDatum[k] === "number") {
+                return [k, v * (1 - interpolate) + nextDatum[k] * interpolate];
+              }
+              return [k, v];
+            })
+          );
+        });
+      }
+
+      newInterpolatedData = newInterpolatedData.map((d) => ({
+        ...d,
+        year: Math.floor(d.year / 5) * 5,
+      }));
+
+      return newInterpolatedData;
+    },
+    Renderer: (result) => {
+      if (result) {
+        interpolatedData = result;
+        renderMainVisualization(result);
+      }
+    }
   };
+
 
   const handlers = {
     toggleSelection: ({ event, layer: activeLayer }) => {
@@ -531,30 +554,49 @@ async function mountInteraction(layer) {
     },
   };
 
+  // DimpVis interaction logic
+  const dimpVisHover = () => ({
+    Remove: [{ find: "SelectionTransformer" }],
+    Insert: [useTraceTransformerFlow, useCountryFlow],
+  });
+
+  const dimpVisClick = () => ({
+    On: {
+      click: "toggleSelection",
+    },
+  });
+
+  const dimpVisDrag = () => ({
+    Remove: [{ find: "SelectionTransformer" }],
+    Insert: [useTraceTransformerFlow, useCountryFlow, dragInterpolationFlow],
+    On: {
+      dragstart: "guardDragStart",
+      dragend: "resetDragGuard",
+      dragabort: "resetDragGuard",
+    },
+  });
+
   const interactions = [
+    // {
+    //   Name: "Hover", // Acts as a reactive renderer triggered by 'mousemove' in refreshHover
+    //   Instrument: "point selection",
+    //   Trigger: "hover",
+    //   "Target layer": "mainLayer",
+    //   "Feedback options": dimpVisHover,
+    // },
     {
-      Name: "Hover",
+      Name: "Click",
       Instrument: "point selection",
-      Trigger: "hover",
+      Trigger: "click",
       "Target layer": "mainLayer",
-      Remove: [{ find: "SelectionTransformer" }],
-      Insert: [useTraceTransformerFlow, useCountryFlow],
-      On: {
-        click: "toggleSelection",
-      },
+      "Feedback options": dimpVisClick,
     },
     {
       Name: "Drag",
       Instrument: "moving",
       Trigger: "drag",
-      "Target Instrument": "Hover",
-      Remove: [{ find: "SelectionTransformer" }],
-      Insert: [useTraceTransformerFlow, useCountryFlow, dragInterpolationFlow],
-      On: {
-        dragstart: "guardDragStart",
-        dragend: "resetDragGuard",
-        dragabort: "resetDragGuard",
-      },
+      "Target layer": "mainLayer",
+      "Feedback options": dimpVisDrag,
     },
   ];
 

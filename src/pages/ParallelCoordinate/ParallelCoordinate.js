@@ -566,18 +566,18 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
 
-        // LibraManager.buildGeometricZoomInstrument(axisLayer, {
-        //     Trigger: "zoom",
-        //     fixRange: true,
-        //     scaleY: y[dim],
-        // });
+        LibraManager.buildGeometricZoomInstrument(axisLayer, {
+            Trigger: "zoom",
+            fixRange: true,
+            scaleY: y[dim],
+        });
 
-        // LibraManager.buildPanInstrument(axisLayer, {
-        //     Trigger: "pan",
-        //     fixRange: true,
-        //     scaleY: y[dim],
-        //     ModifierKey: "Alt"
-        // });
+        LibraManager.buildPanInstrument(axisLayer, {
+            Trigger: "pan",
+            fixRange: true,
+            scaleY: y[dim],
+            ModifierKey: "Alt"
+        });
 
         LibraManager.buildGeometricTransformer(axisLayer, {
             scaleY: y[dim],

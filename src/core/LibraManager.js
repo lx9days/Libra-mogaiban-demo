@@ -1209,6 +1209,10 @@ export default class LibraManager {
                 layerY: 0,
                 clientX: 0,
                 clientY: 0,
+                shiftKey: false,
+                ctrlKey: false,
+                altKey: false,
+                metaKey: false,
                 pointerDownX: 0,
                 pointerDownY: 0,
                 hasPointerDown: false,
@@ -1234,6 +1238,10 @@ export default class LibraManager {
                 bubbles: true,
                 clientX: state.clientX,
                 clientY: state.clientY,
+                shiftKey: !!state.shiftKey,
+                ctrlKey: !!state.ctrlKey,
+                altKey: !!state.altKey,
+                metaKey: !!state.metaKey,
             })
         );
     }
@@ -1241,6 +1249,10 @@ export default class LibraManager {
     static buildExcentricLabelingInstrument(layer, context = {}) {
         if (!layer) return;
         const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
+        if (context.disablePin === true) {
+            state.pinned = false;
+            state.hasPointerDown = false;
+        }
 
         if (!LibraManager.__excentricLabelingInstrumentRegistered) {
             Libra.Interaction.build({
@@ -1282,6 +1294,23 @@ export default class LibraManager {
                                     lensState,
                                     result: circles,
                                 }) {
+                                    const pointerEvent =
+                                        event && event.changedTouches && event.changedTouches[0]
+                                            ? event.changedTouches[0]
+                                            : event;
+                                    if (lensState && pointerEvent) {
+                                        if (
+                                            Number.isFinite(pointerEvent.clientX) &&
+                                            Number.isFinite(pointerEvent.clientY)
+                                        ) {
+                                            lensState.clientX = pointerEvent.clientX;
+                                            lensState.clientY = pointerEvent.clientY;
+                                        }
+                                        lensState.shiftKey = !!pointerEvent.shiftKey;
+                                        lensState.ctrlKey = !!pointerEvent.ctrlKey;
+                                        lensState.altKey = !!pointerEvent.altKey;
+                                        lensState.metaKey = !!pointerEvent.metaKey;
+                                    }
                                     const pinned =
                                         lensState &&
                                         lensState.pinned &&
@@ -1379,11 +1408,26 @@ export default class LibraManager {
                                         rawInfos.forEach((rawInfo) => delete rawInfo[tempInfoAttr]);
                                     }
 
-                                    const sourceObjects = pinned
-                                        ? layer.getVisualElements()
-                                        : Array.isArray(circles)
-                                          ? circles
-                                          : [];
+                                    const sourceObjects = (() => {
+                                        if (pinned) return layer.getVisualElements();
+                                        if (
+                                            pointerEvent &&
+                                            typeof layer?.picking === "function" &&
+                                            Number.isFinite(pointerEvent.clientX) &&
+                                            Number.isFinite(pointerEvent.clientY)
+                                        ) {
+                                            return (
+                                                layer.picking({
+                                                    baseOn: 0,
+                                                    type: 2,
+                                                    x: pointerEvent.clientX,
+                                                    y: pointerEvent.clientY,
+                                                    r: lensRadius,
+                                                }) || []
+                                            );
+                                        }
+                                        return Array.isArray(circles) ? circles : [];
+                                    })();
                                     const rawInfos = getRawInfos(
                                         sourceObjects,
                                         labelAccessor,
@@ -1628,9 +1672,17 @@ export default class LibraManager {
             return event;
         };
 
+        const updateModifierState = (pointer) => {
+            state.shiftKey = !!pointer?.shiftKey;
+            state.ctrlKey = !!pointer?.ctrlKey;
+            state.altKey = !!pointer?.altKey;
+            state.metaKey = !!pointer?.metaKey;
+        };
+
         const onPointerDown = ({ event }) => {
             const pointer = pickPointerEvent(event);
             if (!pointer) return;
+            updateModifierState(pointer);
             state.pointerDownX = pointer.clientX;
             state.pointerDownY = pointer.clientY;
             state.hasPointerDown = true;
@@ -1640,6 +1692,11 @@ export default class LibraManager {
             const pointer = pickPointerEvent(event);
             if (!pointer || !state.hasPointerDown) return;
             state.hasPointerDown = false;
+            updateModifierState(pointer);
+            if (Number.isFinite(pointer.clientX) && Number.isFinite(pointer.clientY)) {
+                state.clientX = pointer.clientX;
+                state.clientY = pointer.clientY;
+            }
 
             const deltaX = pointer.clientX - state.pointerDownX;
             const deltaY = pointer.clientY - state.pointerDownY;
@@ -1659,14 +1716,13 @@ export default class LibraManager {
             state.pinned = true;
             state.layerX = layerX;
             state.layerY = layerY;
-            state.clientX = pointer.clientX;
-            state.clientY = pointer.clientY;
             LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
         };
 
         const onPointerAbort = ({ event, layer: activeLayer }) => {
             const pointer = pickPointerEvent(event);
             if (event && typeof event.preventDefault === "function") event.preventDefault();
+            updateModifierState(pointer);
             state.hasPointerDown = false;
             state.pinned = false;
             if (pointer && Number.isFinite(pointer.clientX) && Number.isFinite(pointer.clientY)) {
@@ -1743,6 +1799,10 @@ export default class LibraManager {
     static buildExcentricLabelingZoomInstrument(layer, context = {}) {
         if (!layer) return;
         const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
+        if (context.disablePin === true) {
+            state.pinned = false;
+            state.hasPointerDown = false;
+        }
         const minRadius =
             Number.isFinite(context.minR) ? context.minR : Number.isFinite(context.minRadius) ? context.minRadius : 8;
         const maxRadius =
@@ -1765,8 +1825,26 @@ export default class LibraManager {
                 events: ["wheel", "mousewheel"],
                 transition: [["start", "running"], ["running", "running"]],
                 sideEffect: ({ event, layer: activeLayer }) => {
-                    if (!state.pinned) return;
                     if (event && typeof event.preventDefault === "function") event.preventDefault();
+                    if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+                        state.clientX = event.clientX;
+                        state.clientY = event.clientY;
+                    }
+                    const nextShiftKey = !!event?.shiftKey;
+                    const nextCtrlKey = !!event?.ctrlKey;
+                    const nextAltKey = !!event?.altKey;
+                    const nextMetaKey = !!event?.metaKey;
+                    if (!state.pinned) {
+                        state.shiftKey = nextShiftKey;
+                        state.ctrlKey = nextCtrlKey;
+                        state.altKey = nextAltKey;
+                        state.metaKey = nextMetaKey;
+                    } else {
+                        state.shiftKey = state.shiftKey || nextShiftKey;
+                        state.ctrlKey = state.ctrlKey || nextCtrlKey;
+                        state.altKey = state.altKey || nextAltKey;
+                        state.metaKey = state.metaKey || nextMetaKey;
+                    }
                     const rawDelta =
                         typeof event.deltaY === "number"
                             ? event.deltaY

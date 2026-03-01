@@ -186,7 +186,6 @@ async function mountInteraction(layer) {
             Instrument: "Lens",
             Trigger: "hover",
             "Target layer": "mainLayer",
-            modifierKey: "Shift",
             "Feedback options": {
                 ExcentricLabeling: {
                     renderSelection: false,
@@ -197,6 +196,9 @@ async function mountInteraction(layer) {
                     fontSize: 12,
                     countLabelWidth: 40,
                     maxLabelsNum: 10,
+                    modifierKey: null,
+                    persistOnClick: true,
+                    pinThreshold: 2,
                     labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
                     colorAccessor: (circleElem) => color(d3.select(circleElem).datum()[FIELD_COLOR]),
                     labelHoverHighlightAttrValues: {
@@ -210,8 +212,7 @@ async function mountInteraction(layer) {
         {
             Instrument: "Zoom",
             Trigger: "zoom",
-            "Target layer": "mainLayer",
-            bindingKey: "lensMain",
+            "Target Instrument": "lensMain",
             "Feedback options": {
                 LensZoom: {
                     step: 2,
@@ -219,6 +220,7 @@ async function mountInteraction(layer) {
                     maxR: 120,
                 },
             },
+
             stopPropagation: true,
         },
     ];

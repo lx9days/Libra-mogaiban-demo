@@ -34,6 +34,36 @@ function resolveFirstLayer(layersByName, name) {
   return found || null;
 }
 
+function resolveFeedbackOptionsValue(raw, buildCtx) {
+  if (typeof raw === "function") {
+    const resolved = raw(buildCtx);
+    return resolved && typeof resolved === "object" ? resolved : {};
+  }
+  if (!raw || typeof raw !== "object") return {};
+
+  const build =
+    raw.build ??
+    raw.Build ??
+    raw.builder ??
+    raw.Builder ??
+    raw.buildRef ??
+    raw.buildref;
+
+  let built = null;
+  if (typeof build === "function") {
+    built = build(buildCtx);
+  } else if (
+    typeof build === "string" &&
+    buildCtx?.handlers &&
+    typeof buildCtx.handlers[build] === "function"
+  ) {
+    built = buildCtx.handlers[build](buildCtx);
+  }
+
+  if (built && typeof built === "object") return { ...raw, ...built };
+  return raw;
+}
+
 function parseRotateTransform(transform) {
   if (typeof transform !== "string") return null;
   const m = /rotate\(\s*([-\d.]+)(?:[ ,]+([-\d.]+)[ ,]+([-\d.]+))?\s*\)/.exec(transform);
@@ -335,7 +365,17 @@ export function compileInteractionsDSL(specList = [], ctx) {
       }
       if (!layers || layers.length === 0) continue;
 
-      const feedbackOptions = spec?.["Feedback options"] || spec?.Feedback || {};
+      const feedbackOptionsRaw = spec?.["Feedback options"] || spec?.Feedback || {};
+      const feedbackOptions = resolveFeedbackOptionsValue(feedbackOptionsRaw, {
+        spec,
+        layers,
+        layer: layers[0],
+        layersByName,
+        scales,
+        handlers,
+        refs,
+        ctx,
+      });
       const highlight = feedbackOptions?.Highlight || feedbackOptions?.highlight;
 
       if (interaction === "reordering" || interaction === "reorderinstrument" || interaction === "reorder") {
@@ -437,6 +477,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
           if (priority !== undefined) buildContext.priority = priority;
           if (stopPropagation !== undefined)
             buildContext.stopPropagation = stopPropagation;
+          if (!persistOnClick) buildContext.disablePin = true;
 
           for (const layer of layers) {
             const stateKey = LibraManager.buildExcentricLabelingInstrument(layer, buildContext);
@@ -471,27 +512,55 @@ export function compileInteractionsDSL(specList = [], ctx) {
         }
       }
 
-      if (
-        interaction === "zoom" &&
-        targetInstrumentName &&
-        instrumentRegistry.has(targetInstrumentName)
-      ) {
-        const targetInstrument = instrumentRegistry.get(targetInstrumentName);
-        if (targetInstrument?.type === "lens") {
-          const lensZoomOptionsRaw =
-            feedbackOptions?.LensZoom ??
-            feedbackOptions?.lensZoom ??
-            feedbackOptions?.RadiusZoom ??
-            feedbackOptions?.radiusZoom ??
-            feedbackOptions;
-          const lensZoomOptions =
-            lensZoomOptionsRaw && typeof lensZoomOptionsRaw === "object"
-              ? lensZoomOptionsRaw
-              : {};
-          const zoomContext = { ...lensZoomOptions };
-          if (targetInstrument.bindingKey) {
-            zoomContext.bindingKey = targetInstrument.bindingKey;
+      if (interaction === "zoom") {
+        const lensZoomOptionsRaw =
+          feedbackOptions?.LensZoom ??
+          feedbackOptions?.lensZoom ??
+          feedbackOptions?.RadiusZoom ??
+          feedbackOptions?.radiusZoom ??
+          feedbackOptions;
+        const lensZoomOptions =
+          lensZoomOptionsRaw && typeof lensZoomOptionsRaw === "object"
+            ? lensZoomOptionsRaw
+            : null;
+
+        const tryResolveLensBindingKey = () => {
+          if (targetInstrumentName && instrumentRegistry.has(targetInstrumentName)) {
+            const targetInstrument = instrumentRegistry.get(targetInstrumentName);
+            if (targetInstrument?.type === "lens" && targetInstrument.bindingKey) {
+              return targetInstrument.bindingKey;
+            }
           }
+
+          const bindingKeyRaw =
+            spec?.bindingKey ??
+            spec?.BindingKey ??
+            lensZoomOptions?.bindingKey ??
+            lensZoomOptions?.BindingKey ??
+            feedbackOptions?.bindingKey ??
+            feedbackOptions?.BindingKey;
+          if (typeof bindingKeyRaw === "string" && stripInlineComment(bindingKeyRaw)) {
+            return stripInlineComment(bindingKeyRaw);
+          }
+
+          if (layers && layers.length > 0) {
+            const hostLayer = layers[0];
+            const lensCandidates = [];
+            instrumentRegistry.forEach((value) => {
+              if (value?.type === "lens" && value.layer === hostLayer && value.bindingKey) {
+                lensCandidates.push(value.bindingKey);
+              }
+            });
+            if (lensCandidates.length === 1) return lensCandidates[0];
+          }
+
+          return null;
+        };
+
+        const bindingKey = tryResolveLensBindingKey();
+        if (bindingKey && lensZoomOptions) {
+          const zoomContext = { ...lensZoomOptions };
+          zoomContext.bindingKey = bindingKey;
           const modifierKeyRaw =
             spec?.modifierKey ??
             spec?.ModifierKey ??
@@ -622,10 +691,96 @@ export function compileInteractionsDSL(specList = [], ctx) {
         spec?.stopPropagation !== undefined
           ? spec.stopPropagation
           : spec?.StopPropagation;
-      const remove = spec?.remove ?? spec?.Remove;
-      const insert = spec?.insert ?? spec?.Insert;
-      const override = spec?.override ?? spec?.Override;
-      const onMap = spec?.on ?? spec?.On;
+      const onMap = spec?.on ?? spec?.On ?? feedbackOptions?.on ?? feedbackOptions?.On;
+
+      // Handle Operator/Renderer in Feedback options (Top level)
+      let autoInsert = [];
+      if (feedbackOptions?.Operator || feedbackOptions?.Renderer) {
+        const op = feedbackOptions.Operator;
+        const ren = feedbackOptions.Renderer;
+        const find = feedbackOptions.find || "SelectionService"; // Default to SelectionService if not specified
+        
+        const flow = [];
+        const suffix = `_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+        if (op) {
+          const serviceName = `GenService${suffix}`;
+          Libra.Service.register(serviceName, {
+            evaluate(options) {
+              const hostLayer = options?.self?._layerInstances?.[0];
+              return op({ ...options, hostLayer });
+            }
+          });
+          flow.push({ comp: serviceName });
+        }
+
+        if (ren) {
+          const transformerName = `GenTransformer${suffix}`;
+          Libra.GraphicalTransformer.register(transformerName, {
+            redraw(options) {
+              const result = options.transformer ? options.transformer.getSharedVar("result") : undefined;
+              ren(result, { ...options, hostLayer: options?.layer });
+            }
+          });
+          flow.push({ comp: transformerName });
+        }
+
+        autoInsert.push({
+          find: find,
+          flow: flow
+        });
+      }
+
+      const remove = spec?.remove ?? spec?.Remove ?? feedbackOptions?.remove ?? feedbackOptions?.Remove;
+      let insert = spec?.insert ?? spec?.Insert ?? feedbackOptions?.insert ?? feedbackOptions?.Insert;
+      
+      // Process Operator/Renderer inside Insert array
+      if (Array.isArray(insert)) {
+        insert = insert.map(item => {
+           if (item.Operator || item.Renderer) {
+              const op = item.Operator;
+              const ren = item.Renderer;
+              const find = item.find || "SelectionService";
+              
+              const flow = [];
+              const suffix = `_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+              if (op) {
+                const serviceName = `GenService${suffix}`;
+                Libra.Service.register(serviceName, {
+                  evaluate(options) {
+                    const hostLayer = options?.self?._layerInstances?.[0];
+                    return op({ ...options, hostLayer });
+                  }
+                });
+                flow.push({ comp: serviceName });
+              }
+
+              if (ren) {
+                const transformerName = `GenTransformer${suffix}`;
+                Libra.GraphicalTransformer.register(transformerName, {
+                  redraw(options) {
+                    const result = options.transformer ? options.transformer.getSharedVar("result") : undefined;
+                    ren(result, { ...options, hostLayer: options?.layer });
+                  }
+                });
+                flow.push({ comp: transformerName });
+              }
+
+              return {
+                find: find,
+                flow: flow
+              };
+           }
+           return item;
+        });
+      }
+
+      if (autoInsert.length > 0) {
+        insert = insert ? [...insert, ...autoInsert] : autoInsert;
+      }
+
+      const override = spec?.override ?? spec?.Override ?? feedbackOptions?.override ?? feedbackOptions?.Override;
 
       const buildOptions = { inherit, layers, sharedVar };
       if (priority !== undefined) buildOptions.priority = priority;
