@@ -21,7 +21,7 @@ function nameFromUrl() {
   const decoded = decodeURIComponent(raw);
   const noExt = decoded.replace(/\.(js|json)$/i, '');
   // 保留连字符和 &，以支持像 "pan&zoom" 这样的页面名
-  const safe = noExt.replace(/[^\w&-]/g, '');
+  const safe = noExt.replace(/[^\w&-\s]/g, '').trim();
   return safe || 'home';
 }
 
@@ -29,12 +29,27 @@ function baseOfKey(k) {
   return k.replace(/^\.\//, '').replace(/\.(js|json)$/i, '');
 }
 
+function normalizeForMatch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
 function findMatchingKey(keys, name, { fallbackTo } = {}) {
   const lower = name.toLowerCase();
+  const normalized = normalizeForMatch(name);
   const candidates = keys.map((k) => {
     const full = baseOfKey(k); // 可能是 'demo' 或 'demo/demo' 或 'demo/index'
     const tail = full.split('/').pop();
-    return { k, full, tail, lowerFull: full.toLowerCase(), lowerTail: tail.toLowerCase() };
+    return {
+      k,
+      full,
+      tail,
+      lowerFull: full.toLowerCase(),
+      lowerTail: tail.toLowerCase(),
+      normalizedFull: normalizeForMatch(full),
+      normalizedTail: normalizeForMatch(tail),
+    };
   });
 
   // 优先级：
@@ -54,8 +69,12 @@ function findMatchingKey(keys, name, { fallbackTo } = {}) {
   hit = candidates.find((c) => c.lowerTail === lower);
   if (hit) return hit.k;
 
-  // 5) 不区分大小写的部分匹配（路径包含）
-  hit = candidates.find((c) => c.lowerFull.includes(lower));
+  // 5) 兼容空格/下划线/连字符差异（文件名）
+  hit = candidates.find((c) => c.normalizedTail === normalized);
+  if (hit) return hit.k;
+
+  // 6) 不区分大小写的部分匹配（路径包含）
+  hit = candidates.find((c) => c.lowerFull.includes(lower) || c.normalizedFull.includes(normalized));
   if (hit) return hit.k;
 
   // 回退
@@ -191,10 +210,13 @@ async function loadFromPages(name) {
 }
 
 async function loadFallbackModule(name) {
-  const modKey = findMatchingKey(modulesContext.keys(), name, { fallbackTo: 'home' }) || './home.js';
-  const path = `./modules/${modKey.replace(/^\.\//, '')}`;
-  const mod = await import(/* webpackChunkName: "[request]" */ `${path}`);
-  if (mod && typeof mod.default === 'function') mod.default();
+  const modKey = findMatchingKey(modulesContext.keys(), name);
+  if (modKey) {
+    const mod = modulesContext(modKey);
+    if (mod && typeof mod.default === 'function') mod.default();
+    return;
+  }
+  await loadFromPages('home');
 }
 
 async function bootstrap() {
