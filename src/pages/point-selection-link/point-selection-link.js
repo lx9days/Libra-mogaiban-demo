@@ -323,36 +323,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
   });
 
   const interactions = [
-    {
-      Instrument: "reordering",
-      Trigger: "Drag",
-      "Target layer": "xAxisLayer",
-      Direction: "x",
-      "Feedback options": {
-        redrawRef: redrawSPLOM,
-        contextRef: {
-          names,
-          scales: { x: scaleX, y: scaleY },
-          copyFrom: Object.values(cellLayers),
-          offset: { x: MARGIN.left, y: MARGIN.top }
-        }
-      }
-    },
-    {
-      Instrument: "reordering",
-      Trigger: "Drag",
-      "Target layer": "yAxisLayer",
-      Direction: "y",
-      "Feedback options": {
-        redrawRef: redrawSPLOM,
-        contextRef: {
-          names,
-          scales: { x: scaleX, y: scaleY },
-          copyFrom: Object.values(cellLayers),
-          offset: { x: MARGIN.left, y: MARGIN.top }
-        }
-      }
-    }
+
   ];
   const pointSelectionInteractions = [
     // {
@@ -380,19 +351,23 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       const sy = yScales[yiField];
       if (!sx || !sy) return null;
       return {
-        Instrument: "group selection",
-        Trigger: "brush",
+        Instrument: "point selection",
+        Trigger: "hover",
         "Target layer": layerName,
         "Feedback options": {
           Highlight: "#00ff1aff",
-          RemnantKey: "Shift",
           ScaleX: sx,
           ScaleY: sy,
-          AttrName: [xiField, yiField],
 
           LinkLayers: Object.values(cellLayers),
-          LinkMatchMode: "field", // 可不写，默认就是 field
-          // LinkMatchMode: "datum",
+
+
+          LinkMatchMode: "datum",
+
+          //link according to field value
+          // LinkMatchMode: "field",
+          // LinkFields: [xiField, yiField],
+          // LinkFields: ["sepal_length","sepal_width","petal_length","petal_width"],
 
           LinkDefaultOpacity: 0.7,
           LinkBaseOpacity: 0.08,

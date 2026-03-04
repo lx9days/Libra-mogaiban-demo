@@ -130,7 +130,7 @@ function renderStaticVisualization() {
         .join("g")
         .call((g) => {
           g.append("circle")
-            .attr("fill-opacity", "0")
+            .attr("fill-opacity", "0.5")
             .attr("stroke-width", 2)
             .attr("stroke", (d) => color(d))
             .attr("cx", WIDTH + 10)
@@ -175,7 +175,7 @@ function renderMainVisualization() {
     .data(data)
     .join("circle")
     .attr("class", "mark")
-    .attr("fill", "white")
+    .attr("fill", (d) => color(d[FIELD_COLOR]))
     .attr("stroke-width", 1)
     .attr("stroke", (d) => color(d[FIELD_COLOR]))
     .attr("cx", (d) => x(d[FIELD_X]))
@@ -184,16 +184,17 @@ function renderMainVisualization() {
 
   return mainLayer;
 }
-
+  
 async function mountInteraction(layer) {
   // Attach HoverInstrument to the main layer
   const interactions = [
     {
       Instrument: "point selection",
-      Trigger: "hover",
+      Trigger: "click",
       "Target layer": "mainLayer",
       "Feedback options": {
         Highlight: "#ff0000",
+        Dim: { opacity: 0.1, selector: ".mark" },
       },
       priority: 1,
       stopPropagation: true,

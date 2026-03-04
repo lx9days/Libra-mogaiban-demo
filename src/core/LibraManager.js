@@ -1261,6 +1261,7 @@ export default class LibraManager {
                     maxLabelsNum: 10,
                     labelAccessor: (circleElem) => d3.select(circleElem).datum()?.Name,
                     colorAccessor: () => "black",
+                    count: null,
                     countAccessor: null,
                     countFormatter: null,
                 },
@@ -1282,6 +1283,7 @@ export default class LibraManager {
                                     colorAccessor,
                                     r,
                                     maxLabelsNum,
+                                    count,
                                     countAccessor,
                                     countFormatter,
                                     event,
@@ -1467,31 +1469,138 @@ export default class LibraManager {
                                     );
                                     if (lensState) {
                                         lensState.count = elementsInRadius.length;
-                                        let countValue = elementsInRadius.length;
-                                        if (typeof countAccessor === "function") {
+                                        const baseCtx = {
+                                            count: lensState.count,
+                                            elements: elementsInRadius,
+                                            event: pointerEvent,
+                                            layer,
+                                            radius: lensRadius,
+                                        };
+
+                                        const getAccessorFromConfig = (cfg) => {
+                                            const accessor = cfg?.accessor ?? cfg?.Accessor;
+                                            if (typeof accessor === "function") return accessor;
+                                            const field = cfg?.field ?? cfg?.Field;
+                                            if (typeof field === "string" && field) {
+                                                return (elem) => d3.select(elem).datum()?.[field];
+                                            }
+                                            return null;
+                                        };
+
+                                        const computeFromValues = (values, opRaw) => {
+                                            const op = typeof opRaw === "string" ? opRaw.trim().toLowerCase() : "";
+                                            if (op === "count") return values.length;
+                                            if (!values.length) return 0;
+                                            if (op === "sum") return d3.sum(values);
+                                            if (op === "min") return d3.min(values) ?? 0;
+                                            if (op === "max") return d3.max(values) ?? 0;
+                                            if (op === "mean" || op === "avg" || op === "average") return d3.mean(values) ?? 0;
+                                            if (op === "median") return d3.median(values) ?? 0;
+                                            if (op === "q1" || op === "p25") {
+                                                const sorted = values.slice().sort((a, b) => a - b);
+                                                return d3.quantileSorted(sorted, 0.25) ?? 0;
+                                            }
+                                            if (op === "q3" || op === "p75") {
+                                                const sorted = values.slice().sort((a, b) => a - b);
+                                                return d3.quantileSorted(sorted, 0.75) ?? 0;
+                                            }
+                                            if (op === "iqr") {
+                                                const sorted = values.slice().sort((a, b) => a - b);
+                                                const q1 = d3.quantileSorted(sorted, 0.25) ?? 0;
+                                                const q3 = d3.quantileSorted(sorted, 0.75) ?? 0;
+                                                return q3 - q1;
+                                            }
+                                            return d3.sum(values);
+                                        };
+
+                                        const applyFormatter = (value, formatter) => {
+                                            if (typeof formatter === "function") {
+                                                try {
+                                                    const formatted = formatter(value, baseCtx);
+                                                    if (formatted !== undefined && formatted !== null) return String(formatted);
+                                                } catch (e) {
+                                                    return null;
+                                                }
+                                                return null;
+                                            }
+                                            if (typeof formatter === "string" && formatter) {
+                                                try {
+                                                    return d3.format(formatter)(value);
+                                                } catch (e) {
+                                                    return null;
+                                                }
+                                            }
+                                            return null;
+                                        };
+
+                                        let countValue = lensState.count;
+                                        let countText = null;
+
+                                        if (typeof count === "function") {
+                                            try {
+                                                const res = count(elementsInRadius, baseCtx);
+                                                if (typeof res === "string") {
+                                                    countText = res;
+                                                } else if (typeof res === "number" && Number.isFinite(res)) {
+                                                    countValue = res;
+                                                } else if (res && typeof res === "object") {
+                                                    const v = res.value ?? res.Value;
+                                                    const t = res.text ?? res.Text;
+                                                    if (typeof v === "number" && Number.isFinite(v)) countValue = v;
+                                                    if (typeof t === "string") countText = t;
+                                                }
+                                            } catch (e) {
+                                                countText = null;
+                                            }
+                                        } else if (count && typeof count === "object") {
+                                            const cfg = count;
+                                            const aggregate = cfg?.aggregate ?? cfg?.Aggregate;
+                                            const op = cfg?.op ?? cfg?.Op ?? cfg?.operator ?? cfg?.Operator;
+                                            const formatter =
+                                                cfg?.formatter ?? cfg?.Formatter ?? cfg?.format ?? cfg?.Format ?? null;
+                                            const accessor = getAccessorFromConfig(cfg);
+                                            if (typeof aggregate === "function") {
+                                                try {
+                                                    const v = aggregate(elementsInRadius, baseCtx);
+                                                    if (typeof v === "number" && Number.isFinite(v)) countValue = v;
+                                                } catch (e) {
+                                                    countText = null;
+                                                }
+                                            } else {
+                                                const values =
+                                                    typeof accessor === "function"
+                                                        ? elementsInRadius
+                                                              .map((elem) => Number(accessor(elem)))
+                                                              .filter((v) => Number.isFinite(v))
+                                                        : [];
+                                                if (
+                                                    typeof op === "string" &&
+                                                    op.trim().toLowerCase() === "count" &&
+                                                    !accessor
+                                                ) {
+                                                    countValue = elementsInRadius.length;
+                                                } else if (accessor) {
+                                                    countValue = computeFromValues(values, op);
+                                                } else {
+                                                    countValue = elementsInRadius.length;
+                                                }
+                                            }
+                                            const formatted = applyFormatter(countValue, formatter);
+                                            if (formatted !== null) countText = formatted;
+                                        } else if (typeof countAccessor === "function") {
                                             let sum = 0;
                                             elementsInRadius.forEach((elem) => {
                                                 const v = Number(countAccessor(elem));
                                                 if (Number.isFinite(v)) sum += v;
                                             });
                                             countValue = sum;
+                                            countText = applyFormatter(countValue, countFormatter);
+                                        } else {
+                                            countValue = elementsInRadius.length;
+                                            countText = applyFormatter(countValue, countFormatter);
                                         }
-                                        lensState.countValue = countValue;
 
-                                        let countText = null;
-                                        if (typeof countFormatter === "function") {
-                                            try {
-                                                const formatted = countFormatter(countValue, {
-                                                    count: lensState.count,
-                                                    elements: elementsInRadius,
-                                                });
-                                                if (formatted !== undefined && formatted !== null) {
-                                                    countText = String(formatted);
-                                                }
-                                            } catch (e) {
-                                                countText = null;
-                                            }
-                                        }
+                                        lensState.countValue = countValue;
                                         lensState.countText = countText;
                                     }
                                     const rawInfos = getRawInfos(
@@ -1613,10 +1722,13 @@ export default class LibraManager {
                                     const strokeWidth = transformer.getSharedVar("strokeWidth");
                                     const count = transformer.getSharedVar("count");
                                     const countAccessor = transformer.getSharedVar("countAccessor");
+                                    const countConfig = transformer.getSharedVar("count");
                                     const displayCountRaw =
                                         lensState && typeof lensState.countText === "string"
                                             ? lensState.countText
-                                            : typeof countAccessor === "function" &&
+                                            : (typeof countConfig === "function" ||
+                                                  (countConfig && typeof countConfig === "object") ||
+                                                  typeof countAccessor === "function") &&
                                                 lensState &&
                                                 Number.isFinite(lensState.countValue)
                                               ? lensState.countValue
@@ -1680,6 +1792,7 @@ export default class LibraManager {
         const sharedVar = {};
         if (context.labelAccessor) sharedVar.labelAccessor = context.labelAccessor;
         if (context.colorAccessor) sharedVar.colorAccessor = context.colorAccessor;
+        if (context.count !== undefined) sharedVar.count = context.count;
         if (context.countAccessor) sharedVar.countAccessor = context.countAccessor;
         if (context.countFormatter) sharedVar.countFormatter = context.countFormatter;
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
