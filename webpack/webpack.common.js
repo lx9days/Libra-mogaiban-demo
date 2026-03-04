@@ -33,6 +33,7 @@ module.exports = {
   resolve: {
     alias: {
       '~': Path.resolve(__dirname, '../src'),
+      'libra-vis': Path.resolve(__dirname, '../../Libra/dist/esm/index.js'),
     },
   },
   module: {

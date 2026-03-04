@@ -199,8 +199,11 @@ async function mountInteraction(layer) {
                     maxLabelsNum: 10,
                     labelAccessor: (circleElem) => d3.select(circleElem).datum()["Origin"],
                     colorAccessor: (circleElem) => color(d3.select(circleElem).datum()[FIELD_COLOR]),
-                    countAccessor: (circleElem) => d3.select(circleElem).datum()?.Horsepower,
-                    countFormatter: (sum, { count }) => `${count} / ${Math.round(sum)}`
+                    count: {
+                        field: "Horsepower",
+                        op: "sum",
+                        formatter: (sum, { count }) => `${count} / ${Math.round(sum)}`,
+                    },
                 },
             },
             stopPropagation: true,

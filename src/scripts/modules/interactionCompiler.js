@@ -8,6 +8,10 @@ const triggerToInstrument = {
   hover: "HoverInstrument",
   click: "ClickInstrument",
   brush: "BrushInstrument",
+  "brush-x": "BrushXInstrument",
+  brushx: "BrushXInstrument",
+  "brush-y": "BrushYInstrument",
+  brushy: "BrushYInstrument",
   drag: "DragInstrument",
   pan: "PanInstrument",
   zoom: "GeometricZoomInstrument",
@@ -643,6 +647,21 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (linkLayers) {
         sharedVar.linkLayers = linkLayers;
       }
+      const linkMatchMode =
+        feedbackOptions?.LinkMatchMode ?? feedbackOptions?.linkMatchMode;
+      if (linkMatchMode !== undefined) {
+        sharedVar.linkMatchMode = linkMatchMode;
+      }
+      const linkFields =
+        feedbackOptions?.LinkFields ??
+        feedbackOptions?.linkFields ??
+        feedbackOptions?.LinkField ??
+        feedbackOptions?.linkField ??
+        feedbackOptions?.LinkBy ??
+        feedbackOptions?.linkBy;
+      if (linkFields !== undefined) {
+        sharedVar.linkFields = linkFields;
+      }
       const linkDefaultOpacity =
         feedbackOptions?.LinkDefaultOpacity ?? feedbackOptions?.linkDefaultOpacity;
       if (linkDefaultOpacity !== undefined) {
@@ -667,6 +686,11 @@ export function compileInteractionsDSL(specList = [], ctx) {
         feedbackOptions?.LinkStrokeWidth ?? feedbackOptions?.linkStrokeWidth;
       if (linkStrokeWidth !== undefined) {
         sharedVar.linkStrokeWidth = linkStrokeWidth;
+      }
+
+      const dim = feedbackOptions?.Dim ?? feedbackOptions?.dim;
+      if (dim !== undefined) {
+        sharedVar.dim = dim;
       }
 
       const modifierKeyRaw =

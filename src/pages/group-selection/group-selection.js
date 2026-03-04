@@ -186,6 +186,8 @@ async function mountInteraction(layer) {
       "Target layer": "mainLayer",
       "Feedback options": {
         Highlight: "#00ff1aff",
+        Dim: { opacity: 0.1, selector: ".mark" },
+        RemnantKey:"shift"
       },
       priority: 1,
       stopPropagation: true,
