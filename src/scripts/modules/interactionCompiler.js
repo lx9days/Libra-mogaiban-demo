@@ -330,6 +330,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
         spec?.layer ||
         spec?.targetLayer;
       let layers = [];
+      let autoLayerOptions = null;
       if (Array.isArray(targetName)) {
         targetName.forEach((name) => {
           let resolved =
@@ -348,6 +349,18 @@ export function compileInteractionsDSL(specList = [], ctx) {
         if (targetInstrumentName && instrumentRegistry.has(targetInstrumentName)) {
           const targetInstrument = instrumentRegistry.get(targetInstrumentName);
           if (targetInstrument?.layer) layers = [targetInstrument.layer];
+          const queueLayerName = typeof targetName === "string" ? stripInlineComment(targetName) : "";
+          if (
+            queueLayerName === "LabelLayer" &&
+            layers.length > 0 &&
+            typeof layers[0]?.getLayerFromQueue === "function"
+          ) {
+            const queuedLayer = layers[0].getLayerFromQueue(queueLayerName);
+            if (queuedLayer) {
+              layers = [queuedLayer];
+              autoLayerOptions = { pointerEvents: "viewPort" };
+            }
+          }
         } else {
           let resolved =
             (typeof targetName === "string" && layersByName[targetName]) ||
@@ -377,6 +390,23 @@ export function compileInteractionsDSL(specList = [], ctx) {
         ctx,
       });
       const highlight = feedbackOptions?.Highlight || feedbackOptions?.highlight;
+      let highlightAttrValues = null;
+      if (highlight && typeof highlight === "object") {
+        const attrValues =
+          (highlight.attrValues &&
+            typeof highlight.attrValues === "object" &&
+            highlight.attrValues) ||
+          (highlight.AttrValues &&
+            typeof highlight.AttrValues === "object" &&
+            highlight.AttrValues) ||
+          null;
+        if (attrValues) {
+          highlightAttrValues = attrValues;
+        } else {
+          const { color, Color, ...rest } = highlight;
+          if (Object.keys(rest).length > 0) highlightAttrValues = rest;
+        }
+      }
 
       if (interaction === "reordering" || interaction === "reorderinstrument" || interaction === "reorder") {
         const directionRaw = spec?.Direction || spec?.direction || feedbackOptions?.Direction || feedbackOptions?.direction;
@@ -457,47 +487,12 @@ export function compileInteractionsDSL(specList = [], ctx) {
           if (typeof bindingKeyRaw === "string") {
             buildContext.bindingKey = stripInlineComment(bindingKeyRaw);
           }
-          const persistOnClick =
-            buildContext.persistOnClick ??
-            buildContext.PersistOnClick ??
-            buildContext.pinOnClick ??
-            buildContext.PinOnClick ??
-            buildContext.persistByClick ??
-            buildContext.PersistByClick ??
-            false;
-          const clickPriorityRaw =
-            buildContext.clickPriority ??
-            buildContext.ClickPriority;
-          let clickPriority = clickPriorityRaw;
-          if (clickPriority === undefined && stopPropagation === true) {
-            const basePriority =
-              typeof priority === "number" ? priority : 0;
-            clickPriority = basePriority + 1;
-          }
           if (priority !== undefined) buildContext.priority = priority;
           if (stopPropagation !== undefined)
             buildContext.stopPropagation = stopPropagation;
-          if (!persistOnClick) buildContext.disablePin = true;
 
           for (const layer of layers) {
             const stateKey = LibraManager.buildExcentricLabelingInstrument(layer, buildContext);
-            if (persistOnClick) {
-              LibraManager.buildExcentricLabelingClickInstrument(layer, {
-                bindingKey: buildContext.bindingKey,
-                modifierKey:
-                  buildContext.clickModifierKey ??
-                  buildContext.ClickModifierKey ??
-                  buildContext.modifierKey,
-                pinThreshold:
-                  buildContext.pinThreshold ??
-                  buildContext.PinThreshold,
-                togglePin:
-                  buildContext.togglePin ??
-                  buildContext.TogglePin,
-                priority: clickPriority,
-                stopPropagation,
-              });
-            }
             const registryName = instrumentName || buildContext.bindingKey;
             if (registryName) {
               instrumentRegistry.set(registryName, {
@@ -610,8 +605,12 @@ export function compileInteractionsDSL(specList = [], ctx) {
       const sharedVar = { ...sharedVarDefaults };
       if (typeof highlight === "string") {
         sharedVar.highlightColor = highlight;
-      } else if (highlight && typeof highlight === "object" && highlight.color) {
-        sharedVar.highlightColor = highlight.color;
+      } else if (highlight && typeof highlight === "object") {
+        if (highlight.color) sharedVar.highlightColor = highlight.color;
+        if (highlight.Color) sharedVar.highlightColor = highlight.Color;
+        if (highlightAttrValues && typeof highlightAttrValues === "object") {
+          sharedVar.highlightAttrValues = highlightAttrValues;
+        }
       }
       const remnantKey = feedbackOptions?.remnantKey || feedbackOptions?.RemnantKey;
       if (remnantKey) {
@@ -731,8 +730,71 @@ export function compileInteractionsDSL(specList = [], ctx) {
         });
       }
 
-      const remove = spec?.remove ?? spec?.Remove ?? feedbackOptions?.remove ?? feedbackOptions?.Remove;
-      let insert = spec?.insert ?? spec?.Insert ?? feedbackOptions?.insert ?? feedbackOptions?.Insert;
+      let remove =
+        spec?.remove ?? spec?.Remove ?? feedbackOptions?.remove ?? feedbackOptions?.Remove;
+      let insert =
+        spec?.insert ?? spec?.Insert ?? feedbackOptions?.insert ?? feedbackOptions?.Insert;
+      let override =
+        spec?.override ??
+        spec?.Override ??
+        feedbackOptions?.override ??
+        feedbackOptions?.Override;
+
+      const customFeedbackFlowRaw =
+        spec?.customFeedbackFlow ??
+        spec?.CustomFeedbackFlow ??
+        spec?.customfeedbackflow ??
+        feedbackOptions?.customFeedbackFlow ??
+        feedbackOptions?.CustomFeedbackFlow ??
+        feedbackOptions?.customfeedbackflow;
+      let customFeedbackFlow = customFeedbackFlowRaw;
+      if (typeof customFeedbackFlowRaw === "string") {
+        const key = stripInlineComment(customFeedbackFlowRaw);
+        if (refs && key in refs) customFeedbackFlow = refs[key];
+        else if (handlers && key in handlers) customFeedbackFlow = handlers[key];
+      }
+      if (typeof customFeedbackFlow === "function") {
+        try {
+          customFeedbackFlow = customFeedbackFlow({
+            spec,
+            layers,
+            layer: layers[0],
+            layersByName,
+            scales,
+            handlers,
+            refs,
+            ctx,
+            feedbackOptions,
+          });
+        } catch {
+          customFeedbackFlow = null;
+        }
+      }
+      if (customFeedbackFlow && typeof customFeedbackFlow === "object") {
+        const cfInsert =
+          customFeedbackFlow.insert ??
+          customFeedbackFlow.Insert ??
+          customFeedbackFlow.flow ??
+          customFeedbackFlow.Flow;
+        const cfRemove =
+          customFeedbackFlow.remove ??
+          customFeedbackFlow.Remove;
+        const cfOverride =
+          customFeedbackFlow.override ??
+          customFeedbackFlow.Override;
+
+        if (Array.isArray(cfInsert) && cfInsert.length > 0) {
+          insert = Array.isArray(insert) ? [...insert, ...cfInsert] : cfInsert;
+        }
+        if (Array.isArray(cfRemove) && cfRemove.length > 0) {
+          remove = Array.isArray(remove) ? [...remove, ...cfRemove] : cfRemove;
+        }
+        if (Array.isArray(cfOverride) && cfOverride.length > 0) {
+          override = Array.isArray(override)
+            ? [...override, ...cfOverride]
+            : cfOverride;
+        }
+      }
       
       // Process Operator/Renderer inside Insert array
       if (Array.isArray(insert)) {
@@ -780,9 +842,18 @@ export function compileInteractionsDSL(specList = [], ctx) {
         insert = insert ? [...insert, ...autoInsert] : autoInsert;
       }
 
-      const override = spec?.override ?? spec?.Override ?? feedbackOptions?.override ?? feedbackOptions?.Override;
+      const layerOptions =
+        spec?.layerOptions ??
+        spec?.LayerOptions ??
+        feedbackOptions?.layerOptions ??
+        feedbackOptions?.LayerOptions;
+      const finalLayerOptions = layerOptions || autoLayerOptions;
+      const buildLayers =
+        finalLayerOptions && typeof finalLayerOptions === "object"
+          ? layers.map((layer) => ({ layer, options: finalLayerOptions }))
+          : layers;
 
-      const buildOptions = { inherit, layers, sharedVar };
+      const buildOptions = { inherit, layers: buildLayers, sharedVar };
       if (priority !== undefined) buildOptions.priority = priority;
       if (stopPropagation !== undefined)
         buildOptions.stopPropagation = stopPropagation;

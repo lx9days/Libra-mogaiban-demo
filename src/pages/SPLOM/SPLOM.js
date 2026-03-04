@@ -355,20 +355,20 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
     }
   ];
   const pointSelectionInteractions = [
-    {
-      Instrument: "point selection",
-      Trigger: "hover",
-      "Target layer": Object.keys(cellLayers),
-      "Feedback options": {
-        Highlight: "#ff0000",
-        Tooltip: {
-          fields: ["class"],
-          offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
-        }
-      },
-      priority: 0,
-      stopPropagation: true
-    }
+    // {
+    //   Instrument: "point selection",
+    //   Trigger: "hover",
+    //   "Target layer": Object.keys(cellLayers),
+    //   "Feedback options": {
+    //     Highlight: "#ff0000",
+    //     Tooltip: {
+    //       fields: ["class"],
+    //       offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
+    //     }
+    //   },
+    //   priority: 0,
+    //   stopPropagation: true
+    // }
   ];
   const groupSelectionInteractions = Object.keys(cellLayers)
     .map((layerName) => {
@@ -380,8 +380,8 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       const sy = yScales[yiField];
       if (!sx || !sy) return null;
       return {
-        Instrument: "group selection",
-        Trigger: "brush",
+        Instrument: "point selection",
+        Trigger: "hover",
         "Target layer": layerName,
         "Feedback options": {
           Highlight: "#00ff1aff",

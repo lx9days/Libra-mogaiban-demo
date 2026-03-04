@@ -1204,23 +1204,19 @@ export default class LibraManager {
         let state = LibraManager.__excentricLensStateMap.get(stateKey);
         if (!state) {
             state = {
-                pinned: false,
-                layerX: 0,
-                layerY: 0,
                 clientX: 0,
                 clientY: 0,
                 shiftKey: false,
                 ctrlKey: false,
                 altKey: false,
                 metaKey: false,
-                pointerDownX: 0,
-                pointerDownY: 0,
-                hasPointerDown: false,
                 r: Number.isFinite(context.r) ? context.r : 20,
                 count: 0,
+                countValue: 0,
+                countText: null,
             };
             LibraManager.__excentricLensStateMap.set(stateKey, state);
-        } else if (Number.isFinite(context.r) && !state.pinned) {
+        } else if (Number.isFinite(context.r)) {
             state.r = context.r;
         }
 
@@ -1249,10 +1245,6 @@ export default class LibraManager {
     static buildExcentricLabelingInstrument(layer, context = {}) {
         if (!layer) return;
         const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
-        if (context.disablePin === true) {
-            state.pinned = false;
-            state.hasPointerDown = false;
-        }
 
         if (!LibraManager.__excentricLabelingInstrumentRegistered) {
             Libra.Interaction.build({
@@ -1269,6 +1261,8 @@ export default class LibraManager {
                     maxLabelsNum: 10,
                     labelAccessor: (circleElem) => d3.select(circleElem).datum()?.Name,
                     colorAccessor: () => "black",
+                    countAccessor: null,
+                    countFormatter: null,
                     modifierKey: "Shift",
                 },
                 override: [
@@ -1289,6 +1283,8 @@ export default class LibraManager {
                                     colorAccessor,
                                     r,
                                     maxLabelsNum,
+                                    countAccessor,
+                                    countFormatter,
                                     event,
                                     layer,
                                     lensState,
@@ -1311,24 +1307,16 @@ export default class LibraManager {
                                         lensState.altKey = !!pointerEvent.altKey;
                                         lensState.metaKey = !!pointerEvent.metaKey;
                                     }
-                                    const pinned =
-                                        lensState &&
-                                        lensState.pinned &&
-                                        Number.isFinite(lensState.layerX) &&
-                                        Number.isFinite(lensState.layerY);
-                                    if (!event && !pinned) {
-                                        if (lensState) lensState.count = 0;
+                                    if (!event) {
+                                        if (lensState) {
+                                            lensState.count = 0;
+                                            lensState.countValue = 0;
+                                            lensState.countText = null;
+                                        }
                                         return [];
                                     }
 
-                                    let layerX = 0;
-                                    let layerY = 0;
-                                    if (pinned) {
-                                        layerX = lensState.layerX;
-                                        layerY = lensState.layerY;
-                                    } else {
-                                        [layerX, layerY] = d3.pointer(event, layer.getGraphic());
-                                    }
+                                    const [layerX, layerY] = d3.pointer(event, layer.getGraphic());
                                     const lensRadius =
                                         lensState && Number.isFinite(lensState.r) ? lensState.r : r;
                                     const rootBBox = layer.getContainerGraphic().getBoundingClientRect();
@@ -1341,6 +1329,30 @@ export default class LibraManager {
                                             e: 0,
                                             f: 0,
                                         };
+
+                                    function getElementsInRadius(objs, center, radius) {
+                                        const radiusSquare = radius * radius;
+                                        const result = [];
+                                        objs.forEach((obj) => {
+                                            const screenElem = obj?.__libra__screenElement || obj;
+                                            if (
+                                                !screenElem ||
+                                                typeof screenElem.getBoundingClientRect !== "function"
+                                            ) {
+                                                return;
+                                            }
+                                            const bbox = screenElem.getBoundingClientRect();
+                                            const x =
+                                                bbox.x + (bbox.width >> 1) - rootBBox.x - layerBBox.e;
+                                            const y =
+                                                bbox.y + (bbox.height >> 1) - rootBBox.y - layerBBox.f;
+                                            const dx = x - center.x;
+                                            const dy = y - center.y;
+                                            if (dx * dx + dy * dy > radiusSquare) return;
+                                            result.push(screenElem);
+                                        });
+                                        return result;
+                                    }
 
                                     function getRawInfos(
                                         objs,
@@ -1409,7 +1421,6 @@ export default class LibraManager {
                                     }
 
                                     const sourceObjects = (() => {
-                                        if (pinned) return layer.getVisualElements();
                                         if (
                                             pointerEvent &&
                                             typeof layer?.picking === "function" &&
@@ -1428,6 +1439,40 @@ export default class LibraManager {
                                         }
                                         return Array.isArray(circles) ? circles : [];
                                     })();
+                                    const elementsInRadius = getElementsInRadius(
+                                        sourceObjects,
+                                        { x: layerX, y: layerY },
+                                        lensRadius
+                                    );
+                                    if (lensState) {
+                                        lensState.count = elementsInRadius.length;
+                                        let countValue = elementsInRadius.length;
+                                        if (typeof countAccessor === "function") {
+                                            let sum = 0;
+                                            elementsInRadius.forEach((elem) => {
+                                                const v = Number(countAccessor(elem));
+                                                if (Number.isFinite(v)) sum += v;
+                                            });
+                                            countValue = sum;
+                                        }
+                                        lensState.countValue = countValue;
+
+                                        let countText = null;
+                                        if (typeof countFormatter === "function") {
+                                            try {
+                                                const formatted = countFormatter(countValue, {
+                                                    count: lensState.count,
+                                                    elements: elementsInRadius,
+                                                });
+                                                if (formatted !== undefined && formatted !== null) {
+                                                    countText = String(formatted);
+                                                }
+                                            } catch (e) {
+                                                countText = null;
+                                            }
+                                        }
+                                        lensState.countText = countText;
+                                    }
                                     const rawInfos = getRawInfos(
                                         sourceObjects,
                                         labelAccessor,
@@ -1435,7 +1480,6 @@ export default class LibraManager {
                                         { x: layerX, y: layerY },
                                         lensRadius
                                     );
-                                    if (lensState) lensState.count = rawInfos.length;
                                     if (!rawInfos.length) return [];
                                     computeSizeOfLabels(rawInfos, d3.select(layer.getGraphic()));
 
@@ -1533,25 +1577,12 @@ export default class LibraManager {
                                 },
                                 redraw({ layer, transformer }) {
                                     const lensState = transformer.getSharedVar("lensState");
-                                    const pinned =
-                                        lensState &&
-                                        lensState.pinned &&
-                                        Number.isFinite(lensState.layerX) &&
-                                        Number.isFinite(lensState.layerY);
-                                    const cx = pinned
-                                        ? lensState.layerX
-                                        : transformer.getSharedVar("x") -
-                                          layer
-                                              .getLayerFromQueue("mainLayer")
-                                              .getGraphic()
-                                              .getBoundingClientRect().left;
-                                    const cy = pinned
-                                        ? lensState.layerY
-                                        : transformer.getSharedVar("y") -
-                                          layer
-                                              .getLayerFromQueue("mainLayer")
-                                              .getGraphic()
-                                              .getBoundingClientRect().top;
+                                    const mainGraphic = layer
+                                        .getLayerFromQueue("mainLayer")
+                                        .getGraphic()
+                                        .getBoundingClientRect();
+                                    const cx = transformer.getSharedVar("x") - mainGraphic.left;
+                                    const cy = transformer.getSharedVar("y") - mainGraphic.top;
                                     const opacity = 1;
                                     const lensRadius =
                                         lensState && Number.isFinite(lensState.r)
@@ -1560,10 +1591,18 @@ export default class LibraManager {
                                     const stroke = transformer.getSharedVar("stroke");
                                     const strokeWidth = transformer.getSharedVar("strokeWidth");
                                     const count = transformer.getSharedVar("count");
-                                    const displayCount =
-                                        lensState && Number.isFinite(lensState.count)
-                                            ? lensState.count
-                                            : count;
+                                    const countAccessor = transformer.getSharedVar("countAccessor");
+                                    const displayCountRaw =
+                                        lensState && typeof lensState.countText === "string"
+                                            ? lensState.countText
+                                            : typeof countAccessor === "function" &&
+                                                lensState &&
+                                                Number.isFinite(lensState.countValue)
+                                              ? lensState.countValue
+                                              : lensState && Number.isFinite(lensState.count)
+                                                ? lensState.count
+                                                : count;
+                                    const displayCount = String(displayCountRaw);
                                     const countLabelDistance = transformer.getSharedVar("countLabelDistance");
                                     const fontSize = transformer.getSharedVar("fontSize");
                                     const countLabelWidth = transformer.getSharedVar("countLabelWidth");
@@ -1620,6 +1659,8 @@ export default class LibraManager {
         const sharedVar = {};
         if (context.labelAccessor) sharedVar.labelAccessor = context.labelAccessor;
         if (context.colorAccessor) sharedVar.colorAccessor = context.colorAccessor;
+        if (context.countAccessor) sharedVar.countAccessor = context.countAccessor;
+        if (context.countFormatter) sharedVar.countFormatter = context.countFormatter;
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
         if (context.renderSelection !== undefined) sharedVar.renderSelection = context.renderSelection;
         if (context.r !== undefined) sharedVar.r = context.r;
@@ -1640,169 +1681,12 @@ export default class LibraManager {
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
         Libra.Interaction.build(buildOptions);
-
-        const labelsLayer = layer.getLayerFromQueue("LabelLayer");
-        if (labelsLayer) {
-            const labelHoverBuildOptions = {
-                inherit: "HoverInstrument",
-                layers: [{ layer: labelsLayer, options: { pointerEvents: "viewPort" } }],
-                sharedVar: {
-                    highlightAttrValues:
-                        context.labelHoverHighlightAttrValues ||
-                        context.labelHoverHighlight ||
-                        {
-                            stroke: "#ff0000",
-                            "stroke-width": 2,
-                        },
-                },
-            };
-            Libra.Interaction.build(labelHoverBuildOptions);
-        }
-        return stateKey;
-    }
-
-    static buildExcentricLabelingClickInstrument(layer, context = {}) {
-        if (!layer) return;
-        const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
-        const pinThreshold = Number.isFinite(context.pinThreshold) ? context.pinThreshold : 2;
-        const togglePin = !!context.togglePin;
-
-        const pickPointerEvent = (event) => {
-            if (event && event.changedTouches && event.changedTouches[0]) return event.changedTouches[0];
-            return event;
-        };
-
-        const updateModifierState = (pointer) => {
-            state.shiftKey = !!pointer?.shiftKey;
-            state.ctrlKey = !!pointer?.ctrlKey;
-            state.altKey = !!pointer?.altKey;
-            state.metaKey = !!pointer?.metaKey;
-        };
-
-        const onPointerDown = ({ event }) => {
-            const pointer = pickPointerEvent(event);
-            if (!pointer) return;
-            updateModifierState(pointer);
-            state.pointerDownX = pointer.clientX;
-            state.pointerDownY = pointer.clientY;
-            state.hasPointerDown = true;
-        };
-
-        const onPointerUp = ({ event, layer: activeLayer }) => {
-            const pointer = pickPointerEvent(event);
-            if (!pointer || !state.hasPointerDown) return;
-            state.hasPointerDown = false;
-            updateModifierState(pointer);
-            if (Number.isFinite(pointer.clientX) && Number.isFinite(pointer.clientY)) {
-                state.clientX = pointer.clientX;
-                state.clientY = pointer.clientY;
-            }
-
-            const deltaX = pointer.clientX - state.pointerDownX;
-            const deltaY = pointer.clientY - state.pointerDownY;
-            if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > pinThreshold) return;
-
-            const [layerX, layerY] = d3.pointer(pointer, activeLayer.getGraphic());
-            if (togglePin && state.pinned) {
-                const pinnedDx = layerX - state.layerX;
-                const pinnedDy = layerY - state.layerY;
-                if (Math.sqrt(pinnedDx * pinnedDx + pinnedDy * pinnedDy) <= pinThreshold) {
-                    state.pinned = false;
-                    LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
-                    return;
-                }
-            }
-
-            state.pinned = true;
-            state.layerX = layerX;
-            state.layerY = layerY;
-            LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
-        };
-
-        const onPointerAbort = ({ event, layer: activeLayer }) => {
-            const pointer = pickPointerEvent(event);
-            if (event && typeof event.preventDefault === "function") event.preventDefault();
-            updateModifierState(pointer);
-            state.hasPointerDown = false;
-            state.pinned = false;
-            if (pointer && Number.isFinite(pointer.clientX) && Number.isFinite(pointer.clientY)) {
-                state.clientX = pointer.clientX;
-                state.clientY = pointer.clientY;
-            }
-            LibraManager.__dispatchExcentricLensRefresh(activeLayer, state);
-        };
-
-        const mouseTraceActions = [
-            {
-                action: "dragabort",
-                events: ["mousedown[event.button==2]", "mouseup[event.button==2]"],
-                transition: [["start", "start"], ["drag", "start"]],
-                sideEffect: onPointerAbort,
-            },
-            {
-                action: "dragstart",
-                events: ["mousedown"],
-                transition: [["start", "drag"]],
-                sideEffect: onPointerDown,
-            },
-            {
-                action: "drag",
-                events: ["mousemove"],
-                transition: [["drag", "drag"]],
-            },
-            {
-                action: "dragend",
-                events: ["mouseup[event.button==0]"],
-                transition: [["drag", "start"]],
-                sideEffect: onPointerUp,
-            },
-        ];
-
-        const touchTraceActions = [
-            {
-                action: "dragstart",
-                events: ["touchstart"],
-                transition: [["start", "drag"]],
-                sideEffect: onPointerDown,
-            },
-            {
-                action: "drag",
-                events: ["touchmove"],
-                transition: [["drag", "drag"]],
-            },
-            {
-                action: "dragend",
-                events: ["touchend"],
-                transition: [["drag", "start"]],
-                sideEffect: onPointerUp,
-            },
-        ];
-
-        const sharedVar = {};
-        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
-        const buildOptions = {
-            inherit: "ClickInstrument",
-            layers: [layer],
-            sharedVar,
-            override: [
-                { find: "MouseTraceInteractor", actions: mouseTraceActions },
-                { find: "TouchTraceInteractor", actions: touchTraceActions },
-            ],
-        };
-        if (context.priority !== undefined) buildOptions.priority = context.priority;
-        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
-        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
-        Libra.Interaction.build(buildOptions);
         return stateKey;
     }
 
     static buildExcentricLabelingZoomInstrument(layer, context = {}) {
         if (!layer) return;
         const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
-        if (context.disablePin === true) {
-            state.pinned = false;
-            state.hasPointerDown = false;
-        }
         const minRadius =
             Number.isFinite(context.minR) ? context.minR : Number.isFinite(context.minRadius) ? context.minRadius : 8;
         const maxRadius =
@@ -1834,17 +1718,10 @@ export default class LibraManager {
                     const nextCtrlKey = !!event?.ctrlKey;
                     const nextAltKey = !!event?.altKey;
                     const nextMetaKey = !!event?.metaKey;
-                    if (!state.pinned) {
-                        state.shiftKey = nextShiftKey;
-                        state.ctrlKey = nextCtrlKey;
-                        state.altKey = nextAltKey;
-                        state.metaKey = nextMetaKey;
-                    } else {
-                        state.shiftKey = state.shiftKey || nextShiftKey;
-                        state.ctrlKey = state.ctrlKey || nextCtrlKey;
-                        state.altKey = state.altKey || nextAltKey;
-                        state.metaKey = state.metaKey || nextMetaKey;
-                    }
+                    state.shiftKey = nextShiftKey;
+                    state.ctrlKey = nextCtrlKey;
+                    state.altKey = nextAltKey;
+                    state.metaKey = nextMetaKey;
                     const rawDelta =
                         typeof event.deltaY === "number"
                             ? event.deltaY

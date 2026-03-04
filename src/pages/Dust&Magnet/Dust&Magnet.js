@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 // global constants
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -246,49 +247,45 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
         },
     ];
 
-    Libra.Interaction.build({
-        inherit: "DragInstrument",
-        layers: [
-            { layer: magnetLayer, options: { pointerEvents: "visiblePainted" } }, // Block the underlying layer events
-        ],
-        remove: [
-            {
-                find: "SelectionTransformer", // Don't render the selected mark
+    const interactions = [
+        {
+            Trigger: "drag",
+            "Target layer": "magnetLayer",
+            customFeedbackFlow: {
+                insert: commonInsertFlows,
+                remove: [{ find: "SelectionTransformer" }],
             },
-        ],
-        insert: commonInsertFlows,
-        priority: 3,
-        stopPropagation: true,
-    });
-
-    Libra.Interaction.build({
-        inherit: "ClickInstrument",
-        layers: [bgLayer],
-        insert: commonInsertFlows,
-        priority: 1,
-        stopPropagation: true,
-    });
-
-    Libra.Interaction.build({
-        inherit: "ClickInstrument",
-        layers: [{ layer: dustLayer, options: { pointerEvents: "visiblePainted" } }],
-        sharedVar: {
-            highlightColor: "greenyellow",
-            description: "Click to select a dust",
+            layerOptions: { pointerEvents: "visiblePainted" },
+            priority: 3,
+            stopPropagation: true,
         },
-        priority: 2,
-        stopPropagation: true,
-    });
-    Libra.Interaction.build({
-        inherit: "BrushInstrument",
-        layers: [dustLayer],
-        sharedVar: {
-            highlightColor: "red",
-            modifierKey: "Shift",
-            description: "Click and drag to select multiple dusts",
+        {
+            Trigger: "click",
+            "Target layer": "bgLayer",
+            customFeedbackFlow: { insert: commonInsertFlows },
+            priority: 1,
+            stopPropagation: true,
         },
-        priority: 4,
-        stopPropagation: true,
+        {
+            Trigger: "click",
+            "Target layer": "dustLayer",
+            layerOptions: { pointerEvents: "visiblePainted" },
+            "Feedback options": { Highlight: "greenyellow" },
+            priority: 2,
+            stopPropagation: true,
+        },
+        {
+            Trigger: "brush",
+            "Target layer": "dustLayer",
+            ModifierKey: "Shift",
+            "Feedback options": { Highlight: "red" },
+            priority: 4,
+            stopPropagation: true,
+        },
+    ];
+
+    compileInteractionsDSL(interactions, {
+        layersByName: { bgLayer, dustLayer, magnetLayer },
     });
 
     if (Libra.createHistoryTrack) {

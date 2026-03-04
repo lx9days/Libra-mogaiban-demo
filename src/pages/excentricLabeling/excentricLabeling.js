@@ -197,12 +197,10 @@ async function mountInteraction(layer) {
                     fontSize: 12,
                     countLabelWidth: 40,
                     maxLabelsNum: 10,
-                    labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
+                    labelAccessor: (circleElem) => d3.select(circleElem).datum()["Origin"],
                     colorAccessor: (circleElem) => color(d3.select(circleElem).datum()[FIELD_COLOR]),
-                    labelHoverHighlightAttrValues: {
-                        stroke: "#ff0000",
-                        "stroke-width": 2,
-                    },
+                    countAccessor: (circleElem) => d3.select(circleElem).datum()?.Horsepower,
+                    countFormatter: (sum, { count }) => `${count} / ${Math.round(sum)}`
                 },
             },
             stopPropagation: true,
@@ -219,6 +217,20 @@ async function mountInteraction(layer) {
                     maxR: 120,
                 },
             },
+            stopPropagation: true,
+        },
+        {
+            Instrument: "point selection",
+            Trigger: "hover",
+            "Target Instrument": "lensMain",
+            "Target layer": "LabelLayer",
+            "Feedback options": {
+                Highlight: {
+                    stroke: "#ff0000",
+                    "stroke-width": 2,
+                },
+            },
+            priority: 1,
             stopPropagation: true,
         },
     ];
