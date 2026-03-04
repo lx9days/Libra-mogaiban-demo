@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 10, right: 30, bottom: 50, left: 70 };
 const WIDTH = 800 - MARGIN.left - MARGIN.right;
@@ -122,6 +123,7 @@ function drawMainLayer(g, scaleX, scaleY) {
   const itemH = 18;
 
   const legend = g.append("g").attr("class", "legend").attr("transform", `translate(${legendX},${legendY})`);
+  const getLegendKey = (d) => (typeof d === "string" ? d : d?.id);
 
   const items = legend
     .selectAll("g")
@@ -138,8 +140,14 @@ function drawMainLayer(g, scaleX, scaleY) {
     .attr("y", -10)
     .attr("width", 12)
     .attr("height", 12)
-    .attr("fill", (d) => (color ? color(d) : "#999"))
-    .attr("opacity", (d) => (filteredKeys[d] ? 1 : 0.25));
+    .attr("fill", (d) => {
+      const key = getLegendKey(d);
+      return color ? color(key) : "#999";
+    })
+    .attr("opacity", (d) => {
+      const key = getLegendKey(d);
+      return filteredKeys[key] ? 1 : 0.25;
+    });
 
   items
     .append("text")
@@ -147,11 +155,14 @@ function drawMainLayer(g, scaleX, scaleY) {
     .attr("y", 0)
     .attr("dominant-baseline", "middle")
     .attr("fill", "#111")
-    .attr("opacity", (d) => (filteredKeys[d] ? 1 : 0.35))
-    .text((d) => d);
+    .attr("opacity", (d) => {
+      const key = getLegendKey(d);
+      return filteredKeys[key] ? 1 : 0.35;
+    })
+    .text((d) => getLegendKey(d));
 }
 
-function mountInteraction(layer) {
+async function mountInteraction(layer) {
   Libra.Service.register("filterService", {
     sharedVar: {
       data: data,
@@ -161,7 +172,10 @@ function mountInteraction(layer) {
       let result = options.self.getSharedVar("result");
 
       result?.forEach((r) => {
-        filteredKeys[r.id] = !filteredKeys[r.id];
+        const key = typeof r === "string" ? r : r?.id;
+        if (key in filteredKeys) {
+          filteredKeys[key] = !filteredKeys[key];
+        }
       });
       let g = options.self.getSharedVar("layer").getGraphic();
     },
@@ -170,21 +184,34 @@ function mountInteraction(layer) {
     sharedVar: {
       data: data,
     },
-    evaluate({
-      data,
-      x,
-      scaleX,
-      scaleY,
-      scaleColor,
-      offsetx,
-      layer,
-      type,
-      width,
-    }) {
+    evaluate(options = {}) {
+      const self = options.self;
+      const optionData = options.data;
+      const serviceData = self?.getSharedVar("data");
+      const dataValues =
+        Array.isArray(optionData) && optionData.length > 0
+          ? optionData
+          : Array.isArray(serviceData) && serviceData.length > 0
+            ? serviceData
+            : Array.isArray(data) && data.length > 0
+              ? data
+              : [];
+      const scaleX = options.scaleX ?? self?.getSharedVar("scaleX") ?? xMain;
+      const offsetx =
+        Number.isFinite(options.offsetx) ? options.offsetx : options.x;
+      const layer = options.layer ?? self?.getSharedVar("layer") ?? null;
+      const type = options.type ?? self?.getSharedVar("type") ?? "Hover";
+      const width =
+        Number.isFinite(options.width) ? options.width : self?.getSharedVar("width");
+
       function interpolateAllAt(data, xVal, opts = {}) {
+        if (!Array.isArray(data) || data.length === 0 || !Number.isFinite(xVal)) {
+          return {};
+        }
         const xKey = opts.xKey ?? "year";
         const keys =
           opts.keys ?? Object.keys(data[0]).filter((k) => k !== xKey);
+        if (!Array.isArray(keys) || keys.length === 0) return {};
         const clamp = opts.clamp ?? true;
         const getX = (d) => +d[xKey];
         const bisect = d3.bisector(getX).left;
@@ -250,12 +277,15 @@ function mountInteraction(layer) {
       }
 
       let result = {};
-      const xVal = scaleX?.invert(offsetx - layer._offset.x);
-      const interpolate = interpolateAllAt(data, xVal);
+      if (!scaleX?.invert || !Number.isFinite(offsetx) || !layer) {
+        return { lines: {}, type };
+      }
+      const xVal = scaleX.invert(offsetx - (layer._offset?.x ?? 0));
+      const interpolate = interpolateAllAt(dataValues, xVal);
       result.lines = interpolate;
-      if (width) {
-        const xVal = scaleX?.invert(offsetx + width - layer._offset.x);
-        const interpolate2 = interpolateAllAt(data, xVal);
+      if (Number.isFinite(width) && width !== 0) {
+        const xVal = scaleX.invert(offsetx + width - (layer._offset?.x ?? 0));
+        const interpolate2 = interpolateAllAt(dataValues, xVal);
         result.lines2 = interpolate2;
       }
       result.type = type;
@@ -338,8 +368,14 @@ function mountInteraction(layer) {
         scaleC,
         alignmentBottom = false,
       ) {
-        const keys = Object.keys(lines);
-        const yBase = alignmentBottom ? scaleY(lines[keys[0]].value) : y;
+        if (!lines || typeof lines !== "object") return;
+        const keys = Object.keys(lines).filter((k) => lines[k] && Number.isFinite(lines[k].value));
+        if (keys.length === 0) return;
+        const firstLine = lines[keys[0]];
+        const yBase =
+          alignmentBottom && scaleY && firstLine
+            ? scaleY(firstLine.stackedValue ?? firstLine.value)
+            : y;
 
         keys.forEach((key, i) => {
           root
@@ -376,7 +412,7 @@ function mountInteraction(layer) {
         });
       }
 
-      if (type === "BrushX" && x && width >= 5) {
+      if (type === "BrushX" && Number.isFinite(x) && width >= 5) {
         renderLine(layer, orientation, x, y, style);
         renderLine(layer, orientation, x + width, y, style);
 
@@ -403,7 +439,7 @@ function mountInteraction(layer) {
           scaleC,
           (alignmentBottom = true),
         );
-      } else if (type === "Hover" && x) {
+      } else if (type === "Hover" && Number.isFinite(x)) {
         renderLine(layer, orientation, x, y, style);
         const root = d3.select(layer.getGraphic());
         renderTooltip(root, filteredKeys, layer, x, y, lines, scaleY, scaleC);
@@ -416,18 +452,22 @@ function mountInteraction(layer) {
       drawMainLayer(d3.select(layer.getGraphic()), xMain, yMain);
     },
   });
-  /*Param:tooltipType*/
-  Libra.Interaction.build({
-    inherit: "BrushXInstrument",
-    remove: [{ find: "SelectionTransformer" }],
-    layers: [layer],
-
-    insert: [
+  const helperLineHoverFeedback = () => ({
+    Remove: [{ find: "SelectionTransformer" }],
+    Insert: [
       {
         find: "SelectionService",
         flow: [
           {
             comp: "IntersectionService",
+            sharedVar: {
+              data,
+              scaleX: xMain,
+              scaleY: yMain,
+              scaleColor: color,
+              layer,
+              type: "Hover",
+            },
           },
         ],
       },
@@ -438,27 +478,16 @@ function mountInteraction(layer) {
             comp: "TooltipLineTransformer",
             sharedVar: {
               orientation: ["vertical"],
+              filteredKeys,
             },
           },
         ],
       },
     ],
-    sharedVar: {
-      tooltip: {
-        prefix: "Frequency: ",
-      },
-      data: data,
-      scaleX: xMain,
-      scaleY: yMain,
-      scaleColor: color,
-      layer: layer,
-      type: "BrushX",
-    },
   });
-  Libra.Interaction.build({
-    inherit: "ClickInstrument",
-    layers: [layer],
-    insert: [
+
+  const legendClickFeedback = () => ({
+    Insert: [
       {
         find: "SelectionService",
         flow: [
@@ -471,17 +500,41 @@ function mountInteraction(layer) {
         ],
       },
     ],
-    sharedVar: {
-      transient: false,
-    },
   });
+
+  const interactions = [
+    {
+      Name: "HelperLineHover",
+      Instrument: "point selection",
+      Trigger: "hover",
+      "Target layer": "mainLayer",
+      "Feedback options": helperLineHoverFeedback,
+    },
+    {
+      Name: "LegendClick",
+      Instrument: "point selection",
+      Trigger: "click",
+      "Target layer": "mainLayer",
+      "Feedback options": legendClickFeedback,
+    },
+  ];
+
+  await compileInteractionsDSL(interactions, {
+    layersByName: { mainLayer: layer },
+  });
+
+  if (typeof Libra.createHistoryTrack === "function") {
+    await Libra.createHistoryTrack();
+  } else if (typeof Libra.createHistoryTrrack === "function") {
+    await Libra.createHistoryTrrack();
+  }
 }
 
 async function main() {
   await loadData();
   renderStaticVisualization();
   let mainLayer = renderMainVisualization();
-  mountInteraction(mainLayer);
+  await mountInteraction(mainLayer);
 }
 
 export default async function init() {
