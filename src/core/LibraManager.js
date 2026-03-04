@@ -1263,7 +1263,6 @@ export default class LibraManager {
                     colorAccessor: () => "black",
                     countAccessor: null,
                     countFormatter: null,
-                    modifierKey: "Shift",
                 },
                 override: [
                     {
@@ -1306,6 +1305,28 @@ export default class LibraManager {
                                         lensState.ctrlKey = !!pointerEvent.ctrlKey;
                                         lensState.altKey = !!pointerEvent.altKey;
                                         lensState.metaKey = !!pointerEvent.metaKey;
+                                    }
+                                    if (lensState && pointerEvent && lensState.gesture === "move") {
+                                        const ts = typeof pointerEvent.timeStamp === "number" ? pointerEvent.timeStamp : Date.now();
+                                        const lastX = lensState.lastMoveX;
+                                        const lastY = lensState.lastMoveY;
+                                        const dx = lastX === undefined ? 0 : lensState.clientX - lastX;
+                                        const dy = lastY === undefined ? 0 : lensState.clientY - lastY;
+                                        const dist = Math.sqrt(dx * dx + dy * dy);
+                                        const deltaThreshold = 0.5;
+                                        if (dist > deltaThreshold) {
+                                            if (!Number.isFinite(lensState.moveStartedAt)) {
+                                                lensState.moveStartedAt = ts;
+                                            }
+                                            lensState.lastMoveX = lensState.clientX;
+                                            lensState.lastMoveY = lensState.clientY;
+                                        } else {
+                                            lensState.moveStartedAt = undefined;
+                                        }
+                                        const delay = Number.isFinite(lensState.moveDelay) ? lensState.moveDelay : 200;
+                                        if (!Number.isFinite(lensState.moveStartedAt) || (ts - lensState.moveStartedAt) < delay) {
+                                            return [];
+                                        }
                                     }
                                     if (!event) {
                                         if (lensState) {
@@ -1671,7 +1692,11 @@ export default class LibraManager {
         if (context.fontSize !== undefined) sharedVar.fontSize = context.fontSize;
         if (context.countLabelWidth !== undefined) sharedVar.countLabelWidth = context.countLabelWidth;
         if (context.maxLabelsNum !== undefined) sharedVar.maxLabelsNum = context.maxLabelsNum;
+        if (context.gesture !== undefined) sharedVar.gesture = context.gesture;
+        if (Number.isFinite(context.gestureMoveDelay)) sharedVar.gestureMoveDelay = context.gestureMoveDelay;
         sharedVar.lensState = state;
+        if (typeof sharedVar.gesture === "string") state.gesture = String(sharedVar.gesture).toLowerCase();
+        if (Number.isFinite(sharedVar.gestureMoveDelay)) state.moveDelay = Number(sharedVar.gestureMoveDelay);
 
         const buildOptions = {
             inherit: "ExcentricLabelingInstrument",
