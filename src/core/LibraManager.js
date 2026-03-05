@@ -672,6 +672,8 @@ export default class LibraManager {
     }
 
     static buildReorderInstrument(layer, context) {
+        const gesture = typeof context?.gesture === "string" ? String(context.gesture).toLowerCase() : undefined;
+        const gestureMoveDelay = Number.isFinite(context?.gestureMoveDelay) ? Number(context.gestureMoveDelay) : undefined;
         Libra.Service.register("copyService", {
             sharedVar: {
                 // These will be overridden by instance sharedVars
@@ -1124,7 +1126,9 @@ export default class LibraManager {
                 scaleY: context.scaleY,
                 redraw: context.redraw,
                 layoutOffset: context.offset || { x: 0, y: 0 },
-                offset: context.offset || { x: 0, y: 0 }
+                offset: context.offset || { x: 0, y: 0 },
+                gesture: gesture,
+                gestureMoveDelay: gestureMoveDelay
             },
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -1307,28 +1311,6 @@ export default class LibraManager {
                                         lensState.ctrlKey = !!pointerEvent.ctrlKey;
                                         lensState.altKey = !!pointerEvent.altKey;
                                         lensState.metaKey = !!pointerEvent.metaKey;
-                                    }
-                                    if (lensState && pointerEvent && lensState.gesture === "move") {
-                                        const ts = typeof pointerEvent.timeStamp === "number" ? pointerEvent.timeStamp : Date.now();
-                                        const lastX = lensState.lastMoveX;
-                                        const lastY = lensState.lastMoveY;
-                                        const dx = lastX === undefined ? 0 : lensState.clientX - lastX;
-                                        const dy = lastY === undefined ? 0 : lensState.clientY - lastY;
-                                        const dist = Math.sqrt(dx * dx + dy * dy);
-                                        const deltaThreshold = 0.5;
-                                        if (dist > deltaThreshold) {
-                                            if (!Number.isFinite(lensState.moveStartedAt)) {
-                                                lensState.moveStartedAt = ts;
-                                            }
-                                            lensState.lastMoveX = lensState.clientX;
-                                            lensState.lastMoveY = lensState.clientY;
-                                        } else {
-                                            lensState.moveStartedAt = undefined;
-                                        }
-                                        const delay = Number.isFinite(lensState.moveDelay) ? lensState.moveDelay : 200;
-                                        if (!Number.isFinite(lensState.moveStartedAt) || (ts - lensState.moveStartedAt) < delay) {
-                                            return [];
-                                        }
                                     }
                                     if (!event) {
                                         if (lensState) {

@@ -415,6 +415,21 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (interaction === "reordering" || interaction === "reorderinstrument" || interaction === "reorder") {
         const directionRaw = spec?.Direction || spec?.direction || feedbackOptions?.Direction || feedbackOptions?.direction;
         const direction = typeof directionRaw === "string" ? stripInlineComment(directionRaw).toLowerCase() : "x";
+        const gestureRaw =
+          spec?.gesture ??
+          spec?.Gesture ??
+          feedbackOptions?.gesture ??
+          feedbackOptions?.Gesture;
+        const gestureMoveDelayRaw =
+          spec?.gestureMoveDelay ??
+          spec?.GestureMoveDelay ??
+          feedbackOptions?.gestureMoveDelay ??
+          feedbackOptions?.GestureMoveDelay;
+        const gesture = typeof gestureRaw === "string" ? stripInlineComment(gestureRaw).toLowerCase() : undefined;
+        const gestureMoveDelay =
+          typeof gestureMoveDelayRaw === "number" && Number.isFinite(gestureMoveDelayRaw)
+            ? gestureMoveDelayRaw
+            : undefined;
         const redrawRef = feedbackOptions?.redrawRef || feedbackOptions?.redrawref;
         const contextRef = feedbackOptions?.contextRef || feedbackOptions?.contextref;
         let redraw = typeof feedbackOptions?.redraw === "function" ? feedbackOptions.redraw : null;
@@ -444,7 +459,9 @@ export function compileInteractionsDSL(specList = [], ctx) {
             scaleX: sX,
             scaleY: sY,
             redraw,
-            offset
+            offset,
+            gesture,
+            gestureMoveDelay
           });
         }
         continue;
@@ -891,49 +908,6 @@ export function compileInteractionsDSL(specList = [], ctx) {
 
       if (autoInsert.length > 0) {
         insert = insert ? [...insert, ...autoInsert] : autoInsert;
-      }
-
-      if (gesture === "move") {
-        const gateName = `GestureMoveGate_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-        Libra.Service.register(gateName, {
-          sharedVar: {
-            delay: gestureMoveDelay !== undefined ? gestureMoveDelay : 200,
-            lastX: undefined,
-            lastY: undefined,
-            startedAt: undefined,
-          },
-          evaluate({ event, self, result }) {
-            if (!event) return [];
-            const x = Number.isFinite(event.clientX) ? event.clientX : undefined;
-            const y = Number.isFinite(event.clientY) ? event.clientY : undefined;
-            const ts = typeof event.timeStamp === "number" ? event.timeStamp : Date.now();
-            const lastX = self.getSharedVar("lastX");
-            const lastY = self.getSharedVar("lastY");
-            const startedAt = self.getSharedVar("startedAt");
-            const dx = lastX === undefined || x === undefined ? 0 : x - lastX;
-            const dy = lastY === undefined || y === undefined ? 0 : y - lastY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const threshold = 0.5;
-            if (dist > threshold) {
-              if (startedAt === undefined || !Number.isFinite(startedAt)) {
-                self.setSharedVars({ startedAt: ts });
-              }
-              self.setSharedVars({ lastX: x, lastY: y });
-            } else {
-              self.setSharedVars({ startedAt: undefined });
-            }
-            const delay = self.getSharedVar("delay");
-            const s = self.getSharedVar("startedAt");
-            if (s === undefined || !Number.isFinite(s)) return [];
-            if (ts - s < delay) return [];
-            return Array.isArray(result) ? result : [];
-          },
-        });
-        const gateInsert = {
-          find: "SelectionService",
-          flow: [{ comp: gateName, resultAlias: "result" }],
-        };
-        insert = insert ? [...insert, gateInsert] : [gateInsert];
       }
 
       const layerOptions =
