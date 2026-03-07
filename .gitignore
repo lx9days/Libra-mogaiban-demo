@@ -2,7 +2,10 @@
 node_modules
 
 # production
-build
+
+# build
+build/
+dist/
 
 # misc
 .DS_Store

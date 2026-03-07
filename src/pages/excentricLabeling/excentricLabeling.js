@@ -180,6 +180,38 @@ function renderMainVisualization() {
 }
 
 async function mountInteraction(layer) {
+    // Excentric Labeling Zoom logic
+    // Standardized custom flow for Zoom instrument
+    const excentricZoomFlow = {
+        // Remove default zoom behavior (if any default zoom exists)
+        // In Libra, 'Zoom' instrument might have a default viewport zoom.
+        // Since we want to control the Lens, we should conceptually 'remove' the default view zoom 
+        // and 'insert' our Lens control logic.
+        // (Assuming 'ViewZoomService' is the default service for Zoom instrument)
+        remove: [{ find: "ViewZoomService" }], 
+        
+        // Insert the specific Lens control logic
+        insert: [
+            {
+                // This represents the "LensZoom" feedback logic
+                // In a unified system, this would be a specific component like "LensService"
+                comp: "LensService", 
+                // Configuration for this component
+                options: {
+                    step: 2,
+                    minR: 8,
+                    maxR: 120
+                },
+                // Explicit resource dependency (The Lens instance)
+                // In current implementation, 'bindingKey' handles this magic, 
+                // but in standard form it should be explicit here.
+                sharedVar: {
+                    lens: "lensMain" 
+                }
+            }
+        ]
+    };
+
     const interactions = [
         {
             Name: "lensMain",
@@ -212,21 +244,19 @@ async function mountInteraction(layer) {
             Instrument: "Zoom",
             Trigger: "zoom",
             "Target layer": "mainLayer",
-            bindingKey: "lensMain",
-            "Feedback options": {
-                LensZoom: {
-                    step: 2,
-                    minR: 8,
-                    maxR: 120,
-                },
-            },
+            bindingKey: "lensMain", // Kept for backward compatibility during migration
+            
+            // Unified DSL: Use customFeedbackFlow instead of "Feedback options" for structural changes
+            customFeedbackFlow: excentricZoomFlow,
+            
             stopPropagation: true,
         },
         {
             Instrument: "point selection",
             Trigger: "hover",
-            "Target Instrument": "lensMain",
-            "Target layer": "LabelLayer",
+            // The combination below is the equivalent of 'sharedVar' resource declaration
+            "Target Instrument": "lensMain", // Context (Provider)
+            "Target layer": "LabelLayer",    // Resource Name (Consumer needs this)
             "Feedback options": {
                 Highlight: {
                     stroke: "#ff0000",

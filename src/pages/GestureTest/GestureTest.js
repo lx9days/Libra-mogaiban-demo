@@ -209,7 +209,7 @@ async function mountInteraction(layer) {
             Name: "hoverTooltip",
             Trigger: "hover",
             "Target layer": "mainLayer",
-            gesture: "move",
+            gesture: "motion",
             gestureMoveDelay: 300,
             "Feedback options": {
                 Tooltip: {

@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "A light foundation for your next frontend project based on webpack.",
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "lint": "npm run lint:styles && npm run lint:scripts",
     "lint:styles": "stylelint \"src/**/*.{css,scss,sass,less}\"",
     "lint:scripts": "eslint src",
@@ -40,6 +42,7 @@
     "eslint": "^8.28.0",
     "eslint-webpack-plugin": "^3.2.0",
     "file-loader": "^6.2.0",
+    "gh-pages": "^6.3.0",
     "html-loader": "^4.2.0",
     "html-webpack-plugin": "^5.5.0",
     "mini-css-extract-plugin": "^2.7.1",

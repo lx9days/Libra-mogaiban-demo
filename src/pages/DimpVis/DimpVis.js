@@ -437,6 +437,9 @@ async function mountInteraction(layer) {
 
   const dragInterpolationFlow = {
     find: "SelectionService",
+    sharedVar: {
+      traceLayerName: "transientLayer", // Explicitly declare resource dependency
+    },
     Operator: (options) => {
       const { offsetx, offsety, dragAllowed, self } = options;
       if (!dragAllowed) return null;
@@ -445,7 +448,9 @@ async function mountInteraction(layer) {
       if (!selectedCountry) return null;
 
       const layer = options.hostLayer || self?._layerInstances?.[0];
-      const transientLayer = layer ? layer.getLayerFromQueue("transientLayer") : null;
+      // Retrieve the layer name from sharedVar instead of hardcoding
+      const traceLayerName = self.getSharedVar("traceLayerName"); 
+      const transientLayer = layer ? layer.getLayerFromQueue(traceLayerName) : null;
       if (!transientLayer || !Number.isFinite(offsetx) || !Number.isFinite(offsety)) return null;
 
       const point = [offsetx, offsety];
@@ -554,49 +559,75 @@ async function mountInteraction(layer) {
     },
   };
 
-  // DimpVis interaction logic
-  const dimpVisHover = () => ({
-    Remove: [{ find: "SelectionTransformer" }],
-    Insert: [useTraceTransformerFlow, useCountryFlow],
-  });
+  const dimpVisHoverFlows = [
+    {
+      find: "SelectionService",
+      flow: [useTraceTransformerFlow, useCountryFlow]
+    }
+  ];
 
-  const dimpVisClick = () => ({
+  const dimpVisClickFlows = [
+  ];
+
+  const dimpVisDragFlows = [
+    {
+      find: "SelectionService",
+      flow: [useTraceTransformerFlow, useCountryFlow, dragInterpolationFlow]
+    }
+  ];
+
+  // DimpVis interaction logic
+  // Use customFeedbackFlow to override default behaviors and inject specific logic
+  const dimpVisHover = {
+    // Remove default SelectionTransformer to prevent default highlighting
+    remove: [{ find: "SelectionTransformer" }],
+    // Insert custom logic flows
+    insert: dimpVisHoverFlows,
+  };
+
+  const dimpVisClick = {
+    // Keep default behavior but add click handler
     On: {
       click: "toggleSelection",
     },
-  });
+    // Although empty for now, structure is ready for flow modifications
+    // insert: dimpVisClickFlows 
+  };
 
-  const dimpVisDrag = () => ({
-    Remove: [{ find: "SelectionTransformer" }],
-    Insert: [useTraceTransformerFlow, useCountryFlow, dragInterpolationFlow],
+  const dimpVisDrag = {
+    // Remove default SelectionTransformer
+    remove: [{ find: "SelectionTransformer" }],
+    // Insert custom interpolation logic
+    insert: dimpVisDragFlows,
+    // Add event handlers
     On: {
       dragstart: "guardDragStart",
       dragend: "resetDragGuard",
       dragabort: "resetDragGuard",
     },
-  });
+  };
 
   const interactions = [
     // {
-    //   Name: "Hover", // Acts as a reactive renderer triggered by 'mousemove' in refreshHover
+    //   Name: "Hover",
     //   Instrument: "point selection",
     //   Trigger: "hover",
     //   "Target layer": "mainLayer",
-    //   "Feedback options": dimpVisHover,
+    //   customFeedbackFlow: dimpVisHover, // Use customFeedbackFlow for complex extensions
     // },
     {
       Name: "Click",
       Instrument: "point selection",
       Trigger: "click",
       "Target layer": "mainLayer",
-      "Feedback options": dimpVisClick,
+      customFeedbackFlow: dimpVisClick, // Use customFeedbackFlow for complex extensions
     },
     {
       Name: "Drag",
       Instrument: "moving",
       Trigger: "drag",
       "Target layer": "mainLayer",
-      "Feedback options": dimpVisDrag,
+      customFeedbackFlow: dimpVisDrag, // Use customFeedbackFlow for complex extensions
     },
   ];
 
