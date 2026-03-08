@@ -10,7 +10,6 @@ let data = [];
 let keys = [];
 let stackedData = [];
 let yMax = 0;
-let filteredKeys = {};
 let stackedV = 0;
 let stack = null;
 let alignmentBottom = true;
@@ -41,11 +40,7 @@ async function loadData() {
   }
   data = csv.map((d) => ({ ...d, year: +d.year }));
   keys = csv.columns.slice(1);
-  filteredKeys = {};
-  for (let key of keys) {
-    filteredKeys[key] = true;
-  }
-
+  
   color = d3.scaleOrdinal().domain(keys).range(Style.colors);
 
   const stack = d3.stack().keys(keys);
@@ -115,7 +110,7 @@ function drawMainLayer(g, scaleX, scaleY) {
     .data(stackedData, (d) => d.key)
     .join("path")
     .attr("fill", (d) => (color ? color(d.key) : "#999"))
-    .attr("opacity", (d) => (filteredKeys[d.key] ? 0.85 : 0))
+    .attr("opacity", 0.85)
     .attr("d", area);
 
   const legendX = Math.max(0, WIDTH - 160);
@@ -144,10 +139,7 @@ function drawMainLayer(g, scaleX, scaleY) {
       const key = getLegendKey(d);
       return color ? color(key) : "#999";
     })
-    .attr("opacity", (d) => {
-      const key = getLegendKey(d);
-      return filteredKeys[key] ? 1 : 0.25;
-    });
+    .attr("opacity", 1);
 
   items
     .append("text")
@@ -155,31 +147,12 @@ function drawMainLayer(g, scaleX, scaleY) {
     .attr("y", 0)
     .attr("dominant-baseline", "middle")
     .attr("fill", "#111")
-    .attr("opacity", (d) => {
-      const key = getLegendKey(d);
-      return filteredKeys[key] ? 1 : 0.35;
-    })
+    .attr("opacity", 1)
     .text((d) => getLegendKey(d));
 }
 
 async function mountInteraction(layer) {
-  Libra.Service.register("filterService", {
-    sharedVar: {
-      data: data,
-      layer: layer,
-    },
-    evaluate(options) {
-      let result = options.self.getSharedVar("result");
 
-      result?.forEach((r) => {
-        const key = typeof r === "string" ? r : r?.id;
-        if (key in filteredKeys) {
-          filteredKeys[key] = !filteredKeys[key];
-        }
-      });
-      let g = options.self.getSharedVar("layer").getGraphic();
-    },
-  });
   Libra.Service.register("IntersectionService", {
     sharedVar: {
       data: data,
@@ -298,12 +271,13 @@ async function mountInteraction(layer) {
     sharedVar: {
       orientation: ["horizontal", "vertical"],
       style: {},
-      filteredKeys: filteredKeys,
+      showIntersection: false,
     },
     redraw({ layer, transformer }) {
       const mainLayer = layer.getLayerFromQueue("mainLayer");
       const orientation = transformer.getSharedVar("orientation");
       const style = transformer.getSharedVar("style");
+      const showIntersection = transformer.getSharedVar("showIntersection");
       const x = transformer.getSharedVar("offsetx")
         ? transformer.getSharedVar("offsetx")
         : transformer.getSharedVar("x");
@@ -321,8 +295,7 @@ async function mountInteraction(layer) {
       const lines = result?.lines ? result.lines : null;
       const lines2 = result?.lines2 ? result.lines2 : null;
       const type = result?.type ? result.type : null;
-      const filteredKeys = transformer.getSharedVar("filteredKeys");
-
+      
       function renderLine(layer, orientation, x, y, style) {
         if (orientation.includes("horizontal") && typeof y === "number") {
           const line = d3
@@ -359,7 +332,6 @@ async function mountInteraction(layer) {
       }
       function renderTooltip(
         root,
-        filteredKeys,
         layer,
         x,
         y,
@@ -383,7 +355,7 @@ async function mountInteraction(layer) {
             .attr("x", x - (layer._offset?.x ?? 0) + 10)
             .attr("y", yBase - (layer._offset?.y ?? 0) - 20 * i)
             .text(`${key}: ${lines[key].value}`)
-            .attr("opacity", filteredKeys[key] ? 1 : 0)
+            .attr("opacity", 1)
             .attr("fill", scaleC ? scaleC(key) : "#0E0")
             .attr("stroke", "#b9b9b9ff")
             .attr("stroke-width", 3)
@@ -406,7 +378,7 @@ async function mountInteraction(layer) {
             )
             .attr("r", 5)
             .attr("fill", scaleC ? scaleC(key) : "#0E0")
-            .attr("opacity", filteredKeys[key] ? 1 : 0)
+            .attr("opacity", 1)
             .attr("stroke-width", 2)
             .attr("stroke", "#000");
         });
@@ -417,42 +389,39 @@ async function mountInteraction(layer) {
         renderLine(layer, orientation, x + width, y, style);
 
         const root = d3.select(layer.getGraphic());
-        renderTooltip(
-          root,
-          filteredKeys,
-          layer,
-          x,
-          y,
-          lines,
-          scaleY,
-          scaleC,
-          (alignmentBottom = true),
-        );
-        renderTooltip(
-          root,
-          filteredKeys,
-          layer,
-          x + width,
-          y,
-          lines2,
-          scaleY,
-          scaleC,
-          (alignmentBottom = true),
-        );
+        if (showIntersection) {
+          renderTooltip(
+            root,
+            layer,
+            x,
+            y,
+            lines,
+            scaleY,
+            scaleC,
+            (alignmentBottom = true),
+          );
+          renderTooltip(
+            root,
+            layer,
+            x + width,
+            y,
+            lines2,
+            scaleY,
+            scaleC,
+            (alignmentBottom = true),
+          );
+        }
       } else if (type === "Hover" && Number.isFinite(x)) {
         renderLine(layer, orientation, x, y, style);
         const root = d3.select(layer.getGraphic());
-        renderTooltip(root, filteredKeys, layer, x, y, lines, scaleY, scaleC);
+        if (showIntersection) {
+          renderTooltip(root, layer, x, y, lines, scaleY, scaleC);
+        }
       }
     },
   });
-  let mainTransformer = Libra.GraphicalTransformer.register("mainTransformer", {
-    sharedVar: {},
-    redraw({ layer, transformer }) {
-      drawMainLayer(d3.select(layer.getGraphic()), xMain, yMain);
-    },
-  });
-  const helperLineHoverFeedback = () => ({
+
+  const helperLineHoverFeedback = (opts) => ({
     Remove: [{ find: "SelectionTransformer" }],
     Insert: [
       {
@@ -478,7 +447,7 @@ async function mountInteraction(layer) {
             comp: "TooltipLineTransformer",
             sharedVar: {
               orientation: ["vertical"],
-              filteredKeys,
+              showIntersection: opts?.showIntersection ?? true, // Default to true if not specified to maintain behavior
             },
           },
         ],
@@ -486,36 +455,15 @@ async function mountInteraction(layer) {
     ],
   });
 
-  const legendClickFeedback = () => ({
-    Insert: [
-      {
-        find: "SelectionService",
-        flow: [
-          {
-            comp: "filterService",
-          },
-          {
-            comp: "mainTransformer",
-          },
-        ],
-      },
-    ],
-  });
+
 
   const interactions = [
     {
       Name: "HelperLineHover",
-      Instrument: "point selection",
+      Instrument: "helperLine",
       Trigger: "hover",
       "Target layer": "mainLayer",
-      "Feedback options": helperLineHoverFeedback,
-    },
-    {
-      Name: "LegendClick",
-      Instrument: "point selection",
-      Trigger: "click",
-      "Target layer": "mainLayer",
-      "Feedback options": legendClickFeedback,
+      "Feedback options": helperLineHoverFeedback({ showIntersection: true }),
     },
   ];
 

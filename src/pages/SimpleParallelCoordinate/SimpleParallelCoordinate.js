@@ -375,7 +375,8 @@ function loadData() {
         ],
     };
 
-    const dimensions = ["Enjolras", "Eponine", "Fantine", "Gavroche", "Javert", "Marius", "Mme. Thenardier", "Myriel", "Thenardier", "Valjean"];
+    // Simplified dimensions
+    const dimensions = ["Valjean", "Fantine", "Marius", "Javert"];
 
     const parallelData = dimensions.map(d => {
         const obj = { name: d };
@@ -399,19 +400,14 @@ function loadData() {
 function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WIDTH, HEIGHT) {
     // 1. Create Lines Layer (Background)
     const linesLayer = LibraManager.getOrCreateLayer(svg, "linesLayer", WIDTH, HEIGHT, MARGIN.left, MARGIN.top);
-    console.log(linesLayer._width);
 
     // 2. Create Axis Layers (Middle)
     const axisLayers = {};
     dimensions.forEach(dim => {
-            const layerName = dim.replace(/\./g, '_');
+        const layerName = dim.replace(/\./g, '_');
         let axisLayer = null;
         axisLayer = LibraManager.getOrCreateLayer(svg, "axisLayer-" + layerName, x.bandwidth(), HEIGHT, x(dim) + MARGIN.left, MARGIN.top);
-        console.log("newlayer");
-
-
-
-
+        
         axisLayers[dim] = axisLayer;
 
         const axisG = d3.select(axisLayer.getGraphic());
@@ -421,14 +417,6 @@ function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WI
         axisG.selectAll("*").remove();
         const centeredG = axisG.append("g")
             .attr("transform", `translate(${x.bandwidth() / 2}, 0)`);
-
-        // Add random background color to observe layer movement
-        // centeredG.append("rect")
-        //     .attr("width", x.step())
-        //     .attr("height", HEIGHT)
-        //     .attr("x", -x.step() / 2)
-        //     .attr("fill", "#" + Math.floor(Math.random() * 16777215).toString(16))
-        //     .attr("opacity", 0.2);
 
         centeredG.call(d3.axisLeft(y[dim]));
     });
@@ -471,6 +459,7 @@ function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WI
 
     return { linesLayer, axisLayers, headersLayer };
 }
+
 async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelData, dimensions, x, y, MARGIN) {
     const redrawParallel = (newNames, newX) => {
         // Update Lines Layer
@@ -524,9 +513,6 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         LibraManager.renderLinkSelection(linesLayer);
     };
 
-
-
-
     const interactions = [
         {
             Instrument: "reordering",
@@ -547,25 +533,8 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     await compileInteractionsDSL(interactions, {
         layersByName: { headersLayer }
     });
-    // LibraManager.buildPointSelectionInstrument(linesLayer, {
-    //     Trigger: "hover",
-    //     // Priority: 2,
-    //     highlightAttrValues: {
-    //         stroke: "#00ff00",
-    //     },
-    // });
-    // LibraManager.buildGroupSelectionInstrument(linesLayer, {
-    //     Trigger: "brush",
-    //     highlightAttrValues: {
-    //         stroke: "blue",
-    //     },
-    // });
-
 
     Object.keys(axisLayers).forEach(dim => {
-        // if (dim !== "Enjolras") {
-        //     return;
-        // }
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
 
@@ -605,32 +574,6 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             scale: y[dim],
             BaseOpacity: 1
         });
-
-    //     Libra.Interaction.build({
-    //         inherit: "HoverInstrument",
-    //         layers: [{layer:axisLayer,options: {
-    //     pointerEvents: "visiblePainted",
-    //   }}],
-    //         insert: [
-    //             {
-    //                 find: "SelectionService",
-    //                 flow: [
-    //                     {
-    //                         comp: "LineTransformer",
-    //                         sharedVar: {
-    //                             orientation: ["horizontal"],
-    //                             scaleY: y[dim],
-    //                         },
-    //                     },
-    //                 ],
-    //             },
-    //         ],
-    //         sharedVar: {
-    //             tooltip: {
-    //                 prefix: "value: ",
-    //             },
-    //         },
-    //     });
     });
 
     await Libra.createHistoryTrrack();

@@ -7,6 +7,168 @@ export default class LibraManager {
 
     }
 
+    static renderLinkSelection(linkTo) {
+        const linkSelectionLayer = linkTo.getLayerFromQueue("LinkSelectionLayer");
+        if (!linkSelectionLayer || !linkSelectionLayer._selectionState) return;
+
+        const config = linkSelectionLayer._config || {};
+        const { highlightColor, highlightAttrValues, selectionMode, baseOpacity } = config;
+
+        const g = d3.select(linkSelectionLayer.getGraphic());
+        g.html("");
+
+        const hasActiveSelection = linkSelectionLayer._selectionState.size > 0;
+
+        if (baseOpacity !== undefined) {
+            const originalLayer = d3.select(linkTo.getGraphic());
+            originalLayer.style("opacity", hasActiveSelection ? baseOpacity : 1);
+        }
+
+        // Compute intersection or union of all active selections
+        if (linkSelectionLayer._selectionState.size > 0) {
+            let rectSelection = [];
+
+            if (selectionMode === "intersection") {
+                // Check if we have any data-driven selections
+                const activeSelections = Array.from(linkSelectionLayer._selectionState.values());
+                const hasDataDriven = activeSelections.some(b => b.dimension && b.scale);
+
+                if (hasDataDriven) {
+                    const matchingNodes = [];
+
+                    d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
+                        const d = d3.select(this).datum();
+                        if (!d) return;
+
+                        let satisfiesAll = true;
+                        for (const bounds of activeSelections) {
+                            if (bounds.dimension && bounds.scale) {
+                                const { y, height, dimension, scale } = bounds;
+                                if (typeof scale.invert === "function") {
+                                    const val1 = scale.invert(y);
+                                    const val2 = scale.invert(y + height);
+                                    const minVal = Math.min(val1, val2);
+                                    const maxVal = Math.max(val1, val2);
+
+                                    const val = d[dimension];
+                                    if (val === undefined || val < minVal || val > maxVal) {
+                                        satisfiesAll = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            // TODO: Handle geometric intersection if needed, currently ignored for hybrid
+                        }
+
+                        if (satisfiesAll) {
+                            matchingNodes.push(this);
+                        }
+                    });
+                    rectSelection = matchingNodes;
+
+                } else {
+                    let intersectBox = null;
+                    for (const bounds of linkSelectionLayer._selectionState.values()) {
+                        if (!intersectBox) {
+                            intersectBox = { ...bounds };
+                        } else {
+                            const x1 = Math.max(intersectBox.x, bounds.x);
+                            const y1 = Math.max(intersectBox.y, bounds.y);
+                            const x2 = Math.min(intersectBox.x + intersectBox.width, bounds.x + bounds.width);
+                            const y2 = Math.min(intersectBox.y + intersectBox.height, bounds.y + bounds.height);
+
+                            if (x2 > x1 && y2 > y1) {
+                                intersectBox.x = x1;
+                                intersectBox.y = y1;
+                                intersectBox.width = x2 - x1;
+                                intersectBox.height = y2 - y1;
+                            } else {
+                                intersectBox = null;
+                                break;
+                            }
+                        }
+                    }
+                    if (intersectBox) {
+                        rectSelection = linkTo.picking({
+                            baseOn: 0,
+                            type: 3,
+                            x: intersectBox.x,
+                            y: intersectBox.y,
+                            width: intersectBox.width,
+                            height: intersectBox.height,
+                        });
+                    }
+                }
+            } else { // Union mode
+                const allSelectedNodes = new Set();
+                for (const bounds of linkSelectionLayer._selectionState.values()) {
+                    if (bounds.dimension && bounds.scale) {
+                        const { y, height, dimension, scale } = bounds;
+                        if (typeof scale.invert === "function") {
+                            const val1 = scale.invert(y);
+                            const val2 = scale.invert(y + height);
+                            const minVal = Math.min(val1, val2);
+                            const maxVal = Math.max(val1, val2);
+
+                            d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
+                                const d = d3.select(this).datum();
+                                if (d && d[dimension] !== undefined) {
+                                    const val = d[dimension];
+                                    if (val >= minVal && val <= maxVal) {
+                                        allSelectedNodes.add(this);
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        const selection = linkTo.picking({
+                            baseOn: 0,
+                            type: 3,
+                            x: bounds.x,
+                            y: bounds.y,
+                            width: bounds.width,
+                            height: bounds.height,
+                        });
+                        if (selection) {
+                            selection.forEach(node => allSelectedNodes.add(node));
+                        }
+                    }
+                }
+                rectSelection = Array.from(allSelectedNodes);
+            }
+
+            if (rectSelection && rectSelection.length > 0) {
+                const nodesToCopy = rectSelection.filter(node => !d3.select(node).classed("main-group"));
+                const selectionSet = new Set(nodesToCopy);
+                const topLevelNodes = nodesToCopy.filter(node => !selectionSet.has(node.parentNode));
+
+                topLevelNodes.forEach((node) => {
+                    const clone = node.cloneNode(true);
+                    const originalTransform = d3.select(node).attr("transform") || "";
+
+                    const originalData = d3.select(node).datum();
+                    d3.select(clone).datum(originalData);
+
+                    const cloneSelection = d3.select(clone)
+                        .attr("transform", originalTransform)
+                        .style("opacity", 0.5)
+                        .style("pointer-events", "none");
+
+                    if (highlightColor) {
+                        cloneSelection.style("fill", highlightColor)
+                            .style("stroke", highlightColor);
+                    }
+                    if (highlightAttrValues && typeof highlightAttrValues === "object") {
+                        Object.entries(highlightAttrValues).forEach(([key, value]) => {
+                            cloneSelection.attr(key, value);
+                        });
+                    }
+                    g.node().appendChild(clone);
+                });
+            }
+        }
+    }
+
     static checkInput(layer, context) {
         if (!layer) return false;
         if (!context || !('Trigger' in context)) return false;
@@ -209,6 +371,14 @@ export default class LibraManager {
                             linkSelectionLayer._selectionState = new Map();
                         }
 
+                        // Save config for re-rendering
+                        linkSelectionLayer._config = {
+                            highlightColor,
+                            highlightAttrValues,
+                            selectionMode,
+                            baseOpacity
+                        };
+
                         if (result && result.selectionBounds && selectionId) {
                             const { width, height } = result.selectionBounds;
 
@@ -226,159 +396,7 @@ export default class LibraManager {
                             }
                         }
 
-                        const g = d3.select(linkSelectionLayer.getGraphic());
-                        g.html("");
-
-                        const hasActiveSelection = linkSelectionLayer._selectionState.size > 0;
-
-                        if (baseOpacity !== undefined) {
-                            const originalLayer = d3.select(linkTo.getGraphic());
-                            originalLayer.style("opacity", hasActiveSelection ? baseOpacity : 1);
-                        }
-
-                        // Compute intersection or union of all active selections
-                        if (linkSelectionLayer._selectionState.size > 0) {
-                            let rectSelection = [];
-
-                            if (selectionMode === "intersection") {
-                                // Check if we have any data-driven selections
-                                const activeSelections = Array.from(linkSelectionLayer._selectionState.values());
-                                const hasDataDriven = activeSelections.some(b => b.dimension && b.scale);
-
-                                if (hasDataDriven) {
-                                    const matchingNodes = [];
-
-                                    d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
-                                        const d = d3.select(this).datum();
-                                        if (!d) return;
-
-                                        let satisfiesAll = true;
-                                        for (const bounds of activeSelections) {
-                                            if (bounds.dimension && bounds.scale) {
-                                                const { y, height, dimension, scale } = bounds;
-                                                if (typeof scale.invert === "function") {
-                                                    const val1 = scale.invert(y);
-                                                    const val2 = scale.invert(y + height);
-                                                    const minVal = Math.min(val1, val2);
-                                                    const maxVal = Math.max(val1, val2);
-
-                                                    const val = d[dimension];
-                                                    if (val === undefined || val < minVal || val > maxVal) {
-                                                        satisfiesAll = false;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                            // TODO: Handle geometric intersection if needed, currently ignored for hybrid
-                                        }
-
-                                        if (satisfiesAll) {
-                                            matchingNodes.push(this);
-                                        }
-                                    });
-                                    rectSelection = matchingNodes;
-
-                                } else {
-                                    let intersectBox = null;
-                                    for (const bounds of linkSelectionLayer._selectionState.values()) {
-                                        if (!intersectBox) {
-                                            intersectBox = { ...bounds };
-                                        } else {
-                                            const x1 = Math.max(intersectBox.x, bounds.x);
-                                            const y1 = Math.max(intersectBox.y, bounds.y);
-                                            const x2 = Math.min(intersectBox.x + intersectBox.width, bounds.x + bounds.width);
-                                            const y2 = Math.min(intersectBox.y + intersectBox.height, bounds.y + bounds.height);
-
-                                            if (x2 > x1 && y2 > y1) {
-                                                intersectBox.x = x1;
-                                                intersectBox.y = y1;
-                                                intersectBox.width = x2 - x1;
-                                                intersectBox.height = y2 - y1;
-                                            } else {
-                                                intersectBox = null;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (intersectBox) {
-                                        rectSelection = linkTo.picking({
-                                            baseOn: 0,
-                                            type: 3,
-                                            x: intersectBox.x,
-                                            y: intersectBox.y,
-                                            width: intersectBox.width,
-                                            height: intersectBox.height,
-                                        });
-                                    }
-                                }
-                            } else { // Union mode
-                                const allSelectedNodes = new Set();
-                                for (const bounds of linkSelectionLayer._selectionState.values()) {
-                                    if (bounds.dimension && bounds.scale) {
-                                        const { y, height, dimension, scale } = bounds;
-                                        if (typeof scale.invert === "function") {
-                                            const val1 = scale.invert(y);
-                                            const val2 = scale.invert(y + height);
-                                            const minVal = Math.min(val1, val2);
-                                            const maxVal = Math.max(val1, val2);
-
-                                            d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
-                                                const d = d3.select(this).datum();
-                                                if (d && d[dimension] !== undefined) {
-                                                    const val = d[dimension];
-                                                    if (val >= minVal && val <= maxVal) {
-                                                        allSelectedNodes.add(this);
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    } else {
-                                        const selection = linkTo.picking({
-                                            baseOn: 0,
-                                            type: 3,
-                                            x: bounds.x,
-                                            y: bounds.y,
-                                            width: bounds.width,
-                                            height: bounds.height,
-                                        });
-                                        if (selection) {
-                                            selection.forEach(node => allSelectedNodes.add(node));
-                                        }
-                                    }
-                                }
-                                rectSelection = Array.from(allSelectedNodes);
-                            }
-
-                            if (rectSelection && rectSelection.length > 0) {
-                                const nodesToCopy = rectSelection.filter(node => !d3.select(node).classed("main-group"));
-                                const selectionSet = new Set(nodesToCopy);
-                                const topLevelNodes = nodesToCopy.filter(node => !selectionSet.has(node.parentNode));
-
-                                topLevelNodes.forEach((node) => {
-                                    const clone = node.cloneNode(true);
-                                    const originalTransform = d3.select(node).attr("transform") || "";
-
-                                    const originalData = d3.select(node).datum();
-                                    d3.select(clone).datum(originalData);
-
-                                    const cloneSelection = d3.select(clone)
-                                        .attr("transform", originalTransform)
-                                        .style("opacity", 0.5)
-                                        .style("pointer-events", "none");
-
-                                    if (highlightColor) {
-                                        cloneSelection.style("fill", highlightColor)
-                                            .style("stroke", highlightColor);
-                                    }
-                                    if (highlightAttrValues && typeof highlightAttrValues === "object") {
-                                        Object.entries(highlightAttrValues).forEach(([key, value]) => {
-                                            cloneSelection.attr(key, value);
-                                        });
-                                    }
-                                    g.node().appendChild(clone);
-                                });
-                            }
-                        }
+                        LibraManager.renderLinkSelection(linkTo);
                     }
                 },
             }
