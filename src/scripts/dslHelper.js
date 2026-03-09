@@ -35,6 +35,52 @@ function extractBalanced(source, startIndex, openChar, closeChar) {
   return { text: null, end: -1 };
 }
 
+function extractStatement(source, startIndex) {
+  let depthParen = 0;
+  let depthBrace = 0;
+  let depthBracket = 0;
+  let inString = false;
+  let stringChar = '';
+  
+  for (let i = startIndex; i < source.length; i++) {
+    const char = source[i];
+    
+    if (inString) {
+      if (char === stringChar && source[i-1] !== '\\') {
+        inString = false;
+      }
+      continue;
+    }
+    
+    if (char === '"' || char === "'" || char === '`') {
+      inString = true;
+      stringChar = char;
+      continue;
+    }
+    
+    if (char === '(') depthParen++;
+    else if (char === ')') depthParen--;
+    else if (char === '{') depthBrace++;
+    else if (char === '}') depthBrace--;
+    else if (char === '[') depthBracket++;
+    else if (char === ']') depthBracket--;
+    
+    // Stop at top-level semicolon
+    if (char === ';' && depthParen === 0 && depthBrace === 0 && depthBracket === 0) {
+      return {
+        text: source.slice(startIndex, i), // Exclude semicolon for display
+        end: i + 1 // Include semicolon in range
+      };
+    }
+  }
+  
+  // If no semicolon found, return until end (fallback)
+  return {
+      text: source.slice(startIndex),
+      end: source.length
+  };
+}
+
 function getPositionFromIndex(source, index) {
   const lines = source.slice(0, index).split('\n');
   return {
@@ -47,50 +93,105 @@ function extractDSL(sourceCode) {
   const dsls = [];
   const ranges = [];
   
-  // Match compileInteractionsDSL(varName, ...) or compileInteractionsDSL([...], ...)
   const callRegex = /compileInteractionsDSL\s*\(\s*/g;
   let match;
   
   while ((match = callRegex.exec(sourceCode)) !== null) {
     const startIndex = match.index + match[0].length;
-    const remaining = sourceCode.slice(startIndex);
-    const firstCharMatch = remaining.match(/\S/);
-    if (!firstCharMatch) continue;
     
-    const firstChar = firstCharMatch[0];
-    const offset = firstCharMatch.index;
+    // Find the end of the first argument
+    let argEndIndex = -1;
+    let depth = 0;
+    let inString = false;
+    let stringChar = '';
     
-    if (firstChar === '[') {
-      const absStart = startIndex + offset;
-      const { text, end } = extractBalanced(sourceCode, absStart, '[', ']');
-      if (text) {
-        dsls.push(text);
-        ranges.push({ start: absStart, end });
-      }
-    } else {
-      const varMatch = remaining.match(/^([a-zA-Z0-9_$]+)/);
-      if (varMatch) {
-        const varName = varMatch[1];
-        // Find variable definition
-        // Supports: const x = [...]; let x = [...]; var x = [...];
-        const defRegex = new RegExp(`(?:const|let|var)\\s+${varName}\\s*=\\s*`);
-        const defMatch = sourceCode.match(defRegex);
-        if (defMatch) {
-            const defStart = defMatch.index + defMatch[0].length;
-            const defRemaining = sourceCode.slice(defStart);
-            const defFirstCharMatch = defRemaining.match(/\S/);
-            
-            if (defFirstCharMatch && defFirstCharMatch[0] === '[') {
-                 const defOffset = defFirstCharMatch.index;
-                 const absStart = defStart + defOffset;
-                 const { text, end } = extractBalanced(sourceCode, absStart, '[', ']');
-                 if (text) {
-                    dsls.push(text);
-                    ranges.push({ start: absStart, end });
-                 }
-            }
+    for (let i = startIndex; i < sourceCode.length; i++) {
+        const char = sourceCode[i];
+        if (inString) {
+            if (char === stringChar && sourceCode[i-1] !== '\\') inString = false;
+            continue;
         }
-      }
+        if (char === '"' || char === "'" || char === '`') {
+            inString = true;
+            stringChar = char;
+            continue;
+        }
+        
+        if (char === '(' || char === '[' || char === '{') depth++;
+        else if (char === ')' || char === ']' || char === '}') {
+            if (depth === 0) {
+                argEndIndex = i;
+                break;
+            }
+            depth--;
+        } else if (char === ',' && depth === 0) {
+            argEndIndex = i;
+            break;
+        }
+    }
+    
+    if (argEndIndex === -1) continue;
+    
+    const firstArg = sourceCode.slice(startIndex, argEndIndex).trim();
+    
+    if (firstArg.startsWith('[')) {
+       // Direct array literal: use extractBalanced to get exact range
+       const openBracketIndex = sourceCode.indexOf('[', startIndex);
+       if (openBracketIndex !== -1 && openBracketIndex < argEndIndex) {
+           const { text, end } = extractBalanced(sourceCode, openBracketIndex, '[', ']');
+           if (text) {
+               dsls.push(text);
+               ranges.push({ start: openBracketIndex, end });
+           }
+       }
+    } else {
+        // Expression: find all variables and their definitions
+        const identifiers = new Set();
+        const idRegex = /[a-zA-Z_$][a-zA-Z0-9_$]*/g;
+        let idMatch;
+        while ((idMatch = idRegex.exec(firstArg)) !== null) {
+            identifiers.add(idMatch[0]);
+        }
+        
+        identifiers.forEach(varName => {
+            // Find definition: const/let/var varName = ...
+            const defRegex = new RegExp(`(const|let|var)\\s+${varName}\\s*=\\s*`, 'g');
+            let defMatch;
+            
+            // Search from beginning of file
+            while ((defMatch = defRegex.exec(sourceCode)) !== null) {
+                 const defStart = defMatch.index + defMatch[0].length;
+                 const defRemaining = sourceCode.slice(defStart);
+                 const defFirstCharMatch = defRemaining.match(/\S/);
+                 
+                 if (defFirstCharMatch) {
+                     const defOffset = defFirstCharMatch.index;
+                     const absStart = defStart + defOffset;
+                     
+                     if (defFirstCharMatch[0] === '[') {
+                         const { text, end } = extractBalanced(sourceCode, absStart, '[', ']');
+                         if (text) {
+                            dsls.push(text);
+                            ranges.push({ start: absStart, end });
+                         }
+                     } else if (defFirstCharMatch[0] === '{') {
+                         const { text, end } = extractBalanced(sourceCode, absStart, '{', '}');
+                         if (text) {
+                            dsls.push(text);
+                            ranges.push({ start: absStart, end });
+                         }
+                     } else {
+                         // Fallback: extract statement until semicolon
+                         const { text, end } = extractStatement(sourceCode, absStart);
+                         if (text) {
+                            dsls.push(text.trim());
+                            ranges.push({ start: absStart, end });
+                         }
+                     }
+                 }
+                 break; // Only pick the first definition found
+            }
+        });
     }
   }
   return { dsls, ranges };
