@@ -391,8 +391,6 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
           AttrName: [xiField, yiField],
 
           LinkLayers: Object.values(cellLayers),
-          LinkMatchMode: "field", // 可不写，默认就是 field
-          // LinkMatchMode: "datum",
 
           LinkDefaultOpacity: 0.7,
           LinkBaseOpacity: 0.08,
