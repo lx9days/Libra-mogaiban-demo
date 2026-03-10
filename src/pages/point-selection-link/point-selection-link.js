@@ -358,17 +358,8 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
           Highlight: "#00ff1aff",
           ScaleX: sx,
           ScaleY: sy,
-
           LinkLayers: Object.values(cellLayers),
-
-
           LinkMatchMode: "datum",
-
-          //link according to field value
-          // LinkMatchMode: "field",
-          // LinkFields: [xiField, yiField],
-          // LinkFields: ["sepal_length","sepal_width","petal_length","petal_width"],
-
           LinkDefaultOpacity: 0.7,
           LinkBaseOpacity: 0.08,
           LinkSelectedOpacity: 0.95,

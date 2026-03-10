@@ -621,11 +621,90 @@ export function compileInteractionsDSL(specList = [], ctx) {
         }
       }
 
+      if (
+        interaction === "axis selection" ||
+        interaction === "axisselection" ||
+        interaction === "axis-selection" ||
+        interaction === "axisselection"
+      ) {
+        const buildContext = {};
+        buildContext.Trigger = trigger;
+        if (spec?.axisDirection !== undefined) buildContext.axisDirection = spec.axisDirection;
+        if (spec?.AxisDirection !== undefined) buildContext.axisDirection = spec.AxisDirection;
+        if (spec?.dimension !== undefined) buildContext.dimension = spec.dimension;
+        if (spec?.Dimension !== undefined) buildContext.dimension = spec.Dimension;
+        if (spec?.SelectionMode !== undefined) buildContext.SelectionMode = spec.SelectionMode;
+        if (spec?.selectionMode !== undefined) buildContext.selectionMode = spec.selectionMode;
+        if (spec?.BaseOpacity !== undefined) buildContext.BaseOpacity = spec.BaseOpacity;
+        if (spec?.baseOpacity !== undefined) buildContext.baseOpacity = spec.baseOpacity;
+
+        const linkLayersRaw =
+          feedbackOptions?.LinkLayers ?? feedbackOptions?.linkLayers;
+        let resolvedLinkLayers = linkLayersRaw;
+        if (typeof linkLayersRaw === "string") {
+          const key = stripInlineComment(linkLayersRaw);
+          const resolved = layersByName?.[key] || Libra.Layer.findLayer(key);
+          resolvedLinkLayers = resolved ? [resolved] : [];
+        } else if (Array.isArray(linkLayersRaw)) {
+          const acc = [];
+          linkLayersRaw.forEach((entry) => {
+            if (typeof entry === "string") {
+              const key = stripInlineComment(entry);
+              const resolved = layersByName?.[key] || Libra.Layer.findLayer(key);
+              if (Array.isArray(resolved)) acc.push(...resolved);
+              else if (resolved) acc.push(resolved);
+            } else if (entry) {
+              acc.push(entry);
+            }
+          });
+          resolvedLinkLayers = acc;
+        }
+
+        buildContext["Feedback options"] = {
+          ...feedbackOptions,
+          ...(resolvedLinkLayers !== undefined ? { LinkLayers: resolvedLinkLayers } : {}),
+        };
+
+        const modifierKeyRaw =
+          spec?.modifierKey ??
+          spec?.ModifierKey ??
+          feedbackOptions?.modifierKey ??
+          feedbackOptions?.ModifierKey;
+        if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+
+        const priority =
+          spec?.priority !== undefined ? spec.priority : spec?.Priority;
+        const stopPropagation =
+          spec?.stopPropagation !== undefined
+            ? spec.stopPropagation
+            : spec?.StopPropagation;
+        if (priority !== undefined) buildContext.priority = priority;
+        if (stopPropagation !== undefined)
+          buildContext.stopPropagation = stopPropagation;
+
+        for (const layer of layers) {
+          LibraManager.buildAxisSelectionInstrument(layer, buildContext);
+        }
+        if (instrumentName) {
+          instrumentRegistry.set(instrumentName, {
+            type: "axis selection",
+            layer: layers[0],
+          });
+        }
+        continue;
+      }
+
       const sharedVarDefaults = {};
       if (inherit === "PanInstrument" || inherit === "GeometricZoomInstrument") {
-        if (scales.x) sharedVarDefaults.scaleX = scales.x;
-        if (scales.y) sharedVarDefaults.scaleY = scales.y;
-        sharedVarDefaults.fixRange = true;
+        const scaleXInSpec = feedbackOptions?.ScaleX ?? feedbackOptions?.scaleX;
+        const scaleYInSpec = feedbackOptions?.ScaleY ?? feedbackOptions?.scaleY;
+        const fixRangeInSpec =
+          feedbackOptions?.FixRange ?? feedbackOptions?.fixRange;
+        if (scaleXInSpec === undefined && scales.x)
+          sharedVarDefaults.scaleX = scales.x;
+        if (scaleYInSpec === undefined && scales.y)
+          sharedVarDefaults.scaleY = scales.y;
+        if (fixRangeInSpec === undefined) sharedVarDefaults.fixRange = true;
       }
 
       const sharedVar = { ...sharedVarDefaults };
@@ -660,6 +739,14 @@ export function compileInteractionsDSL(specList = [], ctx) {
       const scaleY = feedbackOptions?.ScaleY ?? feedbackOptions?.scaleY;
       if (scaleY) {
         sharedVar.scaleY = scaleY;
+      }
+      const fixRange = feedbackOptions?.FixRange ?? feedbackOptions?.fixRange;
+      if (fixRange !== undefined) {
+        sharedVar.fixRange = fixRange;
+      }
+      const direction = feedbackOptions?.Direction ?? feedbackOptions?.direction;
+      if (direction !== undefined) {
+        sharedVar.direction = direction;
       }
       const attrName = feedbackOptions?.AttrName ?? feedbackOptions?.attrName;
       if (attrName) {

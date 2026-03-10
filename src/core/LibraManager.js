@@ -7,167 +7,7 @@ export default class LibraManager {
 
     }
 
-    static renderLinkSelection(linkTo) {
-        const linkSelectionLayer = linkTo.getLayerFromQueue("LinkSelectionLayer");
-        if (!linkSelectionLayer || !linkSelectionLayer._selectionState) return;
 
-        const config = linkSelectionLayer._config || {};
-        const { highlightColor, highlightAttrValues, selectionMode, baseOpacity } = config;
-
-        const g = d3.select(linkSelectionLayer.getGraphic());
-        g.html("");
-
-        const hasActiveSelection = linkSelectionLayer._selectionState.size > 0;
-
-        if (baseOpacity !== undefined) {
-            const originalLayer = d3.select(linkTo.getGraphic());
-            originalLayer.style("opacity", hasActiveSelection ? baseOpacity : 1);
-        }
-
-        // Compute intersection or union of all active selections
-        if (linkSelectionLayer._selectionState.size > 0) {
-            let rectSelection = [];
-
-            if (selectionMode === "intersection") {
-                // Check if we have any data-driven selections
-                const activeSelections = Array.from(linkSelectionLayer._selectionState.values());
-                const hasDataDriven = activeSelections.some(b => b.dimension && b.scale);
-
-                if (hasDataDriven) {
-                    const matchingNodes = [];
-
-                    d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
-                        const d = d3.select(this).datum();
-                        if (!d) return;
-
-                        let satisfiesAll = true;
-                        for (const bounds of activeSelections) {
-                            if (bounds.dimension && bounds.scale) {
-                                const { y, height, dimension, scale } = bounds;
-                                if (typeof scale.invert === "function") {
-                                    const val1 = scale.invert(y);
-                                    const val2 = scale.invert(y + height);
-                                    const minVal = Math.min(val1, val2);
-                                    const maxVal = Math.max(val1, val2);
-
-                                    const val = d[dimension];
-                                    if (val === undefined || val < minVal || val > maxVal) {
-                                        satisfiesAll = false;
-                                        break;
-                                    }
-                                }
-                            }
-                            // TODO: Handle geometric intersection if needed, currently ignored for hybrid
-                        }
-
-                        if (satisfiesAll) {
-                            matchingNodes.push(this);
-                        }
-                    });
-                    rectSelection = matchingNodes;
-
-                } else {
-                    let intersectBox = null;
-                    for (const bounds of linkSelectionLayer._selectionState.values()) {
-                        if (!intersectBox) {
-                            intersectBox = { ...bounds };
-                        } else {
-                            const x1 = Math.max(intersectBox.x, bounds.x);
-                            const y1 = Math.max(intersectBox.y, bounds.y);
-                            const x2 = Math.min(intersectBox.x + intersectBox.width, bounds.x + bounds.width);
-                            const y2 = Math.min(intersectBox.y + intersectBox.height, bounds.y + bounds.height);
-
-                            if (x2 > x1 && y2 > y1) {
-                                intersectBox.x = x1;
-                                intersectBox.y = y1;
-                                intersectBox.width = x2 - x1;
-                                intersectBox.height = y2 - y1;
-                            } else {
-                                intersectBox = null;
-                                break;
-                            }
-                        }
-                    }
-                    if (intersectBox) {
-                        rectSelection = linkTo.picking({
-                            baseOn: 0,
-                            type: 3,
-                            x: intersectBox.x,
-                            y: intersectBox.y,
-                            width: intersectBox.width,
-                            height: intersectBox.height,
-                        });
-                    }
-                }
-            } else { // Union mode
-                const allSelectedNodes = new Set();
-                for (const bounds of linkSelectionLayer._selectionState.values()) {
-                    if (bounds.dimension && bounds.scale) {
-                        const { y, height, dimension, scale } = bounds;
-                        if (typeof scale.invert === "function") {
-                            const val1 = scale.invert(y);
-                            const val2 = scale.invert(y + height);
-                            const minVal = Math.min(val1, val2);
-                            const maxVal = Math.max(val1, val2);
-
-                            d3.select(linkTo.getGraphic()).selectAll("*").each(function () {
-                                const d = d3.select(this).datum();
-                                if (d && d[dimension] !== undefined) {
-                                    const val = d[dimension];
-                                    if (val >= minVal && val <= maxVal) {
-                                        allSelectedNodes.add(this);
-                                    }
-                                }
-                            });
-                        }
-                    } else {
-                        const selection = linkTo.picking({
-                            baseOn: 0,
-                            type: 3,
-                            x: bounds.x,
-                            y: bounds.y,
-                            width: bounds.width,
-                            height: bounds.height,
-                        });
-                        if (selection) {
-                            selection.forEach(node => allSelectedNodes.add(node));
-                        }
-                    }
-                }
-                rectSelection = Array.from(allSelectedNodes);
-            }
-
-            if (rectSelection && rectSelection.length > 0) {
-                const nodesToCopy = rectSelection.filter(node => !d3.select(node).classed("main-group"));
-                const selectionSet = new Set(nodesToCopy);
-                const topLevelNodes = nodesToCopy.filter(node => !selectionSet.has(node.parentNode));
-
-                topLevelNodes.forEach((node) => {
-                    const clone = node.cloneNode(true);
-                    const originalTransform = d3.select(node).attr("transform") || "";
-
-                    const originalData = d3.select(node).datum();
-                    d3.select(clone).datum(originalData);
-
-                    const cloneSelection = d3.select(clone)
-                        .attr("transform", originalTransform)
-                        .style("opacity", 0.5)
-                        .style("pointer-events", "none");
-
-                    if (highlightColor) {
-                        cloneSelection.style("fill", highlightColor)
-                            .style("stroke", highlightColor);
-                    }
-                    if (highlightAttrValues && typeof highlightAttrValues === "object") {
-                        Object.entries(highlightAttrValues).forEach(([key, value]) => {
-                            cloneSelection.attr(key, value);
-                        });
-                    }
-                    g.node().appendChild(clone);
-                });
-            }
-        }
-    }
 
     static checkInput(layer, context) {
         if (!layer) return false;
@@ -181,6 +21,15 @@ export default class LibraManager {
 
         return true;
     }
+    static updateLinkSelection(layer) {
+        if (!layer || !Libra.GraphicalTransformer.findTransformerByLayer) return;
+        const transformers = Libra.GraphicalTransformer.findTransformerByLayer(layer);
+        const hub = transformers.find(t => typeof t?.isInstanceOf === "function" && t.isInstanceOf("LinkSelectionHubTransformer"));
+        if (hub && typeof hub.redraw === "function") {
+            hub.redraw();
+        }
+    }
+
     static buildPointSelectionInstrument(layer, context) {
         if (!this.checkInput(layer, context)) return;
 
@@ -262,27 +111,58 @@ export default class LibraManager {
 
         const sharedVar = {};
 
+        // Extract Feedback options
+        const feedback = context["Feedback options"] || {};
+
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
-        if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        
+        // Handle HighlightColor from context or Feedback options
+        if (feedback.Highlight) sharedVar.highlightColor = feedback.Highlight;
+        else if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
+        
         if (context.Tooltip) {
             sharedVar.tooltip = {
                 prefix: context.Tooltip.Prefix,
                 fields: context.Tooltip.Fields,
             };
         }
+
+        // Handle LinkLayers from context or Feedback options
+        if (feedback.LinkLayers) sharedVar.linkLayers = feedback.LinkLayers;
+        else if (context.LinkLayers) sharedVar.linkLayers = context.LinkLayers;
+        else if (context.linkLayers) sharedVar.linkLayers = context.linkLayers;
+        
         if (context.linkTo) sharedVar.linkTo = context.linkTo;
         if (context.SelectionMode) sharedVar.selectionMode = context.SelectionMode.toLowerCase();
-        if (context.axisDirection) sharedVar.axisDirection = context.axisDirection.toLowerCase();
+        
+        // Handle axisDirection from context or infer from trigger
+        if (context.axisDirection) {
+            sharedVar.axisDirection = context.axisDirection.toLowerCase();
+        } else if (trigger === 'brushx') {
+            sharedVar.axisDirection = 'x';
+        } else if (trigger === 'brushy') {
+            sharedVar.axisDirection = 'y';
+        }
+
         if (context.dimension) sharedVar.dimension = context.dimension;
-        if (context.scale) sharedVar.scale = context.scale;
+        
+        // Handle scale from context or Feedback options
+        if (feedback.Scale) sharedVar.scale = feedback.Scale;
+        else if (context.scale) sharedVar.scale = context.scale;
+        
+        // Handle AttrName/dimension from Feedback options if not present
+        if (!sharedVar.dimension && feedback.AttrName) {
+            sharedVar.dimension = feedback.AttrName;
+        }
 
         // Generate a selectionId for cross-filtering
-        if (context.dimension) {
-            sharedVar.selectionId = context.dimension;
-        } else if (context.axisDirection) {
-            sharedVar.selectionId = context.axisDirection.toLowerCase();
+        if (sharedVar.dimension) {
+            sharedVar.selectionId = sharedVar.dimension;
+        } else if (sharedVar.axisDirection) {
+            sharedVar.selectionId = sharedVar.axisDirection;
         } else {
             sharedVar.selectionId = triggerPascal.replace('Brush', '').toLowerCase();
         }
@@ -294,6 +174,10 @@ export default class LibraManager {
             sharedVar: sharedVar,
             evaluate({ layer, self }) {
                 let linkTo = self.getSharedVar("linkTo");
+                const linkLayers = self.getSharedVar("linkLayers");
+                if (!linkTo && Array.isArray(linkLayers) && linkLayers.length > 0) {
+                    linkTo = linkLayers[0];
+                }
 
                 let x = self.getSharedVar("offsetx");
                 if (x === undefined) x = self.getSharedVar("x");
@@ -317,19 +201,7 @@ export default class LibraManager {
                 }
 
                 const axisDirection = self.getSharedVar("axisDirection");
-                let axisBBox = null;
-                if (axisDirection && layer && typeof layer.getBBox === "function") {
-                    axisBBox = layer.getBBox();
-                }
-
-                if (axisDirection === "y" && axisBBox) {
-                    if (x === undefined) x = axisBBox.x;
-                    if (width === undefined) width = axisBBox.width;
-                } else if (axisDirection === "x" && axisBBox) {
-                    if (y === undefined) y = axisBBox.y;
-                    if (height === undefined) height = axisBBox.height;
-                }
-
+                
                 if (x === undefined) x = 0;
                 if (y === undefined) y = 0;
                 if (width === undefined) width = linkTo.getBBox().width;
@@ -337,6 +209,35 @@ export default class LibraManager {
 
                 const dimension = self.getSharedVar("dimension");
                 const scale = self.getSharedVar("scale");
+                const selectionId = self.getSharedVar("selectionId");
+
+                if (dimension && scale && selectionId && Libra.helpers && typeof Libra.helpers.setLinkSelectionPredicate === "function") {
+                    if (width > 0 && height > 0) {
+                        let minVal, maxVal;
+                        
+                        if (typeof scale.invert === "function") {
+                            if (axisDirection === 'x') {
+                                minVal = scale.invert(x);
+                                maxVal = scale.invert(x + width);
+                            } else {
+                                minVal = scale.invert(y);
+                                maxVal = scale.invert(y + height);
+                            }
+
+                            if (minVal > maxVal) [minVal, maxVal] = [maxVal, minVal];
+
+                            // Check if values are valid numbers
+                            if (!isNaN(minVal) && !isNaN(maxVal)) {
+                                const predicate = {
+                                    [dimension]: [minVal, maxVal]
+                                };
+                                Libra.helpers.setLinkSelectionPredicate(selectionId, predicate);
+                            }
+                        }
+                    } else {
+                        Libra.helpers.setLinkSelectionPredicate(selectionId, null);
+                    }
+                }
 
                 return {
                     selectionBounds: {
@@ -350,57 +251,6 @@ export default class LibraManager {
                 };
             }
         });
-        Libra.GraphicalTransformer.register(
-            "LinkSelectionTransformer",
-            {
-                layer: null,
-                redraw({ transformer, layer }) {
-                    const result = transformer.getSharedVar("result");
-                    const linkTo = transformer.getSharedVar("linkTo");
-                    const highlightColor = transformer.getSharedVar("highlightColor");
-                    const highlightAttrValues = transformer.getSharedVar("highlightAttrValues");
-                    const selectionId = transformer.getSharedVar("selectionId");
-                    const selectionMode = transformer.getSharedVar("selectionMode") || "overwrite";
-                    const baseOpacity = transformer.getSharedVar("baseOpacity");
-
-
-                    if (linkTo) {
-                        const linkSelectionLayer = linkTo.getLayerFromQueue("LinkSelectionLayer");
-
-                        if (!linkSelectionLayer._selectionState) {
-                            linkSelectionLayer._selectionState = new Map();
-                        }
-
-                        // Save config for re-rendering
-                        linkSelectionLayer._config = {
-                            highlightColor,
-                            highlightAttrValues,
-                            selectionMode,
-                            baseOpacity
-                        };
-
-                        if (result && result.selectionBounds && selectionId) {
-                            const { width, height } = result.selectionBounds;
-
-                            if (width > 0 && height > 0) {
-                                if (selectionMode === "overwrite") {
-                                    for (const key of linkSelectionLayer._selectionState.keys()) {
-                                        if (key !== selectionId) {
-                                            linkSelectionLayer._selectionState.delete(key);
-                                        }
-                                    }
-                                }
-                                linkSelectionLayer._selectionState.set(selectionId, result.selectionBounds);
-                            } else {
-                                linkSelectionLayer._selectionState.delete(selectionId);
-                            }
-                        }
-
-                        LibraManager.renderLinkSelection(linkTo);
-                    }
-                },
-            }
-        );
 
         Libra.Instrument.register("LinkBrushXInstrument", {
             constructor: Libra.Instrument,
@@ -430,7 +280,6 @@ export default class LibraManager {
                     async (options) => {
                         let { event, layer, instrument } = options;
 
-
                         if (event.changedTouches) event = event.changedTouches[0];
 
                         const startx = instrument.getSharedVar("startx");
@@ -439,9 +288,8 @@ export default class LibraManager {
 
                         const x = Math.min(startx, event.clientX);
                         const offsetx = Math.min(startoffsetx, currentOffsetX);
-                        const width = Math.abs(currentOffsetX - startoffsetx); // Use offset diff for width to be consistent with local coords
+                        const width = Math.abs(currentOffsetX - startoffsetx); 
 
-                        // selection, currently service use client coordinates, but coordinates relative to the layer maybe more appropriate.
                         instrument.services.find("SelectionService").setSharedVars(
                             {
                                 x,
@@ -473,7 +321,6 @@ export default class LibraManager {
                 dragabort: [
                     async (options) => {
                         let { event, layer, instrument } = options;
-
                         if (event.changedTouches) event = event.changedTouches[0];
                         instrument.services.setSharedVars(
                             {
@@ -507,6 +354,30 @@ export default class LibraManager {
                     },
                 });
 
+                // Initialize LinkSelectionHubTransformer on the linked layer
+                const linkTo = instrument.getSharedVar("linkTo");
+                const linkLayers = instrument.getSharedVar("linkLayers");
+                const targets = [];
+                if (linkTo) targets.push(linkTo);
+                if (Array.isArray(linkLayers)) targets.push(...linkLayers);
+
+                targets.forEach(targetLayer => {
+                    if (targetLayer && Libra.GraphicalTransformer.findTransformerByLayer) {
+                        const existingTransformers = Libra.GraphicalTransformer.findTransformerByLayer(targetLayer);
+                        const hasHub = existingTransformers.some(t => typeof t?.isInstanceOf === "function" && t.isInstanceOf("LinkSelectionHubTransformer"));
+                        
+                        if (!hasHub) {
+                            Libra.GraphicalTransformer.initialize("LinkSelectionHubTransformer", {
+                                layer: targetLayer,
+                                sharedVar: {
+                                    highlightColor: instrument.getSharedVar("highlightColor"),
+                                    highlightAttrValues: instrument.getSharedVar("highlightAttrValues"),
+                                    tooltip: instrument.getSharedVar("tooltip"),
+                                }
+                            });
+                        }
+                    }
+                });
             },
         });
 
@@ -537,7 +408,7 @@ export default class LibraManager {
                 drag: [
                     async (options) => {
                         let { event, layer, instrument } = options;
-                        console.log(layer);
+                        // console.log(layer);
                         if (event.changedTouches) event = event.changedTouches[0];
 
                         const starty = instrument.getSharedVar("starty");
@@ -546,7 +417,7 @@ export default class LibraManager {
 
                         const y = Math.min(starty, event.clientY);
                         const offsety = Math.min(startoffsety, currentOffsetY);
-                        const height = Math.abs(currentOffsetY - startoffsety); // Use offset diff for height
+                        const height = Math.abs(currentOffsetY - startoffsety);
 
                         instrument.services.find("SelectionService").setSharedVars(
                             {
@@ -609,6 +480,31 @@ export default class LibraManager {
                         highlightAttrValues: instrument.getSharedVar("highlightAttrValues"),
                     },
                 });
+
+                // Initialize LinkSelectionHubTransformer on the linked layer
+                const linkTo = instrument.getSharedVar("linkTo");
+                const linkLayers = instrument.getSharedVar("linkLayers");
+                const targets = [];
+                if (linkTo) targets.push(linkTo);
+                if (Array.isArray(linkLayers)) targets.push(...linkLayers);
+
+                targets.forEach(targetLayer => {
+                    if (targetLayer && Libra.GraphicalTransformer.findTransformerByLayer) {
+                        const existingTransformers = Libra.GraphicalTransformer.findTransformerByLayer(targetLayer);
+                        const hasHub = existingTransformers.some(t => typeof t?.isInstanceOf === "function" && t.isInstanceOf("LinkSelectionHubTransformer"));
+                        
+                        if (!hasHub) {
+                            Libra.GraphicalTransformer.initialize("LinkSelectionHubTransformer", {
+                                layer: targetLayer,
+                                sharedVar: {
+                                    highlightColor: instrument.getSharedVar("highlightColor"),
+                                    highlightAttrValues: instrument.getSharedVar("highlightAttrValues"),
+                                    tooltip: instrument.getSharedVar("tooltip"),
+                                }
+                            });
+                        }
+                    }
+                });
             },
         });
 
@@ -617,30 +513,6 @@ export default class LibraManager {
             inherit: `Link${triggerPascal}Instrument`,
             layers: [layer],
             sharedVar: sharedVar,
-            insert: [
-                {
-                    find: "LinkBrushXInstrument",
-                    flow: [
-                        {
-                            comp: "LinkRectSelectionService",
-                        },
-                        {
-                            comp: "LinkSelectionTransformer",
-                        }
-                    ],
-                },
-                {
-                    find: "LinkBrushYInstrument",
-                    flow: [
-                        {
-                            comp: "LinkRectSelectionService",
-                        },
-                        {
-                            comp: "LinkSelectionTransformer",
-                        }
-                    ],
-                }
-            ]
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;

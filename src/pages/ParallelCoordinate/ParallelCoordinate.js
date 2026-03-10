@@ -521,7 +521,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             .attr("cursor", "grab");
 
         // Trigger selection layer update
-        LibraManager.renderLinkSelection(linesLayer);
+        LibraManager.updateLinkSelection(linesLayer);
     };
 
 
@@ -594,15 +594,17 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
         LibraManager.buildAxisSelectionInstrument(axisLayer, {
             Trigger: "brushy",
+            "Feedback options": {
+                Highlight: "#ff0000",
+                LinkLayers: [linesLayer],
+                Scale: y[dim],
+                AttrName: dim,
+            },
             highlightAttrValues: {
                 stroke: "#ff0000",
                 "stroke-width": 2
             },
-            linkTo: linesLayer,
-            axisDirection: "y",
             SelectionMode: "intersection",
-            dimension: dim,
-            scale: y[dim],
             BaseOpacity: 1
         });
 

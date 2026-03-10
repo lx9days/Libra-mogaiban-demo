@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 // global constants
 const MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
@@ -191,23 +192,39 @@ function renderMainVisualization() {
 }
 
 async function mountInteraction(mainLayer, xAxisLayer, yAxisLayer) {
-  // Attach HoverInstrument to the main layer
-  LibraManager.buildAxisSelectionInstrument(xAxisLayer, {
-    Trigger: "brushx",
-    HighlightColor: "red",
-    linkTo:mainLayer,
-    axisDirection:"x",
-    SelectionMode:"overwrite",
-    BaseOpacity: 0.3
-  });
-  LibraManager.buildAxisSelectionInstrument(yAxisLayer, {
-    Trigger: "brushy",
-    HighlightColor: "red",
-    linkTo:mainLayer,
-    axisDirection:"y",
-    SelectionMode:"overwrite",
-    BaseOpacity: 0.3
-  });
+  await compileInteractionsDSL(
+    [
+      {
+        Instrument: "axis selection",
+        Trigger: "brushx",
+        "Target layer": "xAxisLayer",
+        "Feedback options": {
+          Highlight: "red",
+          LinkLayers: ["mainLayer"],
+          Scale: x,
+          AttrName: FIELD_X,
+        },
+        SelectionMode: "overwrite",
+        BaseOpacity: 0.3,
+      },
+      {
+        Instrument: "axis selection",
+        Trigger: "brushy",
+        "Target layer": "yAxisLayer",
+        "Feedback options": {
+          Highlight: "red",
+          LinkLayers: ["mainLayer"],
+          Scale: y,
+          AttrName: FIELD_Y,
+        },
+        SelectionMode: "overwrite",
+        BaseOpacity: 0.3,
+      },
+    ],
+    {
+      layersByName: { mainLayer, xAxisLayer, yAxisLayer },
+    }
+  );
   await Libra.createHistoryTrrack();
 }
 

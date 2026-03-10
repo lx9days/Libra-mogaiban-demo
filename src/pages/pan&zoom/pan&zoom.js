@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 const CONFIG = {
   MARGIN: { top: 30, right: 70, bottom: 40, left: 60 },
   WIDTH: 500 - 60 - 70, // 减去左、右边距
@@ -177,40 +178,47 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
  * 挂载交互
  */
 async function mountInteraction(layer, transformer) {
-  // 平移交互
-  LibraManager.buildPanInstrument(layer, {
-    Trigger: "pan",
-    fixRange: true,
-    scaleX: xScale,
-    scaleY: yScale,
-    modifierKey: "shift",
-    priority: 2,
-    stopPropagation: true,
-  });
+  await compileInteractionsDSL(
+    [
+      {
+        Trigger: "brush",
+        "Target layer": "mainLayer",
+        "Feedback options": {
+          Highlight: "red",
+        },
+        priority: 1,
+        stopPropagation: true,
+      },
+      {
+        Trigger: "pan",
+        "Target layer": "mainLayer",
+        "Feedback options": {
+          scaleX: xScale,
+          scaleY: yScale,
+          fixRange: true,
+        },
+        modifierKey: "ctrl",
+        priority: 2,
+        stopPropagation: true,
+      },
+      {
+        Trigger: "zoom",
+        "Target layer": "mainLayer",
+        "Feedback options": {
+          scaleX: xScale,
+          scaleY: yScale,
+          fixRange: true,
+        },
+        modifierKey: "ctrl",
+        priority: 3,
+        stopPropagation: true,
+      },
+    ],
+    {
+      layersByName: { mainLayer: layer },
+    }
+  );
 
-  // 缩放交互
-  LibraManager.buildGeometricZoomInstrument(layer, {
-    Trigger: "zoom",
-    fixRange: true,
-    scaleX: xScale,
-    scaleY: yScale,
-    modifierKey: "shift",
-    priority: 2,
-    stopPropagation: true,
-  });
-  LibraManager.buildGroupSelectionInstrument(layer, {
-    Trigger: "brush",
-    HighlightColor: "red",
-    priority: 1,
-    stopPropagation: true,
-  });
-    // LibraManager.buildPointSelectionInstrument(layer, {
-    //   Trigger: "hover",
-    //   HighlightColor: "blue",
-    //   Tooltip: {
-    //     Prefix: "Cylinders: "
-    //   },
-    // });
   // 历史记录（撤销/重做）
   if (Libra.createHistoryTrack) {
     await Libra.createHistoryTrack();
