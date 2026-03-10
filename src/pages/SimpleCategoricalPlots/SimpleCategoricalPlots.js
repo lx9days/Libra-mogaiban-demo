@@ -3,8 +3,8 @@ import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
-const MARGIN = { top: 40, right: 120, bottom: 50, left: 240 };
-const WIDTH = 1100 - MARGIN.left - MARGIN.right;
+const MARGIN = { top: 40, right: 120, bottom: 50, left: 340 };
+const WIDTH = 900 - MARGIN.left - MARGIN.right;
 const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
 
 export default async function init() {
@@ -32,7 +32,7 @@ export default async function init() {
 
     const unempExtent = d3.extent(data, (d) => d.unemployment);
     const maxUnemp = unempExtent[1] ?? 0;
-    const rScale = d3.scaleSqrt().domain([0, maxUnemp]).range([2, 10]);
+    const rScale = d3.scaleSqrt().domain([0, maxUnemp]).range([2, 25]);
     
     // Add color scale based on unemployment rate
     const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain(unempExtent);
@@ -120,12 +120,16 @@ async function loadData() {
     const parseDate = d3.timeParse("%Y-%m-%d");
     
     // Process raw data
-    const processedData = rawData.map(d => ({
-        division: d.division.replace(", Met Div", "").replace(", MS Met Div", ""), // Clean up names
+    const allData = rawData.map(d => ({
+        division: d.division.split(",")[0], // Keep only the city name part
         date: parseDate(d.date),
         year: parseDate(d.date).getFullYear(),
         unemployment: +d.unemployment
     })).filter(d => d.date && d.division);
+
+    // Filter for last 5 years
+    const maxYear = d3.max(allData, d => d.year);
+    const processedData = allData.filter(d => d.year > maxYear - 5);
 
     // Calculate average unemployment per division to find the most interesting ones
     const divisionStats = d3.rollups(
@@ -193,11 +197,11 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     yAxisG.selectAll("*").remove();
     yAxisG
         .append("g")
-        .attr("transform", `translate(${MARGIN.left}, 0)`)
+        .attr("transform", `translate(${MARGIN.left - 50}, 0)`)
         .call(d3.axisLeft(yScale).tickSize(0))
         .call((g) => g.select(".domain").remove())
         .selectAll("text")
-        .style("font-size", "10px"); // Smaller font for many categories
+        .style("font-size", "14px"); // Increased font size
 
     const xAxisG = d3.select(xAxisLayer.getGraphic());
     xAxisG.selectAll("*").remove();
