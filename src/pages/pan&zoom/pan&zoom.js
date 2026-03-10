@@ -177,26 +177,31 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
  * 挂载交互
  */
 async function mountInteraction(layer, transformer) {
-  // // 平移交互
-  // LibraManager.buildPanInstrument(layer, {
-  //   Trigger: "pan",
-  //   fixRange: true,
-  //   scaleX: xScale,
-  //   scaleY: yScale,
-  // });
+  // 平移交互
+  LibraManager.buildPanInstrument(layer, {
+    Trigger: "pan",
+    fixRange: true,
+    scaleX: xScale,
+    scaleY: yScale,
+    modifierKey: "shift",
+    priority: 2,
+    stopPropagation: true,
+  });
 
-  // // 缩放交互
-  // LibraManager.buildGeometricZoomInstrument(layer, {
-  //   Trigger: "zoom",
-  //   fixRange: true,
-  //   scaleX: xScale,
-  //   scaleY: yScale,
-  // });
+  // 缩放交互
+  LibraManager.buildGeometricZoomInstrument(layer, {
+    Trigger: "zoom",
+    fixRange: true,
+    scaleX: xScale,
+    scaleY: yScale,
+    modifierKey: "shift",
+    priority: 2,
+    stopPropagation: true,
+  });
   LibraManager.buildGroupSelectionInstrument(layer, {
     Trigger: "brush",
     HighlightColor: "red",
-    modifierKey: "ctrl",
-    priority: 2,
+    priority: 1,
     stopPropagation: true,
   });
     // LibraManager.buildPointSelectionInstrument(layer, {

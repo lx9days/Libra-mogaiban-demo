@@ -12,6 +12,9 @@ export default async function init() {
     const MARGIN = { top: 30, right: 10, bottom: 10, left: 30 };
     const WIDTH = 960 - MARGIN.left - MARGIN.right;
     const HEIGHT = 500 - MARGIN.top - MARGIN.bottom;
+    const AXIS_AREA_RATIO = 0.85;
+    const AXIS_AREA_WIDTH = WIDTH * AXIS_AREA_RATIO;
+    const AXIS_AREA_OFFSET_X = (WIDTH - AXIS_AREA_WIDTH) / 2;
 
     const { parallelData, dimensions } = loadData();
 
@@ -21,7 +24,7 @@ export default async function init() {
 
     // Setup Scales
     const x = d3.scaleBand()
-        .range([0, WIDTH])
+        .range([0, AXIS_AREA_WIDTH])
         .domain(dimensions)
         .padding(0.01);
 
@@ -32,8 +35,8 @@ export default async function init() {
             .range([HEIGHT, 0]);
     });
 
-    const { linesLayer, axisLayers, headersLayer } = renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WIDTH, HEIGHT);
-    await mountInteraction(linesLayer, axisLayers, headersLayer, parallelData, dimensions, x, y, MARGIN);
+    const { linesLayer, axisLayers, headersLayer } = renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, AXIS_AREA_WIDTH, AXIS_AREA_OFFSET_X, HEIGHT);
+    await mountInteraction(linesLayer, axisLayers, headersLayer, parallelData, dimensions, x, y, MARGIN, AXIS_AREA_OFFSET_X);
 }
 
 function loadData() {
@@ -397,16 +400,16 @@ function loadData() {
     return { parallelData, dimensions };
 }
 
-function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WIDTH, HEIGHT) {
+function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, AXIS_AREA_WIDTH, AXIS_AREA_OFFSET_X, HEIGHT) {
     // 1. Create Lines Layer (Background)
-    const linesLayer = LibraManager.getOrCreateLayer(svg, "linesLayer", WIDTH, HEIGHT, MARGIN.left, MARGIN.top);
+    const linesLayer = LibraManager.getOrCreateLayer(svg, "linesLayer", AXIS_AREA_WIDTH, HEIGHT, MARGIN.left + AXIS_AREA_OFFSET_X, MARGIN.top);
 
     // 2. Create Axis Layers (Middle)
     const axisLayers = {};
     dimensions.forEach(dim => {
         const layerName = dim.replace(/\./g, '_');
         let axisLayer = null;
-        axisLayer = LibraManager.getOrCreateLayer(svg, "axisLayer-" + layerName, x.bandwidth(), HEIGHT, x(dim) + MARGIN.left, MARGIN.top);
+        axisLayer = LibraManager.getOrCreateLayer(svg, "axisLayer-" + layerName, x.bandwidth(), HEIGHT, x(dim) + MARGIN.left + AXIS_AREA_OFFSET_X, MARGIN.top);
         
         axisLayers[dim] = axisLayer;
 
@@ -422,7 +425,7 @@ function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WI
     });
 
     // 3. Create Headers Layer (Foreground)
-    const headersLayer = LibraManager.getOrCreateLayer(svg, "headersLayer", WIDTH, MARGIN.top, MARGIN.left, 0);
+    const headersLayer = LibraManager.getOrCreateLayer(svg, "headersLayer", AXIS_AREA_WIDTH, MARGIN.top, MARGIN.left + AXIS_AREA_OFFSET_X, 0);
 
     const linesG = d3.select(linesLayer.getGraphic());
     linesG.attr("class", "lines");
@@ -460,7 +463,7 @@ function renderMainVisualization(svg, parallelData, dimensions, x, y, MARGIN, WI
     return { linesLayer, axisLayers, headersLayer };
 }
 
-async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelData, dimensions, x, y, MARGIN) {
+async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelData, dimensions, x, y, MARGIN, AXIS_AREA_OFFSET_X) {
     const redrawParallel = (newNames, newX) => {
         // Update Lines Layer
         const linesG = d3.select(linesLayer.getGraphic());
@@ -485,7 +488,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             const layer = axisLayers[dim];
             if (layer) {
 
-                layer.setOffsetCascade(newX(dim) + MARGIN.left, MARGIN.top);
+                layer.setOffsetCascade(newX(dim) + MARGIN.left + AXIS_AREA_OFFSET_X, MARGIN.top);
                 const axisG = d3.select(layer.getGraphic());
                 const centeredG = axisG.select("g");
                 if (!centeredG.empty()) {
@@ -525,7 +528,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
                     names: dimensions,
                     scales: { x },
                     copyFrom: Object.values(axisLayers),
-                    offset: { x: MARGIN.left, y: 0 }
+                    offset: { x: MARGIN.left + AXIS_AREA_OFFSET_X, y: 0 }
                 }
             }
         }

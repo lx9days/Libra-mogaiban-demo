@@ -13,6 +13,10 @@
     "sourceType": "module",
     "requireConfigFile": false
   },
+  "globals": {
+    "monaco": "readonly",
+    "ensureJsonMonaco": "readonly"
+  },
   "rules": {
     "semi": 2,
     "no-unused-vars": "off"
