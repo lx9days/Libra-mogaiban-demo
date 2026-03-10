@@ -6,6 +6,16 @@ import { compileInteractionsDSL } from "../../scripts/modules/interactionCompile
 const MARGIN = { top: 40, right: 120, bottom: 50, left: 340 };
 const WIDTH = 900 - MARGIN.left - MARGIN.right;
 const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
+const YEARS_TO_SHOW = 8;
+const MAX_TOPIC_LABEL_CHARS = 18;
+const AXIS_FONT_SIZE_PX = 13;
+const LEGEND_FONT_SIZE_PX = 12;
+
+function formatTopicLabel(name) {
+    const text = typeof name === "string" ? name.replace(/\s+/g, " ").trim() : "";
+    if (text.length <= MAX_TOPIC_LABEL_CHARS) return text;
+    return `${text.slice(0, MAX_TOPIC_LABEL_CHARS - 1)}…`;
+}
 
 export default async function init() {
     const container = document.getElementById("LibraPlayground");
@@ -104,13 +114,15 @@ function renderLegend(svg, colorScale, xPos) {
     legendG.append("g")
         .attr("transform", `translate(${legendWidth}, 0)`)
         .call(legendAxis)
-        .select(".domain").remove();
+        .call((g) => g.select(".domain").remove())
+        .selectAll("text")
+        .style("font-size", `${LEGEND_FONT_SIZE_PX}px`);
         
     // Add title
     legendG.append("text")
         .attr("x", -10)
         .attr("y", -10)
-        .style("font-size", "10px")
+        .style("font-size", `${LEGEND_FONT_SIZE_PX}px`)
         .style("fill", "#333")
         .text("Unemployment (%)");
 }
@@ -157,7 +169,11 @@ async function loadData() {
         }))
     );
 
-    return { data, topics };
+    const maxYear = d3.max(data, d => d.year) ?? 0;
+    const minYear = maxYear - (YEARS_TO_SHOW - 1);
+    const filteredData = data.filter(d => d.year >= minYear);
+
+    return { data: filteredData, topics };
 }
 
 function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, xScale, yScale, rScale, colorScale) {
@@ -191,7 +207,11 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
         .attr("fill", (d) => colorScale(d.unemployment))
         .attr("fill-opacity", 0.8)
         .attr("stroke", "#333")
-        .attr("stroke-width", 0.5);
+        .attr("stroke-width", 1)
+        .selectAll("title")
+        .data((d) => [d])
+        .join("title")
+        .text((d) => `${d.division} · ${d.year}\n${d.unemployment.toFixed(1)}%`);
 
     const yAxisG = d3.select(yAxisLayer.getGraphic());
     yAxisG.selectAll("*").remove();
@@ -208,7 +228,9 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     xAxisG
         .append("g")
         .attr("transform", `translate(${MARGIN.left}, 0)`) // xAxisLayer is already positioned at bottom
-        .call(d3.axisBottom(xScale).ticks(10));
+        .call(d3.axisBottom(xScale).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")))
+        .selectAll("text")
+        .style("font-size", `${AXIS_FONT_SIZE_PX}px`);
 }
 
 async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale) {

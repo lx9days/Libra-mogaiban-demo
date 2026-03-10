@@ -186,7 +186,7 @@ async function mountInteraction(layer) {
             Instrument: "Lens",
             Trigger: "hover",
             "Target layer": "mainLayer",
-            gesture: "stay",
+            "Synthetic Event": "idle",
             "Feedback options": {
                 ExcentricLabeling: {
                     renderSelection: false,
@@ -209,7 +209,7 @@ async function mountInteraction(layer) {
             Name: "hoverTooltip",
             Trigger: "hover",
             "Target layer": "mainLayer",
-            gesture: "motion",
+            "Synthetic Event": "motion",
             gestureMoveDelay: 300,
             "Feedback options": {
                 Tooltip: {
