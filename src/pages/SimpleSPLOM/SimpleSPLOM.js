@@ -4,8 +4,8 @@ import LibraManager from "../../core/LibraManager";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 10, right: 10, bottom: 50, left: 50 };
-const WIDTH = 800 - MARGIN.left - MARGIN.right;
-const HEIGHT = 800 - MARGIN.top - MARGIN.bottom;
+const WIDTH = 400 - MARGIN.left - MARGIN.right;
+const HEIGHT = 400 - MARGIN.top - MARGIN.bottom;
 const TICK_COUNT = 5;
 
 export default async function init() {

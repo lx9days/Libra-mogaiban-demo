@@ -10,8 +10,8 @@ export default async function init() {
     container.innerHTML = "";
 
     const MARGIN = { top: 30, right: 10, bottom: 10, left: 30 };
-    const WIDTH = 960 - MARGIN.left - MARGIN.right;
-    const HEIGHT = 500 - MARGIN.top - MARGIN.bottom;
+    const WIDTH = 480 - MARGIN.left - MARGIN.right;
+    const HEIGHT = 300 - MARGIN.top - MARGIN.bottom;
     const AXIS_AREA_RATIO = 0.85;
     const AXIS_AREA_WIDTH = WIDTH * AXIS_AREA_RATIO;
     const AXIS_AREA_OFFSET_X = (WIDTH - AXIS_AREA_WIDTH) / 2;
