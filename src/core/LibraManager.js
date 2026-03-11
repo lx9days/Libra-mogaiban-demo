@@ -562,7 +562,7 @@ export default class LibraManager {
     }
 
     static buildReorderInstrument(layer, context) {
-        const gesture = typeof context?.gesture === "string" ? String(context.gesture).toLowerCase() : undefined;
+        const syntheticEvent = typeof context?.syntheticEvent === "string" ? String(context.syntheticEvent).toLowerCase() : undefined;
         const gestureMoveDelay = Number.isFinite(context?.gestureMoveDelay) ? Number(context.gestureMoveDelay) : undefined;
         Libra.Service.register("copyService", {
             sharedVar: {
@@ -1017,7 +1017,7 @@ export default class LibraManager {
                 redraw: context.redraw,
                 layoutOffset: context.offset || { x: 0, y: 0 },
                 offset: context.offset || { x: 0, y: 0 },
-                gesture: gesture,
+                syntheticEvent: syntheticEvent,
                 gestureMoveDelay: gestureMoveDelay
             },
         };
@@ -1677,10 +1677,10 @@ export default class LibraManager {
         if (context.fontSize !== undefined) sharedVar.fontSize = context.fontSize;
         if (context.countLabelWidth !== undefined) sharedVar.countLabelWidth = context.countLabelWidth;
         if (context.maxLabelsNum !== undefined) sharedVar.maxLabelsNum = context.maxLabelsNum;
-        if (context.gesture !== undefined) sharedVar.gesture = context.gesture;
+        if (context.syntheticEvent !== undefined) sharedVar.syntheticEvent = context.syntheticEvent;
         if (Number.isFinite(context.gestureMoveDelay)) sharedVar.gestureMoveDelay = context.gestureMoveDelay;
         sharedVar.lensState = state;
-        if (typeof sharedVar.gesture === "string") state.gesture = String(sharedVar.gesture).toLowerCase();
+        if (typeof sharedVar.syntheticEvent === "string") state.syntheticEvent = String(sharedVar.syntheticEvent).toLowerCase();
         if (Number.isFinite(sharedVar.gestureMoveDelay)) state.moveDelay = Number(sharedVar.gestureMoveDelay);
 
         const buildOptions = {
