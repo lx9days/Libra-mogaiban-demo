@@ -236,6 +236,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
       if (!attached) {
         const panZoomInteractions = [
           {
+            Instrument: "panning",
             Trigger: "pan",
             "Target layer": layerName,
             priority: 3,
@@ -243,6 +244,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
             stopPropagation: true
           },
           {
+            Instrument: "zooming",
             Trigger: "zoom",
             "Target layer": layerName,
             priority: 4,

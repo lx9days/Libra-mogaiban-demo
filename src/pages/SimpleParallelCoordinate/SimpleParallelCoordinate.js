@@ -531,10 +531,37 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
                     offset: { x: MARGIN.left + AXIS_AREA_OFFSET_X, y: 0 }
                 }
             }
-        }
+        },
+        ...dimensions.map(dim => {
+            const layerName = dim.replace(/\./g, '_');
+            return {
+                Instrument: "AxisSelection",
+                Trigger: "BrushY",
+                "Target layer": `axisLayer-${layerName}`,
+                "Feedback options": {
+                    Highlight: "#ff0000",
+                    LinkLayers: [linesLayer],
+                    Scale: y[dim],
+                    AttrName: dim,
+                },
+                highlightAttrValues: {
+                    stroke: "#ff0000",
+                    "stroke-width": 2
+                },
+                SelectionMode: "intersection",
+                BaseOpacity: 1
+            };
+        })
     ];
+
+    const layersByName = { headersLayer };
+    dimensions.forEach(dim => {
+        const layerName = dim.replace(/\./g, '_');
+        layersByName[`axisLayer-${layerName}`] = axisLayers[dim];
+    });
+
     await compileInteractionsDSL(interactions, {
-        layersByName: { headersLayer }
+        layersByName
     });
 
     Object.keys(axisLayers).forEach(dim => {
@@ -562,22 +589,6 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
                     redrawParallel(x.domain(), x);
                 }
             }
-        });
-
-        LibraManager.buildAxisSelectionInstrument(axisLayer, {
-            Trigger: "brushy",
-            "Feedback options": {
-                Highlight: "#ff0000",
-                LinkLayers: [linesLayer],
-                Scale: y[dim],
-                AttrName: dim,
-            },
-            highlightAttrValues: {
-                stroke: "#ff0000",
-                "stroke-width": 2
-            },
-            SelectionMode: "intersection",
-            BaseOpacity: 1
         });
     });
 
