@@ -271,11 +271,30 @@ export function compileInteractionsDSL(specList = [], ctx) {
         const name = String(r["Instruments"] || "").trim().toLowerCase();
         if (!name) return;
         atomic.instruments.add(name);
+
+        // Add normalized name (remove spaces) to support "axisselection" matching "axis selection"
+        const nameNoSpace = name.replace(/\s+/g, "");
+        if (nameNoSpace !== name) {
+          atomic.instruments.add(nameNoSpace);
+        }
+
         const triggers = String(r["Available Triggers"] || "")
           .toLowerCase()
           .split(/[/\s]+/)
           .filter((t) => !!t);
-        atomic.triggers.set(name, new Set(triggers));
+
+        const triggersSet = new Set(triggers);
+        // Add normalized triggers (remove hyphens) to support "brushy" matching "brush-y"
+        triggers.forEach((t) => {
+          if (t.includes("-")) {
+            triggersSet.add(t.replace(/-/g, ""));
+          }
+        });
+
+        atomic.triggers.set(name, triggersSet);
+        if (nameNoSpace !== name) {
+          atomic.triggers.set(nameNoSpace, triggersSet);
+        }
       });
     })
     .catch(() => {});
@@ -637,6 +656,8 @@ export function compileInteractionsDSL(specList = [], ctx) {
         if (spec?.selectionMode !== undefined) buildContext.selectionMode = spec.selectionMode;
         if (spec?.BaseOpacity !== undefined) buildContext.BaseOpacity = spec.BaseOpacity;
         if (spec?.baseOpacity !== undefined) buildContext.baseOpacity = spec.baseOpacity;
+        if (spec?.highlightAttrValues !== undefined) buildContext.highlightAttrValues = spec.highlightAttrValues;
+        if (spec?.HighlightAttrValues !== undefined) buildContext.highlightAttrValues = spec.HighlightAttrValues;
 
         const linkLayersRaw =
           feedbackOptions?.LinkLayers ?? feedbackOptions?.linkLayers;

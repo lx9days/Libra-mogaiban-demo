@@ -3,8 +3,8 @@ import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
-const MARGIN = { top: 40, right: 120, bottom: 50, left: 340 };
-const WIDTH = 900 - MARGIN.left - MARGIN.right;
+const MARGIN = { top: 40, right: 120, bottom: 50, left: 140 };
+const WIDTH = 700 - MARGIN.left - MARGIN.right;
 const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
 const YEARS_TO_SHOW = 8;
 const MAX_TOPIC_LABEL_CHARS = 18;
@@ -133,7 +133,11 @@ async function loadData() {
     
     // Process raw data
     const allData = rawData.map(d => ({
-        division: d.division.split(",")[0], // Keep only the city name part
+        division: (() => {
+            const cityPart = d.division.split(",")[0];
+            const words = cityPart.split(/[- ]+/);
+            return words.length > 1 ? words[1] : words[0];
+        })(), // Keep only the second word of the city name
         date: parseDate(d.date),
         year: parseDate(d.date).getFullYear(),
         unemployment: +d.unemployment
@@ -169,8 +173,8 @@ async function loadData() {
         }))
     );
 
-    const maxYear = d3.max(data, d => d.year) ?? 0;
-    const minYear = maxYear - (YEARS_TO_SHOW - 1);
+    const dataMaxYear = d3.max(data, d => d.year) ?? 0;
+    const minYear = dataMaxYear - (YEARS_TO_SHOW - 1);
     const filteredData = data.filter(d => d.year >= minYear);
 
     return { data: filteredData, topics };
@@ -228,7 +232,7 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     xAxisG
         .append("g")
         .attr("transform", `translate(${MARGIN.left}, 0)`) // xAxisLayer is already positioned at bottom
-        .call(d3.axisBottom(xScale).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")))
+        .call(d3.axisBottom(xScale).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("'%y")))
         .selectAll("text")
         .style("font-size", `${AXIS_FONT_SIZE_PX}px`);
 }
