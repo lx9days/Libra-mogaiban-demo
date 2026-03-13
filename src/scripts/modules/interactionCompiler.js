@@ -434,17 +434,17 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (interaction === "reordering" || interaction === "reorderinstrument" || interaction === "reorder") {
         const directionRaw = spec?.Direction || spec?.direction || feedbackOptions?.Direction || feedbackOptions?.direction;
         const direction = typeof directionRaw === "string" ? stripInlineComment(directionRaw).toLowerCase() : "x";
-        const gestureRaw =
-          spec?.gesture ??
-          spec?.Gesture ??
-          feedbackOptions?.gesture ??
-          feedbackOptions?.Gesture;
+        const syntheticEventRaw =
+          spec?.syntheticEvent ??
+          spec?.SyntheticEvent ??
+          feedbackOptions?.syntheticEvent ??
+          feedbackOptions?.SyntheticEvent;
         const gestureMoveDelayRaw =
           spec?.gestureMoveDelay ??
           spec?.GestureMoveDelay ??
           feedbackOptions?.gestureMoveDelay ??
           feedbackOptions?.GestureMoveDelay;
-        const gesture = typeof gestureRaw === "string" ? stripInlineComment(gestureRaw).toLowerCase() : undefined;
+        const syntheticEvent = typeof syntheticEventRaw === "string" ? stripInlineComment(syntheticEventRaw).toLowerCase() : undefined;
         const gestureMoveDelay =
           typeof gestureMoveDelayRaw === "number" && Number.isFinite(gestureMoveDelayRaw)
             ? gestureMoveDelayRaw
@@ -479,7 +479,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
             scaleY: sY,
             redraw,
             offset,
-            gesture,
+            syntheticEvent,
             gestureMoveDelay
           });
         }
@@ -508,11 +508,11 @@ export function compileInteractionsDSL(specList = [], ctx) {
             options?.modifierKey ??
             options?.ModifierKey;
 
-          const gesture = spec?.gesture ?? spec?.Gesture ?? feedbackOptions?.gesture ?? feedbackOptions?.Gesture;
+          const syntheticEvent = spec?.syntheticEvent ?? spec?.SyntheticEvent ?? feedbackOptions?.syntheticEvent ?? feedbackOptions?.SyntheticEvent;
 
           const buildContext = { ...options };
-          if (gesture !== undefined) {
-             buildContext.gesture = gesture;
+          if (syntheticEvent !== undefined) {
+             buildContext.syntheticEvent = syntheticEvent;
           }
           if (typeof modifierKeyRaw === "string") {
             buildContext.modifierKey = stripInlineComment(modifierKeyRaw);
@@ -838,23 +838,23 @@ export function compileInteractionsDSL(specList = [], ctx) {
         sharedVar.modifierKey = null;
       }
 
-      const gestureRaw =
-        spec?.gesture ??
-        spec?.Gesture ??
-        feedbackOptions?.gesture ??
-        feedbackOptions?.Gesture;
+      const syntheticEventRaw =
+        spec?.syntheticEvent ??
+        spec?.SyntheticEvent ??
+        feedbackOptions?.syntheticEvent ??
+        feedbackOptions?.SyntheticEvent;
       const gestureMoveDelayRaw =
         spec?.gestureMoveDelay ??
         spec?.GestureMoveDelay ??
         feedbackOptions?.gestureMoveDelay ??
         feedbackOptions?.GestureMoveDelay;
-      const gesture = typeof gestureRaw === "string" ? stripInlineComment(gestureRaw).toLowerCase() : undefined;
+      const syntheticEvent = typeof syntheticEventRaw === "string" ? stripInlineComment(syntheticEventRaw).toLowerCase() : undefined;
       const gestureMoveDelay =
         typeof gestureMoveDelayRaw === "number" && Number.isFinite(gestureMoveDelayRaw)
           ? gestureMoveDelayRaw
           : undefined;
-      if (gesture) {
-        sharedVar.gesture = gesture;
+      if (syntheticEvent) {
+        sharedVar.syntheticEvent = syntheticEvent;
       }
       if (gestureMoveDelay !== undefined) {
         sharedVar.gestureMoveDelay = gestureMoveDelay;
