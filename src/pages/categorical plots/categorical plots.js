@@ -234,5 +234,5 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
         layersByName: { yAxisLayer },
     });
 
-    await Libra.createHistoryTrrack();
+    await Libra.createHistoryTrack();
 }

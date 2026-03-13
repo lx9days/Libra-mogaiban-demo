@@ -374,5 +374,5 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
     layersByName: { xAxisLayer, yAxisLayer, ...cellLayers }
   });
 
-  await Libra.createHistoryTrrack();
+  await Libra.createHistoryTrack();
 }

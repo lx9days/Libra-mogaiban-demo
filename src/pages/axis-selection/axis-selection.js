@@ -225,7 +225,7 @@ async function mountInteraction(mainLayer, xAxisLayer, yAxisLayer) {
       layersByName: { mainLayer, xAxisLayer, yAxisLayer },
     }
   );
-  await Libra.createHistoryTrrack();
+  await Libra.createHistoryTrack();
 }
 
 main();

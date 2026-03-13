@@ -278,8 +278,6 @@ async function mountInteraction(layer) {
 
   if (typeof Libra.createHistoryTrack === "function") {
     await Libra.createHistoryTrack();
-  } else if (typeof Libra.createHistoryTrrack === "function") {
-    await Libra.createHistoryTrrack();
   }
 }
 

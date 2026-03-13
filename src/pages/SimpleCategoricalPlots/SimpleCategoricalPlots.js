@@ -169,8 +169,8 @@ async function loadData() {
         }))
     );
 
-    const maxYear = d3.max(data, d => d.year) ?? 0;
-    const minYear = maxYear - (YEARS_TO_SHOW - 1);
+    const dataMaxYear = d3.max(data, d => d.year) ?? 0;
+    const minYear = dataMaxYear - (YEARS_TO_SHOW - 1);
     const filteredData = data.filter(d => d.year >= minYear);
 
     return { data: filteredData, topics };
@@ -260,5 +260,5 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
         layersByName: { yAxisLayer },
     });
 
-    await Libra.createHistoryTrrack();
+    await Libra.createHistoryTrack();
 }

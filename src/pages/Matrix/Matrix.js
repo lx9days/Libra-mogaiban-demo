@@ -509,5 +509,5 @@ async function mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, scaleX
         layersByName: { xAxisLayer, yAxisLayer },
     });
 
-    await Libra.createHistoryTrrack();
+    await Libra.createHistoryTrack();
 }

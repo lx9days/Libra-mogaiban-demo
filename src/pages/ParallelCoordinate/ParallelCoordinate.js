@@ -635,5 +635,5 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     //     });
     });
 
-    await Libra.createHistoryTrrack();
+    await Libra.createHistoryTrack();
 }
