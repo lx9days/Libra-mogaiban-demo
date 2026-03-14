@@ -1,8 +1,18 @@
 import '../styles/index.scss';
 import 'monaco-editor/min/vs/editor/editor.main.css';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import Libra from 'libra-vis';
 
 console.log('webpack starterkit');
+
+// Keep the demo compatible with libra-vis builds that still export the typoed history API.
+if (
+  Libra &&
+  typeof Libra.createHistoryTrack !== 'function' &&
+  typeof Libra.createHistoryTrrack === 'function'
+) {
+  Libra.createHistoryTrack = Libra.createHistoryTrrack;
+}
 
 // 目录上下文：页面（同时支持 .js 和 .json）与后备模块
 // 递归查找 pages 子目录中的 .js/.json 文件

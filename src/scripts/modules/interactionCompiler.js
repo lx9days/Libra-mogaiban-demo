@@ -401,7 +401,12 @@ export function compileInteractionsDSL(specList = [], ctx) {
       }
       if (!layers || layers.length === 0) continue;
 
-      const feedbackOptionsRaw = spec?.["Feedback options"] || spec?.Feedback || {};
+      const feedbackOptionsRaw =
+        spec?.feedbackOptions ??
+        spec?.FeedbackOptions ??
+        spec?.["Feedback options"] ??
+        spec?.Feedback ??
+        {};
       const feedbackOptions = resolveFeedbackOptionsValue(feedbackOptionsRaw, {
         spec,
         layers,
@@ -650,14 +655,24 @@ export function compileInteractionsDSL(specList = [], ctx) {
         buildContext.Trigger = trigger;
         if (spec?.axisDirection !== undefined) buildContext.axisDirection = spec.axisDirection;
         if (spec?.AxisDirection !== undefined) buildContext.axisDirection = spec.AxisDirection;
+        if (feedbackOptions?.axisDirection !== undefined) buildContext.axisDirection = feedbackOptions.axisDirection;
+        if (feedbackOptions?.AxisDirection !== undefined) buildContext.axisDirection = feedbackOptions.AxisDirection;
         if (spec?.dimension !== undefined) buildContext.dimension = spec.dimension;
         if (spec?.Dimension !== undefined) buildContext.dimension = spec.Dimension;
+        if (feedbackOptions?.dimension !== undefined) buildContext.dimension = feedbackOptions.dimension;
+        if (feedbackOptions?.Dimension !== undefined) buildContext.dimension = feedbackOptions.Dimension;
         if (spec?.SelectionMode !== undefined) buildContext.SelectionMode = spec.SelectionMode;
         if (spec?.selectionMode !== undefined) buildContext.selectionMode = spec.selectionMode;
+        if (feedbackOptions?.SelectionMode !== undefined) buildContext.SelectionMode = feedbackOptions.SelectionMode;
+        if (feedbackOptions?.selectionMode !== undefined) buildContext.selectionMode = feedbackOptions.selectionMode;
         if (spec?.BaseOpacity !== undefined) buildContext.BaseOpacity = spec.BaseOpacity;
         if (spec?.baseOpacity !== undefined) buildContext.baseOpacity = spec.baseOpacity;
+        if (feedbackOptions?.BaseOpacity !== undefined) buildContext.BaseOpacity = feedbackOptions.BaseOpacity;
+        if (feedbackOptions?.baseOpacity !== undefined) buildContext.baseOpacity = feedbackOptions.baseOpacity;
         if (spec?.highlightAttrValues !== undefined) buildContext.highlightAttrValues = spec.highlightAttrValues;
         if (spec?.HighlightAttrValues !== undefined) buildContext.highlightAttrValues = spec.HighlightAttrValues;
+        if (feedbackOptions?.highlightAttrValues !== undefined) buildContext.highlightAttrValues = feedbackOptions.highlightAttrValues;
+        if (feedbackOptions?.HighlightAttrValues !== undefined) buildContext.highlightAttrValues = feedbackOptions.HighlightAttrValues;
 
         const linkLayersRaw =
           feedbackOptions?.LinkLayers ?? feedbackOptions?.linkLayers;
@@ -683,6 +698,11 @@ export function compileInteractionsDSL(specList = [], ctx) {
 
         buildContext["Feedback options"] = {
           ...feedbackOptions,
+          ...(highlight !== undefined ? { Highlight: highlight } : {}),
+          ...(feedbackOptions?.Scale !== undefined ? { Scale: feedbackOptions.Scale } : {}),
+          ...(feedbackOptions?.scale !== undefined ? { Scale: feedbackOptions.scale } : {}),
+          ...(feedbackOptions?.AttrName !== undefined ? { AttrName: feedbackOptions.AttrName } : {}),
+          ...(feedbackOptions?.attrName !== undefined ? { AttrName: feedbackOptions.attrName } : {}),
           ...(resolvedLinkLayers !== undefined ? { LinkLayers: resolvedLinkLayers } : {}),
         };
 

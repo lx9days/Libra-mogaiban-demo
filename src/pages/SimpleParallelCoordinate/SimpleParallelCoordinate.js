@@ -516,13 +516,55 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         LibraManager.updateLinkSelection(linesLayer);
     };
 
+    const axisInteractions = dimensions.flatMap((dim) => {
+        const layerName = dim.replace(/\./g, "_");
+        return [
+            {
+                instrument: "zoom",
+                trigger: "zoom",
+                targetLayer: `axisLayer-${layerName}`,
+                feedbackOptions: {
+                    fixRange: true,
+                    scaleY: y[dim],
+                }
+            },
+            {
+                instrument: "pan",
+                trigger: "pan",
+                targetLayer: `axisLayer-${layerName}`,
+                modifierKey: "Alt",
+                feedbackOptions: {
+                    fixRange: true,
+                    scaleY: y[dim],
+                }
+            },
+            {
+                instrument: "axis selection",
+                trigger: "brushy",
+                targetLayer: `axisLayer-${layerName}`,
+                feedbackOptions: {
+                    highlight: "#ff0000",
+                    linkLayers: [linesLayer],
+                    scale: y[dim],
+                    attrName: dim,
+                    highlightAttrValues: {
+                        stroke: "#ff0000",
+                        "stroke-width": 2
+                    },
+                    selectionMode: "intersection",
+                    baseOpacity: 1
+                }
+            }
+        ];
+    });
+
     const interactions = [
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
-            "Target layer": "headersLayer",
-            Direction: "x",
-            "Feedback options": {
+            instrument: "reordering",
+            trigger: "drag",
+            targetLayer: "headersLayer",
+            feedbackOptions: {
+                direction: "x",
                 redrawRef: redrawParallel,
                 contextRef: {
                     names: dimensions,
@@ -532,29 +574,10 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
                 }
             }
         },
-        ...dimensions.map(dim => {
-            const layerName = dim.replace(/\./g, '_');
-            return {
-                Instrument: "AxisSelection",
-                Trigger: "BrushY",
-                "Target layer": `axisLayer-${layerName}`,
-                "Feedback options": {
-                    Highlight: "#ff0000",
-                    LinkLayers: [linesLayer],
-                    Scale: y[dim],
-                    AttrName: dim,
-                },
-                highlightAttrValues: {
-                    stroke: "#ff0000",
-                    "stroke-width": 2
-                },
-                SelectionMode: "intersection",
-                BaseOpacity: 1
-            };
-        })
+        ...axisInteractions
     ];
 
-    const layersByName = { headersLayer };
+    const layersByName = { headersLayer, linesLayer };
     dimensions.forEach(dim => {
         const layerName = dim.replace(/\./g, '_');
         layersByName[`axisLayer-${layerName}`] = axisLayers[dim];
@@ -567,19 +590,6 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     Object.keys(axisLayers).forEach(dim => {
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
-
-        LibraManager.buildGeometricZoomInstrument(axisLayer, {
-            Trigger: "zoom",
-            fixRange: true,
-            scaleY: y[dim],
-        });
-
-        LibraManager.buildPanInstrument(axisLayer, {
-            Trigger: "pan",
-            fixRange: true,
-            scaleY: y[dim],
-            ModifierKey: "Alt"
-        });
 
         LibraManager.buildGeometricTransformer(axisLayer, {
             scaleY: y[dim],
