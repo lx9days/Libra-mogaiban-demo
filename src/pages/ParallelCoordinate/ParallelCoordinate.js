@@ -527,13 +527,55 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
 
 
+    const axisInteractions = dimensions.flatMap((dim) => {
+        const layerName = dim.replace(/\./g, "_");
+        return [
+            {
+                instrument: "zoom",
+                trigger: "zoom",
+                targetLayer: `axisLayer-${layerName}`,
+                feedbackOptions: {
+                    fixRange: true,
+                    scaleY: y[dim],
+                }
+            },
+            {
+                instrument: "pan",
+                trigger: "pan",
+                targetLayer: `axisLayer-${layerName}`,
+                modifierKey: "Alt",
+                feedbackOptions: {
+                    fixRange: true,
+                    scaleY: y[dim],
+                }
+            },
+            {
+                instrument: "axis selection",
+                trigger: "brushy",
+                targetLayer: `axisLayer-${layerName}`,
+                feedbackOptions: {
+                    highlight: "#ff0000",
+                    linkLayers: [linesLayer],
+                    scale: y[dim],
+                    attrName: dim,
+                    highlightAttrValues: {
+                        stroke: "#ff0000",
+                        "stroke-width": 2
+                    },
+                    selectionMode: "intersection",
+                    baseOpacity: 1
+                }
+            }
+        ];
+    });
+
     const interactions = [
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
+            instrument: "reordering",
+            trigger: "drag",
             targetLayer: "headersLayer",
-            Direction: "x",
             feedbackOptions: {
+                direction: "x",
                 redrawRef: redrawParallel,
                 contextRef: {
                     names: dimensions,
@@ -542,10 +584,16 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
                     offset: { x: MARGIN.left, y: 0 }
                 }
             }
-        }
+        },
+        ...axisInteractions
     ];
+    const layersByName = { headersLayer, linesLayer };
+    dimensions.forEach((dim) => {
+        const layerName = dim.replace(/\./g, "_");
+        layersByName[`axisLayer-${layerName}`] = axisLayers[dim];
+    });
     await compileInteractionsDSL(interactions, {
-        layersByName: { headersLayer }
+        layersByName
     });
 
 
@@ -554,19 +602,6 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
-
-        LibraManager.buildGeometricZoomInstrument(axisLayer, {
-            Trigger: "zoom",
-            fixRange: true,
-            scaleY: y[dim],
-        });
-
-        LibraManager.buildPanInstrument(axisLayer, {
-            Trigger: "pan",
-            fixRange: true,
-            scaleY: y[dim],
-            ModifierKey: "Alt"
-        });
 
         LibraManager.buildGeometricTransformer(axisLayer, {
             scaleY: y[dim],
@@ -578,23 +613,31 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             }
         });
 
-        LibraManager.buildAxisSelectionInstrument(axisLayer, {
-            Trigger: "brushy",
-            feedbackOptions: {
-                Highlight: "#ff0000",
-                LinkLayers: [linesLayer],
-                Scale: y[dim],
-                AttrName: dim,
-            },
-            highlightAttrValues: {
-                stroke: "#ff0000",
-                "stroke-width": 2
-            },
-            SelectionMode: "intersection",
-            BaseOpacity: 1
-        });
-
-
+    //     Libra.Interaction.build({
+    //         inherit: "HoverInstrument",
+    //         layers: [{layer:axisLayer,options: {
+    //     pointerEvents: "visiblePainted",
+    //   }}],
+    //         insert: [
+    //             {
+    //                 find: "SelectionService",
+    //                 flow: [
+    //                     {
+    //                         comp: "LineTransformer",
+    //                         sharedVar: {
+    //                             orientation: ["horizontal"],
+    //                             scaleY: y[dim],
+    //                         },
+    //                     },
+    //                 ],
+    //             },
+    //         ],
+    //         sharedVar: {
+    //             tooltip: {
+    //                 prefix: "value: ",
+    //             },
+    //         },
+    //     });
     });
 
     await Libra.createHistoryTrack();
