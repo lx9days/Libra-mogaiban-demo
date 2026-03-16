@@ -267,8 +267,8 @@ async function mountInteraction(layer) {
       Name: "Click",
       Instrument: "point selection",
       Trigger: "click",
-      "Target layer": "mainLayer",
-      "Feedback options": barChartClickFeedback,
+      targetLayer: "mainLayer",
+      feedbackOptions: barChartClickFeedback,
     },
   ];
 

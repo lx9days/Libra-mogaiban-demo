@@ -111,13 +111,13 @@ export default class LibraManager {
 
         const sharedVar = {};
 
-        // Extract Feedback options
-        const feedback = context["Feedback options"] || {};
+        // Extract feedbackOptions
+        const feedback = context.feedbackOptions || context["Feedback options"] || {};
 
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         
-        // Handle HighlightColor from context or Feedback options
+        // Handle HighlightColor from context or feedbackOptions
         if (feedback.Highlight) sharedVar.highlightColor = feedback.Highlight;
         else if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
         
@@ -130,7 +130,7 @@ export default class LibraManager {
             };
         }
 
-        // Handle LinkLayers from context or Feedback options
+        // Handle LinkLayers from context or feedbackOptions
         if (feedback.LinkLayers) sharedVar.linkLayers = feedback.LinkLayers;
         else if (context.LinkLayers) sharedVar.linkLayers = context.LinkLayers;
         else if (context.linkLayers) sharedVar.linkLayers = context.linkLayers;
@@ -149,11 +149,11 @@ export default class LibraManager {
 
         if (context.dimension) sharedVar.dimension = context.dimension;
         
-        // Handle scale from context or Feedback options
+        // Handle scale from context or feedbackOptions
         if (feedback.Scale) sharedVar.scale = feedback.Scale;
         else if (context.scale) sharedVar.scale = context.scale;
         
-        // Handle AttrName/dimension from Feedback options if not present
+        // Handle AttrName/dimension from feedbackOptions if not present
         if (!sharedVar.dimension && feedback.AttrName) {
             sharedVar.dimension = feedback.AttrName;
         }

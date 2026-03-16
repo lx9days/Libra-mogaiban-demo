@@ -356,10 +356,10 @@ async function mountInteraction(cellLayer, names, scaleX, scaleY) {
         {
             Instrument: "reordering",
             Trigger: "drag",
-            "Target layer": "cellLayer",
+            targetLayer: "cellLayer",
             syntheticEvent: "start-horizontally",
             Direction: "x",
-            "Feedback options": {
+            feedbackOptions: {
                 contextRef: {
                     ...reorderContext,
                 },
@@ -368,10 +368,10 @@ async function mountInteraction(cellLayer, names, scaleX, scaleY) {
         {
             Instrument: "reordering",
             Trigger: "drag",
-            "Target layer": "cellLayer",
+            targetLayer: "cellLayer",
             syntheticEvent: "start-vertically",
             Direction: "y",
-            "Feedback options": {
+            feedbackOptions: {
                 contextRef: {
                     ...reorderContext,
                 },

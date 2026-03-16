@@ -182,8 +182,8 @@ async function mountInteraction(layer, transformer) {
     [
       {
         Trigger: "brush",
-        "Target layer": "mainLayer",
-        "Feedback options": {
+        targetLayer: "mainLayer",
+        feedbackOptions: {
           Highlight: "red",
         },
         priority: 1,
@@ -191,8 +191,8 @@ async function mountInteraction(layer, transformer) {
       },
       {
         Trigger: "pan",
-        "Target layer": "mainLayer",
-        "Feedback options": {
+        targetLayer: "mainLayer",
+        feedbackOptions: {
           scaleX: xScale,
           scaleY: yScale,
           fixRange: true,
@@ -203,8 +203,8 @@ async function mountInteraction(layer, transformer) {
       },
       {
         Trigger: "zoom",
-        "Target layer": "mainLayer",
-        "Feedback options": {
+        targetLayer: "mainLayer",
+        feedbackOptions: {
           scaleX: xScale,
           scaleY: yScale,
           fixRange: true,

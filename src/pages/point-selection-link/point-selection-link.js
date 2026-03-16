@@ -236,14 +236,14 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
         const panZoomInteractions = [
           {
             Trigger: "pan",
-            "Target layer": layerName,
+            targetLayer: layerName,
             priority: 3,
             modifierKey: "ctrl",
             stopPropagation: true
           },
           {
             Trigger: "zoom",
-            "Target layer": layerName,
+            targetLayer: layerName,
             priority: 4,
             modifierKey: "ctrl",
             stopPropagation: true
@@ -329,8 +329,8 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
     // {
     //   Instrument: "point selection",
     //   Trigger: "hover",
-    //   "Target layer": Object.keys(cellLayers),
-    //   "Feedback options": {
+    //   targetLayer: Object.keys(cellLayers),
+    //   feedbackOptions: {
     //     Highlight: "#ff0000",
     //     Tooltip: {
     //       fields: ["class"],
@@ -353,8 +353,8 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       return {
         Instrument: "point selection",
         Trigger: "hover",
-        "Target layer": layerName,
-        "Feedback options": {
+        targetLayer: layerName,
+        feedbackOptions: {
           Highlight: "#00ff1aff",
           ScaleX: sx,
           ScaleY: sy,

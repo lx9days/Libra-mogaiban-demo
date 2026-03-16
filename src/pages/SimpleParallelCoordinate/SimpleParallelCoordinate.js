@@ -520,9 +520,9 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         {
             Instrument: "reordering",
             Trigger: "Drag",
-            "Target layer": "headersLayer",
+            targetLayer: "headersLayer",
             Direction: "x",
-            "Feedback options": {
+            feedbackOptions: {
                 redrawRef: redrawParallel,
                 contextRef: {
                     names: dimensions,
@@ -537,8 +537,8 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             return {
                 Instrument: "AxisSelection",
                 Trigger: "BrushY",
-                "Target layer": `axisLayer-${layerName}`,
-                "Feedback options": {
+                targetLayer: `axisLayer-${layerName}`,
+                feedbackOptions: {
                     Highlight: "#ff0000",
                     LinkLayers: [linesLayer],
                     Scale: y[dim],
@@ -594,3 +594,4 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
     await Libra.createHistoryTrack();
 }
+//这个例子拖拽的轴和被重排的轴不一样，疑似有位置偏移，但是普通paraCoord没有

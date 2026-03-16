@@ -191,8 +191,8 @@ async function mountInteraction(layer) {
     {
       Instrument: "point selection",
       Trigger: "click",
-      "Target layer": "mainLayer",
-      "Feedback options": {
+      targetLayer: "mainLayer",
+      feedbackOptions: {
         Highlight: "#ff0000",
         Dim: { opacity: 0.1, selector: ".mark" },
       },

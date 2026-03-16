@@ -185,9 +185,9 @@ async function mountInteraction(layer) {
             Name: "lensMain",
             Instrument: "Lens",
             Trigger: "hover",
-            "Target layer": "mainLayer",
-            "Synthetic Event": "idle",
-            "Feedback options": {
+            targetLayer: "mainLayer",
+            syntheticEvent: "idle",
+            feedbackOptions: {
                 ExcentricLabeling: {
                     renderSelection: false,
                     r: 20,
@@ -208,10 +208,10 @@ async function mountInteraction(layer) {
         {
             Name: "hoverTooltip",
             Trigger: "hover",
-            "Target layer": "mainLayer",
-            "Synthetic Event": "motion",
+            targetLayer: "mainLayer",
+            syntheticEvent: "motion",
             gestureMoveDelay: 300,
-            "Feedback options": {
+            feedbackOptions: {
                 Tooltip: {
                     prefix: "Car",
                     fields: ["Name", FIELD_X, FIELD_Y, FIELD_COLOR],

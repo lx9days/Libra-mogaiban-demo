@@ -348,10 +348,10 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (!inherit && !interaction) continue;
 
       const targetName =
-        spec?.["Target layer"] ||
+        spec?.targetLayer ||
         spec?.Target ||
         spec?.layer ||
-        spec?.targetLayer;
+        spec?.["Target layer"];
       let layers = [];
       let autoLayerOptions = null;
       if (Array.isArray(targetName)) {
@@ -401,7 +401,11 @@ export function compileInteractionsDSL(specList = [], ctx) {
       }
       if (!layers || layers.length === 0) continue;
 
-      const feedbackOptionsRaw = spec?.["Feedback options"] || spec?.Feedback || {};
+      const feedbackOptionsRaw =
+        spec?.feedbackOptions ||
+        spec?.["Feedback options"] ||
+        spec?.Feedback ||
+        {};
       const feedbackOptions = resolveFeedbackOptionsValue(feedbackOptionsRaw, {
         spec,
         layers,
@@ -681,7 +685,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
           resolvedLinkLayers = acc;
         }
 
-        buildContext["Feedback options"] = {
+        buildContext[feedbackOptions] = {
           ...feedbackOptions,
           ...(resolvedLinkLayers !== undefined ? { LinkLayers: resolvedLinkLayers } : {}),
         };
@@ -868,7 +872,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
           : spec?.StopPropagation;
       const onMap = spec?.on ?? spec?.On ?? feedbackOptions?.on ?? feedbackOptions?.On;
 
-      // Handle Operator/Renderer in Feedback options (Top level)
+      // Handle Operator/Renderer in feedbackOptions (Top level)
       let autoInsert = [];
       if (feedbackOptions?.Operator || feedbackOptions?.Renderer) {
         const op = feedbackOptions.Operator;

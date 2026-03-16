@@ -462,8 +462,8 @@ async function mountInteraction(layer) {
       Name: "HelperLineHover",
       Instrument: "helperLine",
       Trigger: "hover",
-      "Target layer": "mainLayer",
-      "Feedback options": helperLineHoverFeedback({ showIntersection: true }),
+      targetLayer: "mainLayer",
+      feedbackOptions: helperLineHoverFeedback({ showIntersection: true }),
     },
   ];
 

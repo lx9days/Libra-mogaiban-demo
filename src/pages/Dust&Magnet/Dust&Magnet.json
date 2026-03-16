@@ -3,7 +3,7 @@
         {
             "Instrument": "Drag",
             "Trigger": "drag",
-            "Target layer": "magnetLayer",
+            "targetLayer": "magnetLayer",
             "priority": 3,
             "callback": "moveDusts(function)",
             "stopPropagation": true
@@ -11,7 +11,7 @@
         {
             "Instrument": "Point Selection",
             "Trigger": "click",
-            "Target layer": "backgroundLayer",
+            "targetLayer": "backgroundLayer",
             "priority": 1,
             "callback": "createMagnet(function)",
             "stopPropagation": true
@@ -19,8 +19,8 @@
         {
             "Instrument": "Point Selection",
             "Trigger": "click",
-            "Target layer": "dustLayer",
-            "Feedback options": {
+            "targetLayer": "dustLayer",
+            "feedbackOptions": {
                 "Highlight": "greenyellow"
             },
             "priority": 2,
@@ -29,8 +29,8 @@
         {
             "Instrument": "Group Selection",
             "Trigger": "brush",
-            "Target layer": "dustLayer",
-            "Feedback options": {
+            "targetLayer": "dustLayer",
+            "feedbackOptions": {
                 "Highlight": "red"
             },
             "modifierKey": "Shift",

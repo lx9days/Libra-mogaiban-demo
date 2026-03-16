@@ -197,8 +197,8 @@ async function mountInteraction(mainLayer, xAxisLayer, yAxisLayer) {
       {
         Instrument: "axis selection",
         Trigger: "brushx",
-        "Target layer": "xAxisLayer",
-        "Feedback options": {
+        targetLayer: "xAxisLayer",
+        feedbackOptions: {
           Highlight: "red",
           LinkLayers: ["mainLayer"],
           Scale: x,
@@ -210,8 +210,8 @@ async function mountInteraction(mainLayer, xAxisLayer, yAxisLayer) {
       {
         Instrument: "axis selection",
         Trigger: "brushy",
-        "Target layer": "yAxisLayer",
-        "Feedback options": {
+        targetLayer: "yAxisLayer",
+        feedbackOptions: {
           Highlight: "red",
           LinkLayers: ["mainLayer"],
           Scale: y,

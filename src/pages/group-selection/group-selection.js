@@ -183,8 +183,8 @@ async function mountInteraction(layer) {
     {
       Instrument: "group selection",
       Trigger: "brush",
-      "Target layer": "mainLayer",
-      "Feedback options": {
+      targetLayer: "mainLayer",
+      feedbackOptions: {
         Highlight: "#00ff1aff",
         Dim: { opacity: 0.1, selector: ".mark" },
         RemnantKey:"shift"

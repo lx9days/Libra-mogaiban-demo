@@ -23,8 +23,8 @@ const interactions = [
   {
     Instrument: "point selection",
     Trigger: "click",
-    "Target layer": "mainLayer",
-    "Feedback options": {
+    targetLayer: "mainLayer",
+    feedbackOptions: {
       Highlight: "#ff0000",
       Dim: { opacity: 0.1, selector: ".mark" }
     },
@@ -37,8 +37,8 @@ const interactions = [
 字段含义（Point Selection 常用项）：
 - `Instrument`: `"point selection"`（大小写不敏感；编译时会转小写匹配）
 - `Trigger`: `"hover"` 或 `"click"`（否则会被跳过，见 `atomic.csv`）
-- `"Target layer"`: 宿主 layer 名称（字符串）或 layer 名称数组
-- `"Feedback options"`: 点选反馈配置（高亮/提示/弱化/联动等）
+- `targetLayer`: 宿主 layer 名称（字符串）或 layer 名称数组
+- `feedbackOptions`: 点选反馈配置（高亮/提示/弱化/联动等）
 - `priority`, `stopPropagation`: 可选，透传给 Libra 的 Interaction.build，用于冲突管理
 
 说明：
@@ -61,9 +61,9 @@ selection,point selection,Hover Click,Highlighting/Tooltip/Dim
 
 ---
 
-## 3. Target layer（目标图层）
+## 3. targetLayer（目标图层）
 
-`"Target layer"` 支持：
+`targetLayer` 支持：
 - 字符串：例如 `"mainLayer"`
 - 数组：例如 `["layerA", "layerB"]`，会解析并对每个 layer 生效
 
@@ -74,16 +74,16 @@ selection,point selection,Hover Click,Highlighting/Tooltip/Dim
 
 ---
 
-## 4. Feedback options（点选反馈配置）
+## 4. feedbackOptions（点选反馈配置）
 
-Point Selection 的 DSL 入口字段是 `"Feedback options"`（也兼容 `Feedback`），常用键如下。
+Point Selection 的 DSL 入口字段是 `feedbackOptions`（也兼容 `Feedback`），常用键如下。
 
 ### 4.1 Highlight（高亮）
 
 用法 A：直接给颜色（最常用）
 
 ```js
-"Feedback options": {
+feedbackOptions: {
   Highlight: "#ff0000"
 }
 ```
@@ -91,7 +91,7 @@ Point Selection 的 DSL 入口字段是 `"Feedback options"`（也兼容 `Feedba
 用法 B：对象写法（支持颜色 + attrValues）
 
 ```js
-"Feedback options": {
+feedbackOptions: {
   Highlight: {
     color: "#ff0000",
     attrValues: { "stroke-width": 2 }
@@ -107,7 +107,7 @@ Point Selection 的 DSL 入口字段是 `"Feedback options"`（也兼容 `Feedba
 ### 4.2 Tooltip（提示框）
 
 ```js
-"Feedback options": {
+feedbackOptions: {
   Tooltip: {
     fields: ["class", "sepal_length"],
     prefix: "iris: ",
@@ -145,7 +145,7 @@ Dim: false
 
 ### 4.4 ModifierKey（按键修饰触发）
 
-写在顶层或 Feedback options 中均可：
+写在顶层或 feedbackOptions 中均可：
 
 ```js
 modifierKey: "ctrl"
@@ -165,7 +165,7 @@ modifierKey: ["ctrl", "shift"]
 用于“按住某个键时，把本次命中与上次结果做 union 去重”，典型用于多选叠加：
 
 ```js
-"Feedback options": {
+feedbackOptions: {
   RemnantKey: "shift"
 }
 ```
@@ -179,7 +179,7 @@ modifierKey: ["ctrl", "shift"]
 用于 SPLOM 等多视图联动点选/高亮。示例（来自 point-selection-link 页面）：
 
 ```js
-"Feedback options": {
+feedbackOptions: {
   Highlight: "#00ff1aff",
   LinkLayers: Object.values(cellLayers),
   LinkMatchMode: "datum",
@@ -217,8 +217,8 @@ modifierKey: ["ctrl", "shift"]
 {
   Instrument: "point selection",
   Trigger: "click",
-  "Target layer": "mainLayer",
-  "Feedback options": {
+  targetLayer: "mainLayer",
+  feedbackOptions: {
     Highlight: "#ff0000",
     Dim: { opacity: 0.1, selector: ".mark" }
   },
@@ -233,9 +233,9 @@ modifierKey: ["ctrl", "shift"]
 {
   Instrument: "point selection",
   Trigger: "hover",
-  "Target layer": "mainLayer",
+  targetLayer: "mainLayer",
   modifierKey: "shift",
-  "Feedback options": {
+  feedbackOptions: {
     Highlight: { color: "#00ff1a", attrValues: { "stroke-width": 2 } },
     Tooltip: { fields: ["class"], prefix: "class: " }
   }
@@ -248,8 +248,8 @@ modifierKey: ["ctrl", "shift"]
 {
   Instrument: "point selection",
   Trigger: "click",
-  "Target layer": "mainLayer",
-  "Feedback options": {
+  targetLayer: "mainLayer",
+  feedbackOptions: {
     Highlight: "#ff0000",
     RemnantKey: "shift"
   }

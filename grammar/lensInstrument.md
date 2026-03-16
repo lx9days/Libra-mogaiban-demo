@@ -2,7 +2,7 @@
 
 本文描述 `compileInteractionsDSL` 里与 Lens 相关的 DSL 语法与可用配置（以 ExcentricLabeling Lens 为主），包含：
 - `Instrument: "Lens"`（ExcentricLabeling lens）
-- `Instrument: "Zoom"` + `Feedback options: { LensZoom: ... }`（滚轮缩放 lens 半径）
+- `Instrument: "Zoom"` + `feedbackOptions: { LensZoom: ... }`（滚轮缩放 lens 半径）
 - 与 lens 生成的 `LabelLayer` 协作（例如 label hover 高亮）
 
 相关实现：
@@ -21,9 +21,9 @@ const interactions = [
     Name: "lensMain",
     Instrument: "Lens",
     Trigger: "hover",
-    "Target layer": "mainLayer",
+    targetLayer: "mainLayer",
     modifierKey: "Shift",
-    "Feedback options": {
+    feedbackOptions: {
       ExcentricLabeling: { /* ... */ }
     },
     priority: 1,
@@ -35,25 +35,25 @@ const interactions = [
 字段含义（Lens 相关常用项）：
 - `Instrument`: `"Lens"`（大小写不敏感，编译时会转成小写判断）
 - `Trigger`: 必须为 `"hover"`（由编译器映射到 `HoverInstrument` 的 inherit）
-- `"Target layer"`: Lens 触发的宿主 layer 名称（通常是主图层，例如 `"mainLayer"`）
+- `targetLayer`: Lens 触发的宿主 layer 名称（通常是主图层，例如 `"mainLayer"`）
 - `Name`: 可选，用于给该 instrument 注册一个名字；后续可用 `"Target Instrument": "<Name>"` 引用它
 - `bindingKey`: 可选，lens 的绑定键；用于让 Zoom 等交互找到要控制的 lens（未提供时会回退用 `Name` 或自动生成）
 - `modifierKey`: 可选（`"Shift"` / 数组 / `null`），用于要求按键才激活
-- `"Feedback options".ExcentricLabeling`: 配置 ExcentricLabeling lens 的核心参数
+- `feedbackOptions.ExcentricLabeling`: 配置 ExcentricLabeling lens 的核心参数
 - `priority`, `stopPropagation`: 可选，透传给 Libra 的 Interaction.build
 
 ---
 
 ## 2. ExcentricLabeling 配置（Lens 的核心）
 
-在 `"Feedback options"` 中配置 `ExcentricLabeling`：
+在 `feedbackOptions` 中配置 `ExcentricLabeling`：
 
 ```js
 {
   Instrument: "Lens",
   Trigger: "hover",
-  "Target layer": "mainLayer",
-  "Feedback options": {
+  targetLayer: "mainLayer",
+  feedbackOptions: {
     ExcentricLabeling: {
       r: 20,
       maxLabelsNum: 10,
@@ -162,15 +162,15 @@ countFormatter: (sum, { count }) => `${count} / ${Math.round(sum)}`
 
 ## 4. LensZoom：滚轮缩放 lens 半径
 
-使用 `Instrument: "Zoom"`，并在 `"Feedback options"` 里写 `LensZoom`：
+使用 `Instrument: "Zoom"`，并在 `feedbackOptions` 里写 `LensZoom`：
 
 ```js
 {
   Instrument: "Zoom",
   Trigger: "zoom",
-  "Target layer": "mainLayer",
+  targetLayer: "mainLayer",
   bindingKey: "lensMain",
-  "Feedback options": {
+  feedbackOptions: {
     LensZoom: { step: 2, minR: 8, maxR: 120 }
   },
   stopPropagation: true
@@ -190,8 +190,8 @@ countFormatter: (sum, { count }) => `${count} / ${Math.round(sum)}`
   Instrument: "Zoom",
   Trigger: "zoom",
   "Target Instrument": "lensMain",
-  "Target layer": "mainLayer",
-  "Feedback options": { LensZoom: { step: 2, minR: 8, maxR: 120 } }
+  targetLayer: "mainLayer",
+  feedbackOptions: { LensZoom: { step: 2, minR: 8, maxR: 120 } }
 }
 ```
 
@@ -207,8 +207,8 @@ ExcentricLabeling 会在宿主 layer 的队列里生成 `LabelLayer`（以及 `L
   Instrument: "point selection",
   Trigger: "hover",
   "Target Instrument": "lensMain",
-  "Target layer": "LabelLayer",
-  "Feedback options": {
+  targetLayer: "LabelLayer",
+  feedbackOptions: {
     Highlight: { stroke: "#ff0000", "stroke-width": 2 }
   },
   priority: 1,
@@ -217,6 +217,6 @@ ExcentricLabeling 会在宿主 layer 的队列里生成 `LabelLayer`（以及 `L
 ```
 
 要点：
-- `"Target Instrument": "lensMain"` 指向 lens 的宿主 layer，然后 `"Target layer": "LabelLayer"` 会自动解析到该宿主 layer 的 queue layer。
+- `"Target Instrument": "lensMain"` 指向 lens 的宿主 layer，然后 `targetLayer: "LabelLayer"` 会自动解析到该宿主 layer 的 queue layer。
 - 编译器会为 `LabelLayer` 自动加 `pointerEvents: "viewPort"`（避免命中不到 label）。
 

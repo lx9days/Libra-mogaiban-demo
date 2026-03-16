@@ -217,9 +217,9 @@ async function mountInteraction(layer) {
             Name: "lensMain",
             Instrument: "Lens",
             Trigger: "hover",
-            "Target layer": "mainLayer",
+            targetLayer: "mainLayer",
             modifierKey: "Shift",
-            "Feedback options": {
+            feedbackOptions: {
                 ExcentricLabeling: {
                     renderSelection: false,
                     r: 20,
@@ -243,10 +243,10 @@ async function mountInteraction(layer) {
         {
             Instrument: "Zoom",
             Trigger: "zoom",
-            "Target layer": "mainLayer",
+            targetLayer: "mainLayer",
             bindingKey: "lensMain", // Kept for backward compatibility during migration
             
-            // Unified DSL: Use customFeedbackFlow instead of "Feedback options" for structural changes
+            // Unified DSL: Use customFeedbackFlow instead of feedbackOptions for structural changes
             customFeedbackFlow: excentricZoomFlow,
             
             stopPropagation: true,
@@ -256,8 +256,8 @@ async function mountInteraction(layer) {
             Trigger: "hover",
             // The combination below is the equivalent of 'sharedVar' resource declaration
             "Target Instrument": "lensMain", // Context (Provider)
-            "Target layer": "LabelLayer",    // Resource Name (Consumer needs this)
-            "Feedback options": {
+            targetLayer: "LabelLayer",    // Resource Name (Consumer needs this)
+            feedbackOptions: {
                 Highlight: {
                     stroke: "#ff0000",
                     "stroke-width": 2,

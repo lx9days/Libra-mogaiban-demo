@@ -531,9 +531,9 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         {
             Instrument: "reordering",
             Trigger: "Drag",
-            "Target layer": "headersLayer",
+            targetLayer: "headersLayer",
             Direction: "x",
-            "Feedback options": {
+            feedbackOptions: {
                 redrawRef: redrawParallel,
                 contextRef: {
                     names: dimensions,
@@ -547,25 +547,11 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
     await compileInteractionsDSL(interactions, {
         layersByName: { headersLayer }
     });
-    // LibraManager.buildPointSelectionInstrument(linesLayer, {
-    //     Trigger: "hover",
-    //     // Priority: 2,
-    //     highlightAttrValues: {
-    //         stroke: "#00ff00",
-    //     },
-    // });
-    // LibraManager.buildGroupSelectionInstrument(linesLayer, {
-    //     Trigger: "brush",
-    //     highlightAttrValues: {
-    //         stroke: "blue",
-    //     },
-    // });
+
 
 
     Object.keys(axisLayers).forEach(dim => {
-        // if (dim !== "Enjolras") {
-        //     return;
-        // }
+
         const axisLayer = axisLayers[dim];
         if (!axisLayer) return;
 
@@ -594,7 +580,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
         LibraManager.buildAxisSelectionInstrument(axisLayer, {
             Trigger: "brushy",
-            "Feedback options": {
+            feedbackOptions: {
                 Highlight: "#ff0000",
                 LinkLayers: [linesLayer],
                 Scale: y[dim],
@@ -608,31 +594,7 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             BaseOpacity: 1
         });
 
-    //     Libra.Interaction.build({
-    //         inherit: "HoverInstrument",
-    //         layers: [{layer:axisLayer,options: {
-    //     pointerEvents: "visiblePainted",
-    //   }}],
-    //         insert: [
-    //             {
-    //                 find: "SelectionService",
-    //                 flow: [
-    //                     {
-    //                         comp: "LineTransformer",
-    //                         sharedVar: {
-    //                             orientation: ["horizontal"],
-    //                             scaleY: y[dim],
-    //                         },
-    //                     },
-    //                 ],
-    //             },
-    //         ],
-    //         sharedVar: {
-    //             tooltip: {
-    //                 prefix: "value: ",
-    //             },
-    //         },
-    //     });
+
     });
 
     await Libra.createHistoryTrack();

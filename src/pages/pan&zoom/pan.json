@@ -3,8 +3,8 @@
         {
             "Instrument": "group selection",
             "Trigger": "brush",
-            "Target layer": "mainLayer",
-            "Feedback options":{
+            "targetLayer": "mainLayer",
+            "feedbackOptions":{
                 "Highlight": "greenyellow",
                 "Dim":0.5
             }
@@ -12,8 +12,8 @@
         {
             "Instrument": "pan",
             "Trigger": "pan",
-            "Target layer": "mainLayer",
-            "Feedback options":{
+            "targetLayer": "mainLayer",
+            "feedbackOptions":{
                 "scaleX":"${scaleX}",
                 "scaleY":"${scaleY}",
                 "direction":"xy"

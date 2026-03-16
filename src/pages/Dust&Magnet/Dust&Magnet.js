@@ -250,7 +250,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
     const interactions = [
         {
             Trigger: "drag",
-            "Target layer": "magnetLayer",
+            targetLayer: "magnetLayer",
             customFeedbackFlow: {
                 insert: commonInsertFlows,
                 remove: [{ find: "SelectionTransformer" }],
@@ -261,24 +261,24 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
         },
         {
             Trigger: "click",
-            "Target layer": "bgLayer",
+            targetLayer: "bgLayer",
             customFeedbackFlow: { insert: commonInsertFlows },
             priority: 1,
             stopPropagation: true,
         },
         {
             Trigger: "click",
-            "Target layer": "dustLayer",
+            targetLayer: "dustLayer",
             layerOptions: { pointerEvents: "visiblePainted" },
-            "Feedback options": { Highlight: "greenyellow" },
+            feedbackOptions: { Highlight: "greenyellow" },
             priority: 2,
             stopPropagation: true,
         },
         {
             Trigger: "brush",
-            "Target layer": "dustLayer",
+            targetLayer: "dustLayer",
             ModifierKey: "Shift",
-            "Feedback options": { Highlight: "red" },
+            feedbackOptions: { Highlight: "red" },
             priority: 4,
             stopPropagation: true,
         },

@@ -6,15 +6,15 @@
 
 Helper Line 通常用于在鼠标悬停（Hover）时显示辅助线（垂直或水平）以及数据交叉点的 Tooltip。
 
-与其他内置 Instrument 不同，`helperLine` 目前主要通过 **Custom Feedback Flow**（自定义反馈流）来实现，即通过 `Feedback options` 中的 `Insert` 指令注入自定义的 Service 和 Transformer。
+与其他内置 Instrument 不同，`helperLine` 目前主要通过 **Custom Feedback Flow**（自定义反馈流）来实现，即通过 `feedbackOptions` 中的 `Insert` 指令注入自定义的 Service 和 Transformer。
 
 ```js
 const interactions = [
   {
     Instrument: "helperLine", // 标识符，对应 atomic.csv
     Trigger: "hover",         // 触发方式，底层映射为 HoverInstrument
-    "Target layer": "mainLayer",
-    "Feedback options": {
+    targetLayer: "mainLayer",
+    feedbackOptions: {
       // 核心配置：注入自定义服务与渲染器
       Insert: [
         {
@@ -88,7 +88,7 @@ const interactions = [
 在 `interactionCompiler.js` 中：
 *   `Instrument: "helperLine"` 主要作为语义标识（在 `atomic.csv` 中注册）。
 *   实际行为由 `Trigger: "hover"` 决定，它会映射到 `HoverInstrument`。
-*   通过 `Feedback options` 的 `Insert` 机制，扩展了 `HoverInstrument` 的默认行为，使其具备辅助线功能。
+*   通过 `feedbackOptions` 的 `Insert` 机制，扩展了 `HoverInstrument` 的默认行为，使其具备辅助线功能。
 
 ---
 
@@ -138,8 +138,8 @@ const interactions = [
     Name: "HelperLineHover",
     Instrument: "helperLine",
     Trigger: "hover",
-    "Target layer": "mainLayer",
-    "Feedback options": helperLineHoverFeedback({ showIntersection: true }),
+    targetLayer: "mainLayer",
+    feedbackOptions: helperLineHoverFeedback({ showIntersection: true }),
   },
 ];
 ```

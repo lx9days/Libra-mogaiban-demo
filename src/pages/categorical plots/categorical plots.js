@@ -216,9 +216,9 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
         {
             Instrument: "reordering",
             Trigger: "Drag",
-            "Target layer": "yAxisLayer",
+            targetLayer: "yAxisLayer",
             Direction: "y",
-            "Feedback options": {
+            feedbackOptions: {
                 redrawRef: redraw,
                 contextRef: {
                     names: topics,

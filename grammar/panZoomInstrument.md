@@ -11,8 +11,8 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 ```js
 {
   Trigger: "pan",
-  "Target layer": "mainLayer", 
-  "Feedback options": {
+  targetLayer: "mainLayer", 
+  feedbackOptions: {
     modifierKey: "shift" // 可选，按住 Shift 键触发
   },
   priority: 2,
@@ -25,8 +25,8 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 ```js
 {
   Trigger: "zoom",
-  "Target layer": "mainLayer",
-  "Feedback options": {
+  targetLayer: "mainLayer",
+  feedbackOptions: {
     modifierKey: "ctrl" // 可选，按住 Ctrl 键触发
   },
   priority: 3
@@ -62,7 +62,7 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 
 ## 4. 可用配置项
 
-以下配置项通常写在 `"Feedback options"` 中，部分也支持写在顶层。
+以下配置项通常写在 `feedbackOptions` 中，部分也支持写在顶层。
 
 ### 4.1 modifierKey（修饰键）
 
@@ -71,12 +71,12 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 - **类型**: `String` | `Array<String>` | `null`
 - **示例**:
   ```js
-  "Feedback options": {
+  feedbackOptions: {
     modifierKey: "shift" // 仅当按住 Shift 时触发
   }
   ```
   ```js
-  "Feedback options": {
+  feedbackOptions: {
     modifierKey: ["ctrl", "alt"] // 按住 Ctrl 或 Alt 均可（取决于具体实现，通常是“且”或“或”，需参考 Libra 文档，一般为单键限制）
   }
   ```
@@ -110,7 +110,7 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 - **类型**: `Array<String>` (图层名称列表)
 - **示例**:
   ```js
-  "Feedback options": {
+  feedbackOptions: {
     LinkLayers: ["layer1", "layer2"]
   }
   ```
@@ -126,16 +126,16 @@ DSL 是一个数组，每个元素是一条交互规则。Pan 和 Zoom 通常配
 const interactions = [
   {
     Trigger: "pan",
-    "Target layer": "cell-sepal_length-sepal_width", // 目标图层
-    "Feedback options": {
+    targetLayer: "cell-sepal_length-sepal_width", // 目标图层
+    feedbackOptions: {
       modifierKey: "shift"
     },
     priority: 10
   },
   {
     Trigger: "zoom",
-    "Target layer": "cell-sepal_length-sepal_width",
-    "Feedback options": {
+    targetLayer: "cell-sepal_length-sepal_width",
+    feedbackOptions: {
       modifierKey: "ctrl" // 避免与页面滚动冲突
     },
     priority: 11
