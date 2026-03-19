@@ -20,12 +20,30 @@ export default async function init() {
       feedback: {
         selection: {
           highlight: "#14c94a",
-          dim: { opacity: 0.1, selector: ".mark" },
+          dim: { opacity: 0.08, selector: ".mark" },
           brushStyle: {
             fill: "#9d9d9d",
             opacity: 0.55,
             stroke: "none",
           },
+        },
+      },
+    },
+    {
+      instrument: "Move",
+      trigger: {
+        type: "drag",
+        priority: 2,
+        stopPropagation: true,
+      },
+      target: {
+        instrument: "brushMain",
+        layer: "transientLayer",
+        pointerEvents: "visiblePainted",
+      },
+      feedback: {
+        brush: {
+          transform: "translate",
         },
       },
     },

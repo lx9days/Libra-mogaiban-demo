@@ -37,29 +37,26 @@ export default async function init() {
               return `${datum.class} (${datum.sepal_length.toFixed(1)}, ${datum.petal_length.toFixed(1)})`;
             },
             colorAccessor: (circleElem) => color(d3.select(circleElem).datum().class),
-            count: {
-              op: "count",
-            },
           },
         },
       },
     },
     {
-      instrument: "point selection",
+      instrument: "Zoom",
       trigger: {
-        type: "hover",
+        type: "zoom",
         priority: 2,
         stopPropagation: true,
       },
       target: {
         instrument: "lensMain",
-        layer: "LabelLayer",
       },
       feedback: {
-        selection: {
-          highlight: {
-            stroke: "#ff4d00",
-            "stroke-width": 2,
+        lens: {
+          zoom: {
+            step: 3,
+            minR: 12,
+            maxR: 96,
           },
         },
       },

@@ -20,12 +20,33 @@ export default async function init() {
       feedback: {
         selection: {
           highlight: "#14c94a",
-          dim: { opacity: 0.1, selector: ".mark" },
+          dim: { opacity: 0.08, selector: ".mark" },
           brushStyle: {
             fill: "#9d9d9d",
             opacity: 0.55,
             stroke: "none",
           },
+        },
+      },
+    },
+    {
+      instrument: "Zoom",
+      trigger: {
+        type: "zoom",
+        priority: 2,
+        stopPropagation: true,
+      },
+      target: {
+        instrument: "brushMain",
+        layer: "transientLayer",
+        pointerEvents: "visiblePainted",
+      },
+      feedback: {
+        brush: {
+          transform: "scale",
+          step: 0.18,
+          minWidth: 36,
+          minHeight: 36,
         },
       },
     },
