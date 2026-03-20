@@ -6,9 +6,9 @@ import { compileInteractionsDSL } from "../../scripts/modules/interactionCompile
 const MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
 const HEIGHT = 380 - MARGIN.top - MARGIN.bottom;
-const FIELD_X = "sepal_length";
-const FIELD_Y = "petal_length";
-const FIELD_COLOR = "class";
+const FIELD_X = "Horsepower";
+const FIELD_Y = "Miles_per_Gallon";
+const FIELD_COLOR = "Origin";
 
 // global variables
 let data = [];
@@ -19,14 +19,20 @@ let y = null;
 let color = null;
 
 async function loadData() {
-  const raw = await d3.csv("/public/data/bezdekIris.csv");
-  data = raw
-    .map((d) => ({
-      ...d,
-      sepal_length: parseFloat(d.sepal_length),
-      petal_length: parseFloat(d.petal_length),
-    }))
-    .filter((d) => !isNaN(d[FIELD_X]) && !isNaN(d[FIELD_Y]));
+  try {
+      data = (await d3.json("/public/data/cars.json")).filter(
+          (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
+      );
+  } catch (e) {
+      console.error("Failed to load data from /public/data/cars.json. Trying /data/cars.json...", e);
+      try {
+          data = (await d3.json("/data/cars.json")).filter(
+              (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
+          );
+      } catch (e2) {
+          console.error("Failed to load data.", e2);
+      }
+  }
 }
 
 function renderStaticVisualization() {
@@ -49,8 +55,8 @@ function renderStaticVisualization() {
       "translate(" + MARGIN.left + "," + MARGIN.top + ")"
     );
 
-  const extentX = d3.extent(data, (d) => d[FIELD_X]);
-  const extentY = d3.extent(data, (d) => d[FIELD_Y]);
+  const extentX = [0, d3.max(data, (d) => d[FIELD_X])];
+  const extentY = [0, d3.max(data, (d) => d[FIELD_Y])];
 
   // Add X axis
   x = d3
@@ -168,7 +174,7 @@ function renderMainVisualization() {
     .data(data)
     .join("circle")
     .attr("class", "mark")
-    .attr("fill", "white")
+    .attr("fill", "none")
     .attr("stroke-width", 1)
     .attr("stroke", (d) => color(d[FIELD_COLOR]))
     .attr("cx", (d) => x(d[FIELD_X]))
@@ -178,6 +184,7 @@ function renderMainVisualization() {
   return mainLayer;
 }
 
+// Dim: { opacity: 0.1, selector: ".mark" },
 async function mountInteraction(layer) {
   const interactions = [
     {
@@ -185,13 +192,31 @@ async function mountInteraction(layer) {
       Trigger: "brush",
       targetLayer: "mainLayer",
       feedbackOptions: {
-        Highlight: "#00ff1aff",
-        Dim: { opacity: 0.1, selector: ".mark" },
-        RemnantKey:"shift"
+        Highlight: "#ff0000ff",
+        RemnantKey: "shift"
       },
       priority: 1,
       stopPropagation: true,
     },
+
+  ];
+  const interactions2 = [
+    {
+      Instrument: "group selection",
+      Trigger: {
+        type: "brush",
+        priority: 1,
+        stopPropagation: true,
+      },
+      target: {
+        layer: "mainLayer"
+      },
+      feedback: {
+        Highlight: "#ff0000ff",
+        RemnantKey: "shift"
+      },
+    },
+
   ];
   await compileInteractionsDSL(interactions);
   if (Libra.createHistoryTrack) {

@@ -4,8 +4,8 @@ import { compileInteractionsDSL } from "../../scripts/modules/interactionCompile
 
 // global constants
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
-const WIDTH = 800 - MARGIN.left - MARGIN.right;
-const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
+const WIDTH = 600 - MARGIN.left - MARGIN.right;
+const HEIGHT = 450 - MARGIN.top - MARGIN.bottom;
 
 // module variables
 let data = [];
@@ -151,6 +151,8 @@ function renderMagnet(magnetData = magnet) {
 }
 
 async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
+    Libra.helpers.globalHubManager.createHub("magnet-hub", "generic");
+
     const dustTransformer = Libra.GraphicalTransformer.initialize(
         "DustTransformer",
         {
@@ -175,6 +177,30 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             },
         }
     );
+
+    // Get the hub and subscribe to changes to actively push data to DustLayoutService
+    const hub = Libra.helpers.globalHubManager.getHub("magnet-hub");
+    if (hub) {
+        hub.subscribe(() => {
+            const hubData = hub.get();
+            const magnetData = hubData["magnet-position"];
+            if (magnetData && magnetData.magnets) {
+                const dustLayoutService = Libra.Service.getService("DustLayoutService");
+                if (dustLayoutService) {
+                    // Push data using setSharedVar
+                    dustLayoutService.setSharedVar("magnets", magnetData.magnets);
+                    // Actively trigger evaluation
+                    const result = dustLayoutService.evaluate();
+                    
+                    // Since we trigger it manually, we need to push the result to the transformer
+                    if (result) {
+                        dustTransformer.setSharedVar("result", result);
+                        dustTransformer.redraw({ transformer: dustTransformer });
+                    }
+                }
+            }
+        });
+    }
 
     const commonInsertFlows = [
         {
@@ -201,6 +227,10 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                                     ],
                             });
                         }
+                        
+                        const hub = Libra.helpers.globalHubManager.getHub("magnet-hub");
+                        if (hub) hub.set("magnet-position", { magnets: currentMagnets });
+
                         return currentMagnets;
                     },
                 },
@@ -213,8 +243,12 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 {
                     comp: "DustLayoutService",
                     name: "DustLayoutService",
-                    sharedVar: { result: magnet, dusts: data },
-                    evaluate({ result: magnets, dusts, self }) {
+                    sharedVar: { dusts: data, result: data, magnets: magnet },
+                    evaluate({ dusts, magnets: serviceMagnets, self }) {
+                        let magnets = serviceMagnets || magnet;
+
+                        if (!magnets || !magnets.length) return dusts;
+
                         cancelAnimationFrame(tickUpdate);
 
                         const copyDusts = JSON.parse(JSON.stringify(dusts));
@@ -282,6 +316,33 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             priority: 4,
             stopPropagation: true,
         },
+        {
+                    Name: "lensMain",
+                    Instrument: "Lens",
+                    Trigger: "hover",
+                    targetLayer: "dustLayer",
+                    syntheticEvent:"idle",
+                    feedbackOptions: {
+                        ExcentricLabeling: {
+                            renderSelection: false,
+                            r: 20,
+                            stroke: "green",
+                            strokeWidth: 2,
+                            countLabelDistance: 20,
+                            fontSize: 12,
+                            countLabelWidth: 40,
+                            maxLabelsNum: 10,
+                            labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
+                            colorAccessor: (circleElem) => "black",
+                            count: {
+                                field: "Horsepower",
+                                op: "sum",
+                                formatter: (sum, { count }) => `${count}`,
+                            },
+                        },
+                    },
+                    stopPropagation: true,
+                }
     ];
 
     compileInteractionsDSL(interactions, {

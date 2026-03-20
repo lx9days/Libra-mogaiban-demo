@@ -485,7 +485,7 @@ async function mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, scaleX
             Instrument: "reordering",
             Trigger: "Drag",
             targetLayer: "xAxisLayer",
-            Direction: "x",
+            // Direction: "x",
             feedbackOptions: {
                 contextRef: {
                     ...reorderContext,

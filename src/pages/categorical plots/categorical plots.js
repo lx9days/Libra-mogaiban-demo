@@ -228,6 +228,7 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
                 },
             },
         },
+        
     ];
 
     await compileInteractionsDSL(interactions, {
