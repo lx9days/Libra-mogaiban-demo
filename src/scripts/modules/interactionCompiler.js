@@ -19,6 +19,7 @@ const triggerToInstrument = {
 };
 
 const interactionAlias = {
+  move: "moving",
   zoom: "zooming",
   pan: "panning",
 };
@@ -66,6 +67,339 @@ function resolveFeedbackOptionsValue(raw, buildCtx) {
 
   if (built && typeof built === "object") return { ...raw, ...built };
   return raw;
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function pickFirstDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function normalizeHighlightValue(raw) {
+  if (!isPlainObject(raw)) return raw;
+  if (isPlainObject(raw.style)) return raw.style;
+  return raw;
+}
+
+function normalizeFeedbackObject(rawFeedback = {}, instrumentRaw = "", triggerRaw = "") {
+  if (!isPlainObject(rawFeedback)) return rawFeedback;
+
+  const selection = isPlainObject(rawFeedback.selection) ? rawFeedback.selection : {};
+  const geometry = isPlainObject(rawFeedback.geometry) ? rawFeedback.geometry : {};
+  const axis = isPlainObject(rawFeedback.axis) ? rawFeedback.axis : {};
+  const link = isPlainObject(rawFeedback.link) ? rawFeedback.link : {};
+  const lens = isPlainObject(rawFeedback.lens) ? rawFeedback.lens : {};
+  const zoom = isPlainObject(rawFeedback.zoom) ? rawFeedback.zoom : {};
+
+  const normalized = { ...rawFeedback };
+  const setIfDefined = (key, value) => {
+    if (value !== undefined) normalized[key] = value;
+  };
+
+  setIfDefined(
+    "Highlight",
+    normalizeHighlightValue(
+      pickFirstDefined(selection.highlight, selection.Highlight, rawFeedback.highlight, rawFeedback.Highlight)
+    )
+  );
+  setIfDefined("Dim", pickFirstDefined(selection.dim, selection.Dim, rawFeedback.dim, rawFeedback.Dim));
+  setIfDefined(
+    "RemnantKey",
+    pickFirstDefined(
+      selection.remnantKey,
+      selection.RemnantKey,
+      rawFeedback.remnantKey,
+      rawFeedback.RemnantKey
+    )
+  );
+  setIfDefined(
+    "BrushStyle",
+    pickFirstDefined(
+      selection.brushStyle,
+      selection.BrushStyle,
+      rawFeedback.brushStyle,
+      rawFeedback.BrushStyle
+    )
+  );
+  setIfDefined("Tooltip", pickFirstDefined(selection.tooltip, rawFeedback.tooltip, rawFeedback.Tooltip));
+  setIfDefined("ScaleX", pickFirstDefined(geometry.scaleX, geometry.ScaleX, rawFeedback.scaleX, rawFeedback.ScaleX));
+  setIfDefined("ScaleY", pickFirstDefined(geometry.scaleY, geometry.ScaleY, rawFeedback.scaleY, rawFeedback.ScaleY));
+  setIfDefined(
+    "FixRange",
+    pickFirstDefined(geometry.fixRange, geometry.FixRange, rawFeedback.fixRange, rawFeedback.FixRange)
+  );
+  setIfDefined(
+    "Direction",
+    pickFirstDefined(geometry.direction, geometry.Direction, rawFeedback.direction, rawFeedback.Direction)
+  );
+  setIfDefined(
+    "Scale",
+    pickFirstDefined(
+      axis.scale,
+      axis.Scale,
+      selection.scale,
+      selection.Scale,
+      rawFeedback.scale,
+      rawFeedback.Scale
+    )
+  );
+  setIfDefined(
+    "AttrName",
+    pickFirstDefined(
+      axis.attrName,
+      axis.AttrName,
+      selection.attrName,
+      selection.AttrName,
+      rawFeedback.attrName,
+      rawFeedback.AttrName
+    )
+  );
+  setIfDefined(
+    "SelectionMode",
+    pickFirstDefined(
+      selection.mode,
+      selection.Mode,
+      rawFeedback.selectionMode,
+      rawFeedback.SelectionMode
+    )
+  );
+  setIfDefined(
+    "BaseOpacity",
+    pickFirstDefined(
+      selection.baseOpacity,
+      selection.BaseOpacity,
+      rawFeedback.baseOpacity,
+      rawFeedback.BaseOpacity
+    )
+  );
+  setIfDefined(
+    "axisDirection",
+    pickFirstDefined(axis.direction, axis.Direction, rawFeedback.axisDirection, rawFeedback.AxisDirection)
+  );
+  setIfDefined(
+    "highlightAttrValues",
+    pickFirstDefined(
+      selection.highlightAttrValues,
+      selection.HighlightAttrValues,
+      rawFeedback.highlightAttrValues,
+      rawFeedback.HighlightAttrValues
+    )
+  );
+  setIfDefined("LinkLayers", pickFirstDefined(link.layers, link.Layers, rawFeedback.linkLayers, rawFeedback.LinkLayers));
+  setIfDefined(
+    "LinkMatchMode",
+    pickFirstDefined(link.matchMode, link.MatchMode, rawFeedback.linkMatchMode, rawFeedback.LinkMatchMode)
+  );
+  setIfDefined(
+    "LinkFields",
+    pickFirstDefined(
+      link.fields,
+      link.Fields,
+      link.field,
+      link.Field,
+      rawFeedback.linkFields,
+      rawFeedback.LinkFields,
+      rawFeedback.linkField,
+      rawFeedback.LinkField
+    )
+  );
+  setIfDefined(
+    "LinkDefaultOpacity",
+    pickFirstDefined(link.defaultOpacity, link.DefaultOpacity, rawFeedback.linkDefaultOpacity, rawFeedback.LinkDefaultOpacity)
+  );
+  setIfDefined(
+    "LinkBaseOpacity",
+    pickFirstDefined(link.baseOpacity, link.BaseOpacity, rawFeedback.linkBaseOpacity, rawFeedback.LinkBaseOpacity)
+  );
+  setIfDefined(
+    "LinkSelectedOpacity",
+    pickFirstDefined(
+      link.selectedOpacity,
+      link.SelectedOpacity,
+      rawFeedback.linkSelectedOpacity,
+      rawFeedback.LinkSelectedOpacity
+    )
+  );
+  setIfDefined(
+    "LinkStrokeColor",
+    pickFirstDefined(link.strokeColor, link.StrokeColor, rawFeedback.linkStrokeColor, rawFeedback.LinkStrokeColor)
+  );
+  setIfDefined(
+    "LinkStrokeWidth",
+    pickFirstDefined(link.strokeWidth, link.StrokeWidth, rawFeedback.linkStrokeWidth, rawFeedback.LinkStrokeWidth)
+  );
+
+  const normalizedInstrument = String(instrumentRaw || "").trim().toLowerCase();
+  const normalizedTrigger = String(triggerRaw || "").trim().toLowerCase();
+
+  const excentricConfig = pickFirstDefined(
+    lens.excentricLabeling,
+    lens.ExcentricLabeling,
+    rawFeedback.excentricLabeling,
+    rawFeedback.ExcentricLabeling
+  );
+  if (excentricConfig !== undefined) {
+    normalized.ExcentricLabeling = excentricConfig;
+  } else if (normalizedInstrument === "lens" || normalizedTrigger === "hover") {
+    const lensFallback = Object.keys(lens).length > 0 ? lens : null;
+    if (lensFallback && lensFallback.zoom === undefined && lensFallback.Zoom === undefined) {
+      normalized.ExcentricLabeling = lensFallback;
+    }
+  }
+
+  const lensZoomConfig = pickFirstDefined(
+    lens.zoom,
+    lens.Zoom,
+    zoom.lens,
+    zoom.Lens,
+    rawFeedback.lensZoom,
+    rawFeedback.LensZoom
+  );
+  if (lensZoomConfig !== undefined) {
+    normalized.LensZoom = lensZoomConfig;
+  }
+
+  return normalized;
+}
+
+function normalizeDslSpec(rawSpec = {}) {
+  const triggerDescriptor = isPlainObject(rawSpec?.trigger) ? rawSpec.trigger : {};
+  const targetDescriptor = isPlainObject(rawSpec?.target) ? rawSpec.target : {};
+  const feedbackDescriptor = isPlainObject(rawSpec?.feedback) ? rawSpec.feedback : {};
+
+  const instrumentRaw = pickFirstDefined(
+    rawSpec?.instrument,
+    rawSpec?.Instrument,
+    rawSpec?.Interaction,
+    rawSpec?.interaction
+  );
+  const triggerType = pickFirstDefined(
+    triggerDescriptor?.type,
+    triggerDescriptor?.Type,
+    triggerDescriptor?.on,
+    triggerDescriptor?.On,
+    rawSpec?.trigger,
+    rawSpec?.Trigger
+  );
+
+  const feedbackRaw = pickFirstDefined(
+    rawSpec?.feedback,
+    rawSpec?.Feedback,
+    rawSpec?.feedbackOptions,
+    rawSpec?.FeedbackOptions,
+    rawSpec?.["Feedback options"],
+    {}
+  );
+
+  const targetLayer = pickFirstDefined(
+    targetDescriptor?.layer,
+    targetDescriptor?.Layer,
+    targetDescriptor?.layers,
+    targetDescriptor?.Layers,
+    rawSpec?.targetLayer,
+    rawSpec?.Target,
+    rawSpec?.layer,
+    rawSpec?.["Target layer"]
+  );
+
+  const targetInstrument = pickFirstDefined(
+    targetDescriptor?.instrument,
+    targetDescriptor?.Instrument,
+    targetDescriptor?.targetInstrument,
+    targetDescriptor?.TargetInstrument,
+    rawSpec?.["Target Instrument"],
+    rawSpec?.targetInstrument,
+    rawSpec?.TargetInstrument
+  );
+
+  const instrumentName = pickFirstDefined(
+    rawSpec?.name,
+    rawSpec?.Name,
+    targetDescriptor?.name,
+    targetDescriptor?.Name,
+    rawSpec?.["Instrument Name"],
+    rawSpec?.instrumentName
+  );
+
+  const feedbackOptions = normalizeFeedbackObject(feedbackRaw, instrumentRaw, triggerType);
+  const customFeedbackFlow = pickFirstDefined(
+    rawSpec?.customFeedbackFlow,
+    rawSpec?.CustomFeedbackFlow,
+    feedbackDescriptor?.flow,
+    feedbackDescriptor?.Flow,
+    feedbackDescriptor?.custom,
+    feedbackDescriptor?.Custom,
+    feedbackRaw?.customFeedbackFlow,
+    feedbackRaw?.CustomFeedbackFlow
+  );
+
+  const layerOptionsFromTarget =
+    pickFirstDefined(
+      rawSpec?.layerOptions,
+      rawSpec?.LayerOptions,
+      targetDescriptor?.layerOptions,
+      targetDescriptor?.LayerOptions
+    ) ??
+    (targetDescriptor?.pointerEvents !== undefined
+      ? { pointerEvents: targetDescriptor.pointerEvents }
+      : undefined);
+
+  return {
+    Instrument: instrumentRaw,
+    instrument: instrumentRaw,
+    Trigger: triggerType,
+    trigger: triggerType,
+    Name: instrumentName,
+    name: instrumentName,
+    targetLayer,
+    Target: targetLayer,
+    layer: targetLayer,
+    "Target Instrument": targetInstrument,
+    targetInstrument: targetInstrument,
+    feedbackOptions,
+    Feedback: feedbackOptions,
+    feedback: feedbackRaw,
+    feedbackRaw,
+    customFeedbackFlow,
+    layerOptions: layerOptionsFromTarget,
+    modifierKey: pickFirstDefined(
+      rawSpec?.modifierKey,
+      rawSpec?.ModifierKey,
+      triggerDescriptor?.modifierKey,
+      triggerDescriptor?.ModifierKey,
+      triggerDescriptor?.key,
+      triggerDescriptor?.Key
+    ),
+    priority: pickFirstDefined(
+      rawSpec?.priority,
+      rawSpec?.Priority,
+      triggerDescriptor?.priority,
+      triggerDescriptor?.Priority
+    ),
+    stopPropagation: pickFirstDefined(
+      rawSpec?.stopPropagation,
+      rawSpec?.StopPropagation,
+      triggerDescriptor?.stopPropagation,
+      triggerDescriptor?.StopPropagation
+    ),
+    syntheticEvent: pickFirstDefined(
+      rawSpec?.syntheticEvent,
+      rawSpec?.SyntheticEvent,
+      triggerDescriptor?.syntheticEvent,
+      triggerDescriptor?.SyntheticEvent
+    ),
+    gestureMoveDelay: pickFirstDefined(
+      rawSpec?.gestureMoveDelay,
+      rawSpec?.GestureMoveDelay,
+      triggerDescriptor?.gestureMoveDelay,
+      triggerDescriptor?.GestureMoveDelay
+    ),
+  };
 }
 
 function parseRotateTransform(transform) {
@@ -302,10 +636,12 @@ export function compileInteractionsDSL(specList = [], ctx) {
     if (atomic.instruments.size > 0) fn();
     else load.finally(fn);
   };
-  ensureLoaded(() => {
+  return new Promise((resolve) => {
+    ensureLoaded(() => {
     const instrumentRegistry = new Map();
     let autoLensBindingIndex = 0;
-    for (const spec of list) {
+    for (const rawSpec of list) {
+      const spec = { ...rawSpec, ...normalizeDslSpec(rawSpec) };
       const instrumentRaw =
         spec?.Instrument ??
         spec?.instrument ??
@@ -373,15 +709,19 @@ export function compileInteractionsDSL(specList = [], ctx) {
           const targetInstrument = instrumentRegistry.get(targetInstrumentName);
           if (targetInstrument?.layer) layers = [targetInstrument.layer];
           const queueLayerName = typeof targetName === "string" ? stripInlineComment(targetName) : "";
-          if (
-            queueLayerName === "LabelLayer" &&
-            layers.length > 0 &&
-            typeof layers[0]?.getLayerFromQueue === "function"
-          ) {
-            const queuedLayer = layers[0].getLayerFromQueue(queueLayerName);
-            if (queuedLayer) {
-              layers = [queuedLayer];
-              autoLayerOptions = { pointerEvents: "viewPort" };
+          if (queueLayerName && layers.length > 0 && typeof layers[0]?.getLayerFromQueue === "function") {
+            const hostLayer = layers[0];
+            const hostLayerName = hostLayer?._name || hostLayer?.name;
+            if (queueLayerName !== hostLayerName) {
+              const queuedLayer = hostLayer.getLayerFromQueue(queueLayerName);
+              if (queuedLayer) {
+                layers = [queuedLayer];
+                if (/^labellayer$/i.test(queueLayerName)) {
+                  autoLayerOptions = { pointerEvents: "viewPort" };
+                } else if (/^(selectionlayer|transientlayer|lenslayer)$/i.test(queueLayerName)) {
+                  autoLayerOptions = { pointerEvents: "visiblePainted" };
+                }
+              }
             }
           }
         } else {
@@ -557,7 +897,114 @@ export function compileInteractionsDSL(specList = [], ctx) {
         }
       }
 
+      if (
+        (interaction === "moving" || interaction === "move") &&
+        targetInstrumentName &&
+        instrumentRegistry.has(targetInstrumentName)
+      ) {
+        const targetInstrument = instrumentRegistry.get(targetInstrumentName);
+        if (targetInstrument?.type === "brush" && targetInstrument?.instrument) {
+          const brushConfig =
+            (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw) && isPlainObject(spec.feedbackRaw.brush)
+              ? spec.feedbackRaw.brush
+              : feedbackOptions?.BrushMove ?? feedbackOptions?.brushMove ?? {}) || {};
+          const buildContext = { ...brushConfig, brushEntry: targetInstrument };
+          const modifierKeyRaw =
+            spec?.modifierKey ??
+            spec?.ModifierKey ??
+            feedbackOptions?.modifierKey ??
+            feedbackOptions?.ModifierKey;
+          if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+          const priority =
+            spec?.priority !== undefined ? spec.priority : spec?.Priority;
+          const stopPropagation =
+            spec?.stopPropagation !== undefined
+              ? spec.stopPropagation
+              : spec?.StopPropagation;
+          if (priority !== undefined) buildContext.priority = priority;
+          if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+          const layerOptions =
+            spec?.layerOptions ??
+            spec?.LayerOptions ??
+            feedbackOptions?.layerOptions ??
+            feedbackOptions?.LayerOptions ??
+            autoLayerOptions;
+          buildContext.layers =
+            layerOptions && typeof layerOptions === "object"
+              ? layers.map((layer) => ({ layer, options: layerOptions }))
+              : layers;
+
+          for (const layer of layers) {
+            LibraManager.buildBrushMoveInstrument(layer, buildContext);
+          }
+          if (instrumentName) {
+            instrumentRegistry.set(instrumentName, {
+              type: "move",
+              layer: layers[0],
+            });
+          }
+          continue;
+        }
+      }
+
       if (interaction === "zoom") {
+        if (targetInstrumentName && instrumentRegistry.has(targetInstrumentName)) {
+          const targetInstrument = instrumentRegistry.get(targetInstrumentName);
+          if (targetInstrument?.type === "brush" && targetInstrument?.instrument) {
+            const brushConfig =
+              (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw) && isPlainObject(spec.feedbackRaw.brush)
+                ? spec.feedbackRaw.brush
+                : feedbackOptions?.BrushZoom ?? feedbackOptions?.brushZoom ?? {}) || {};
+            const zoomContext = { ...brushConfig, brushEntry: targetInstrument };
+            const modifierKeyRaw =
+              spec?.modifierKey ??
+              spec?.ModifierKey ??
+              feedbackOptions?.modifierKey ??
+              feedbackOptions?.ModifierKey ??
+              zoomContext?.modifierKey ??
+              zoomContext?.ModifierKey;
+            if (typeof modifierKeyRaw === "string") {
+              zoomContext.modifierKey = stripInlineComment(modifierKeyRaw);
+            } else if (Array.isArray(modifierKeyRaw)) {
+              zoomContext.modifierKey = modifierKeyRaw
+                .map((k) => stripInlineComment(k))
+                .filter((k) => !!k);
+            } else if (modifierKeyRaw === null) {
+              zoomContext.modifierKey = null;
+            }
+            const priority =
+              spec?.priority !== undefined ? spec.priority : spec?.Priority;
+            const stopPropagation =
+              spec?.stopPropagation !== undefined
+                ? spec.stopPropagation
+                : spec?.StopPropagation;
+            if (priority !== undefined) zoomContext.priority = priority;
+            if (stopPropagation !== undefined)
+              zoomContext.stopPropagation = stopPropagation;
+            const layerOptions =
+              spec?.layerOptions ??
+              spec?.LayerOptions ??
+              feedbackOptions?.layerOptions ??
+              feedbackOptions?.LayerOptions ??
+              autoLayerOptions;
+            zoomContext.layers =
+              layerOptions && typeof layerOptions === "object"
+                ? layers.map((layer) => ({ layer, options: layerOptions }))
+                : layers;
+
+            for (const layer of layers) {
+              LibraManager.buildBrushZoomInstrument(layer, zoomContext);
+            }
+            if (instrumentName) {
+              instrumentRegistry.set(instrumentName, {
+                type: "zoom",
+                layer: layers[0],
+              });
+            }
+            continue;
+          }
+        }
+
         const lensZoomOptionsRaw =
           feedbackOptions?.LensZoom ??
           feedbackOptions?.lensZoom ??
@@ -696,7 +1143,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
           resolvedLinkLayers = acc;
         }
 
-        buildContext[feedbackOptions] = {
+        buildContext.feedbackOptions = {
           ...feedbackOptions,
           ...(highlight !== undefined ? { Highlight: highlight } : {}),
           ...(feedbackOptions?.Scale !== undefined ? { Scale: feedbackOptions.Scale } : {}),
@@ -761,6 +1208,10 @@ export function compileInteractionsDSL(specList = [], ctx) {
       const remnantKey = feedbackOptions?.remnantKey || feedbackOptions?.RemnantKey;
       if (remnantKey) {
         sharedVar.remnantKey = remnantKey;
+      }
+      const brushStyle = feedbackOptions?.BrushStyle ?? feedbackOptions?.brushStyle;
+      if (brushStyle !== undefined) {
+        sharedVar.brushStyle = brushStyle;
       }
       const tooltip = feedbackOptions?.Tooltip || feedbackOptions?.tooltip;
       if (tooltip && typeof tooltip === "object") {
@@ -1082,12 +1533,34 @@ export function compileInteractionsDSL(specList = [], ctx) {
         });
       }
       if (instrumentName) {
+        let registryType = interaction || inherit;
+        if (
+          interaction === "group selection" ||
+          interaction === "groupselection" ||
+          inherit === "BrushInstrument"
+        ) {
+          registryType = "brush";
+        }
         instrumentRegistry.set(instrumentName, {
-          type: interaction || inherit,
+          type: registryType,
           layer: layers[0],
+          hostLayer:
+            registryType === "brush" && targetInstrumentName && instrumentRegistry.has(targetInstrumentName)
+              ? instrumentRegistry.get(targetInstrumentName)?.layer
+              : layers[0],
+          selectionLayer:
+            typeof layers[0]?.getLayerFromQueue === "function"
+              ? layers[0].getLayerFromQueue("selectionLayer")
+              : null,
+          transientLayer:
+            typeof layers[0]?.getLayerFromQueue === "function"
+              ? layers[0].getLayerFromQueue("transientLayer")
+              : null,
           instrument: interactionInstance,
         });
       }
     }
+      resolve({ instrumentRegistry });
+    });
   });
 }

@@ -1776,6 +1776,321 @@ export default class LibraManager {
         return stateKey;
     }
 
+    static __checkModifier(event, modifierKey) {
+        if (!modifierKey) return true;
+        const keys = Array.isArray(modifierKey) ? modifierKey : [modifierKey];
+        if (!keys.length) return true;
+        return keys.every((rawKey) => {
+            const key = String(rawKey || "").trim().toLowerCase();
+            if (!key) return true;
+            if (key === "shift") return !!event?.shiftKey;
+            if (key === "ctrl" || key === "control") return !!event?.ctrlKey;
+            if (key === "alt" || key === "option") return !!event?.altKey;
+            if (key === "meta" || key === "cmd" || key === "command") return !!event?.metaKey;
+            return true;
+        });
+    }
+
+    static __resolveBrushContext(context = {}) {
+        const brushEntry = context?.brushEntry ?? context?.targetInstrument ?? null;
+        const brushInstrument = brushEntry?.instrument ?? context?.brushInstrument ?? null;
+        const hostLayer =
+            brushEntry?.hostLayer ??
+            brushEntry?.layer ??
+            brushInstrument?.getSharedVar?.("layer") ??
+            brushInstrument?._layerInstances?.[0] ??
+            null;
+        const service =
+            brushInstrument?.services?.find?.("RectSelectionService") ??
+            brushInstrument?.services?.find?.("SelectionService") ??
+            null;
+        return { brushEntry, brushInstrument, hostLayer, service };
+    }
+
+    static __getBrushRect(context = {}) {
+        const { service } = LibraManager.__resolveBrushContext(context);
+        if (!service) return null;
+
+        let x = Number(service.getSharedVar("offsetx"));
+        let y = Number(service.getSharedVar("offsety"));
+        let width = Number(service.getSharedVar("width"));
+        let height = Number(service.getSharedVar("height"));
+
+        if (
+            !Number.isFinite(x) ||
+            !Number.isFinite(y) ||
+            !Number.isFinite(width) ||
+            !Number.isFinite(height) ||
+            width <= 0 ||
+            height <= 0
+        ) {
+            const history = service.getSharedVar("selectionHistory");
+            const lastRect = Array.isArray(history) && history.length > 0 ? history[history.length - 1] : null;
+            if (lastRect) {
+                x = Number(lastRect.offsetx ?? lastRect.x);
+                y = Number(lastRect.offsety ?? lastRect.y);
+                width = Number(lastRect.width);
+                height = Number(lastRect.height);
+            }
+        }
+
+        if (
+            !Number.isFinite(x) ||
+            !Number.isFinite(y) ||
+            !Number.isFinite(width) ||
+            !Number.isFinite(height) ||
+            width <= 0 ||
+            height <= 0
+        ) {
+            return null;
+        }
+
+        return { x, y, width, height };
+    }
+
+    static __clampBrushRect(rect, hostLayer) {
+        if (!rect || !hostLayer) return rect;
+        const layerWidth = Number(hostLayer._width) || 0;
+        const layerHeight = Number(hostLayer._height) || 0;
+        const width = Math.max(1, Math.min(rect.width, layerWidth || rect.width));
+        const height = Math.max(1, Math.min(rect.height, layerHeight || rect.height));
+        const maxX = Math.max(0, (layerWidth || width) - width);
+        const maxY = Math.max(0, (layerHeight || height) - height);
+        return {
+            x: Math.max(0, Math.min(rect.x, maxX)),
+            y: Math.max(0, Math.min(rect.y, maxY)),
+            width,
+            height,
+        };
+    }
+
+    static async __applyBrushRect(context = {}, nextRect) {
+        const { service, hostLayer, brushInstrument } = LibraManager.__resolveBrushContext(context);
+        if (!service || !hostLayer || !nextRect) return;
+
+        const rect = LibraManager.__clampBrushRect(nextRect, hostLayer);
+        const bbox = hostLayer.getGraphic()?.getBoundingClientRect?.() ?? { left: 0, top: 0 };
+        const clientX = bbox.left + rect.x;
+        const clientY = bbox.top + rect.y;
+
+        await service.setSharedVars(
+            {
+                x: clientX,
+                y: clientY,
+                offsetx: rect.x,
+                offsety: rect.y,
+                width: rect.width,
+                height: rect.height,
+                currentx: clientX + rect.width,
+                currenty: clientY + rect.height,
+                endx: clientX + rect.width,
+                endy: clientY + rect.height,
+                selectionHistory: [],
+            },
+            { layer: hostLayer }
+        );
+
+        if (brushInstrument?.setSharedVar) {
+            brushInstrument.setSharedVar("selectionHistory", []);
+        }
+    }
+
+    static __brushLayerHit(layer, event) {
+        const graphic = layer?.getGraphic?.();
+        if (!graphic || !event) return false;
+        if (event.target && event.target !== graphic && graphic.contains(event.target)) {
+            return true;
+        }
+        if (typeof layer?.picking === "function" && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+            const picked = layer.picking({
+                baseOn: 0,
+                type: 2,
+                x: event.clientX,
+                y: event.clientY,
+            });
+            return Array.isArray(picked) && picked.length > 0;
+        }
+        return false;
+    }
+
+    static buildBrushMoveInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        if (!LibraManager.__brushMoveInstrumentRegistered) {
+            Libra.Instrument.register("BrushMoveInstrument", {
+                constructor: Libra.Instrument,
+                interactors: ["MouseTraceInteractor", "TouchTraceInteractor"],
+                on: {
+                    dragstart: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            if (!LibraManager.__checkModifier(inputEvent, instrument.getSharedVar("modifierKey"))) {
+                                instrument.setSharedVar("interactionValid", false);
+                                return;
+                            }
+                            if (!LibraManager.__brushLayerHit(activeLayer, inputEvent)) {
+                                instrument.setSharedVar("interactionValid", false);
+                                return;
+                            }
+                            const brushContext = { brushEntry: instrument.getSharedVar("brushEntry") };
+                            const rect = LibraManager.__getBrushRect(brushContext);
+                            if (!rect) {
+                                instrument.setSharedVar("interactionValid", false);
+                                return;
+                            }
+                            instrument.setSharedVar("interactionValid", true);
+                            instrument.setSharedVar("lastClientX", inputEvent.clientX);
+                            instrument.setSharedVar("lastClientY", inputEvent.clientY);
+                        },
+                    ],
+                    drag: [
+                        async ({ event, instrument }) => {
+                            if (!instrument.getSharedVar("interactionValid")) return;
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            const prevX = Number(instrument.getSharedVar("lastClientX"));
+                            const prevY = Number(instrument.getSharedVar("lastClientY"));
+                            if (!Number.isFinite(prevX) || !Number.isFinite(prevY)) return;
+
+                            const dx = inputEvent.clientX - prevX;
+                            const dy = inputEvent.clientY - prevY;
+                            instrument.setSharedVar("lastClientX", inputEvent.clientX);
+                            instrument.setSharedVar("lastClientY", inputEvent.clientY);
+
+                            if (!dx && !dy) return;
+                            const brushContext = { brushEntry: instrument.getSharedVar("brushEntry") };
+                            const rect = LibraManager.__getBrushRect(brushContext);
+                            if (!rect) return;
+                            await LibraManager.__applyBrushRect(brushContext, {
+                                ...rect,
+                                x: rect.x + dx,
+                                y: rect.y + dy,
+                            });
+                        },
+                    ],
+                    dragend: [
+                        ({ instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                        },
+                    ],
+                    dragabort: [
+                        ({ instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                        },
+                    ],
+                },
+            });
+            LibraManager.__brushMoveInstrumentRegistered = true;
+        }
+
+        const sharedVar = {
+            brushEntry: context.brushEntry,
+        };
+        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        const buildLayers = Array.isArray(context.layers) && context.layers.length ? context.layers : [layer];
+        const buildOptions = {
+            inherit: "BrushMoveInstrument",
+            layers: buildLayers,
+            sharedVar,
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+    }
+
+    static buildBrushZoomInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        const minWidth =
+            Number.isFinite(context.minWidth) ? context.minWidth : Number.isFinite(context.minW) ? context.minW : 24;
+        const minHeight =
+            Number.isFinite(context.minHeight) ? context.minHeight : Number.isFinite(context.minH) ? context.minH : 24;
+        const scaleStep =
+            Number.isFinite(context.step)
+                ? context.step
+                : Number.isFinite(context.scaleStep)
+                  ? context.scaleStep
+                  : 0.18;
+
+        const mouseWheelActions = [
+            {
+                action: "enter",
+                events: ["mouseenter"],
+                transition: [["start", "running"]],
+            },
+            {
+                action: "wheel",
+                events: ["wheel", "mousewheel"],
+                transition: [["start", "running"], ["running", "running"]],
+                sideEffect: async ({ event, layer: activeLayer, instrument }) => {
+                    const inputEvent = event?.changedTouches?.[0] ?? event;
+                    if (!LibraManager.__checkModifier(inputEvent, instrument.getSharedVar("modifierKey"))) {
+                        return;
+                    }
+                    if (inputEvent && typeof inputEvent.preventDefault === "function") {
+                        inputEvent.preventDefault();
+                    }
+                    if (!LibraManager.__brushLayerHit(activeLayer, inputEvent)) return;
+
+                    const brushContext = { brushEntry: instrument.getSharedVar("brushEntry") };
+                    const { hostLayer } = LibraManager.__resolveBrushContext(brushContext);
+                    const rect = LibraManager.__getBrushRect(brushContext);
+                    if (!hostLayer || !rect) return;
+
+                    const rawDelta =
+                        typeof inputEvent?.deltaY === "number"
+                            ? inputEvent.deltaY
+                            : typeof inputEvent?.wheelDelta === "number"
+                              ? -inputEvent.wheelDelta
+                              : 0;
+                    if (!rawDelta) return;
+
+                    const factor = rawDelta < 0 ? 1 + scaleStep : Math.max(0.1, 1 - scaleStep);
+                    const maxWidth = Number.isFinite(context.maxWidth) ? context.maxWidth : hostLayer._width ?? rect.width;
+                    const maxHeight = Number.isFinite(context.maxHeight) ? context.maxHeight : hostLayer._height ?? rect.height;
+
+                    const nextWidth = Math.max(minWidth, Math.min(maxWidth, rect.width * factor));
+                    const nextHeight = Math.max(minHeight, Math.min(maxHeight, rect.height * factor));
+                    const cx = rect.x + rect.width / 2;
+                    const cy = rect.y + rect.height / 2;
+
+                    await LibraManager.__applyBrushRect(brushContext, {
+                        x: cx - nextWidth / 2,
+                        y: cy - nextHeight / 2,
+                        width: nextWidth,
+                        height: nextHeight,
+                    });
+                },
+            },
+            {
+                action: "leave",
+                events: ["mouseleave"],
+                transition: [["running", "start"], ["start", "start"]],
+            },
+            {
+                action: "abort",
+                events: ["mouseup[event.button==2]"],
+                transition: [["running", "running"], ["start", "start"]],
+            },
+        ];
+
+        const sharedVar = {
+            brushEntry: context.brushEntry,
+        };
+        if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        const buildLayers = Array.isArray(context.layers) && context.layers.length ? context.layers : [layer];
+        const buildOptions = {
+            inherit: "GeometricZoomInstrument",
+            layers: buildLayers,
+            sharedVar,
+            override: [{ find: "MouseWheelInteractor", actions: mouseWheelActions }],
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+    }
+
     static buildGeometricTransformer(layer, context) {
         if (!layer) return;
         if (!context || typeof context.redraw !== 'function') return;

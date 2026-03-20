@@ -20,7 +20,7 @@ export default async function init() {
       feedback: {
         selection: {
           highlight: "#14c94a",
-          dim: { opacity: 0.1, selector: ".mark" },
+          dim: { opacity: 0.08, selector: ".mark" },
           brushStyle: {
             fill: "#9d9d9d",
             opacity: 0.55,
@@ -29,25 +29,24 @@ export default async function init() {
         },
       },
     },
-
-  ];
-  const interactions2 = [
     {
-      Instrument: "group selection",
-      Trigger: {
-        type: "brush",
-        priority: 1,
+      instrument: "Move",
+      trigger: {
+        type: "drag",
+        priority: 2,
         stopPropagation: true,
       },
       target: {
-        layer: "mainLayer"
+        instrument: "brushMain",
+        layer: "transientLayer",
+        pointerEvents: "visiblePainted",
       },
       feedback: {
-        Highlight: "#ff0000ff",
-        RemnantKey: "shift"
+        brush: {
+          transform: "translate",
+        },
       },
     },
-
   ];
 
   await compileInteractionsDSL(interactions, { layersByName });

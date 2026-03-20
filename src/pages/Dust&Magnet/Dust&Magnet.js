@@ -12,10 +12,15 @@ let data = [];
 let magnet = [];
 let properties = [];
 let tickUpdate = null;
+let originColor = null;
 
 async function loadData() {
     data = await d3.json("/public/data/cars.json");
     magnet = [];
+    originColor = d3
+        .scaleOrdinal()
+        .domain(Array.from(new Set(data.map((d) => d.Origin).filter(Boolean))))
+        .range(d3.schemeTableau10);
 
     const datum = data[0];
     properties = [];
@@ -283,38 +288,110 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
 
     const interactions = [
         {
-            Trigger: "drag",
-            targetLayer: "magnetLayer",
-            customFeedbackFlow: {
-                insert: commonInsertFlows,
-                remove: [{ find: "SelectionTransformer" }],
+            instrument: "Move",
+            trigger: {
+                type: "drag",
+                priority: 3,
+                stopPropagation: true,
             },
-            layerOptions: { pointerEvents: "visiblePainted" },
-            priority: 3,
-            stopPropagation: true,
+            target: {
+                layer: "magnetLayer",
+                pointerEvents: "visiblePainted",
+            },
+            feedback: {
+                flow: {
+                    insert: commonInsertFlows,
+                    remove: [{ find: "SelectionTransformer" }],
+                },
+            },
         },
         {
-            Trigger: "click",
-            targetLayer: "bgLayer",
-            customFeedbackFlow: { insert: commonInsertFlows },
-            priority: 1,
-            stopPropagation: true,
+            instrument: "point selection",
+            trigger: {
+                type: "click",
+                priority: 1,
+                stopPropagation: true,
+            },
+            target: {
+                layer: "bgLayer",
+            },
+            feedback: {
+                flow: { insert: commonInsertFlows },
+            },
         },
         {
-            Trigger: "click",
-            targetLayer: "dustLayer",
-            layerOptions: { pointerEvents: "visiblePainted" },
-            feedbackOptions: { Highlight: "greenyellow" },
-            priority: 2,
-            stopPropagation: true,
+            instrument: "point selection",
+            trigger: {
+                type: "click",
+                priority: 2,
+                stopPropagation: true,
+            },
+            target: {
+                layer: "dustLayer",
+                pointerEvents: "visiblePainted",
+            },
+            feedback: {
+                selection: {
+                    highlight: "greenyellow",
+                },
+            },
         },
         {
-            Trigger: "brush",
-            targetLayer: "dustLayer",
-            ModifierKey: "Shift",
-            feedbackOptions: { Highlight: "red" },
-            priority: 4,
-            stopPropagation: true,
+            instrument: "GroupSelection",
+            trigger: {
+                type: "brush",
+                modifierKey: "Shift",
+                priority: 4,
+                stopPropagation: true,
+            },
+            target: {
+                layer: "dustLayer",
+                name: "dustBrush",
+            },
+            feedback: {
+                selection: {
+                    highlight: "red",
+                },
+            },
+        },
+        {
+            instrument: "Lens",
+            trigger: {
+                type: "hover",
+                priority: 5,
+                stopPropagation: true,
+            },
+            target: {
+                layer: "dustLayer",
+                name: "dustLens",
+            },
+            feedback: {
+                lens: {
+                    excentricLabeling: {
+                        renderSelection: false,
+                        r: 54,
+                        stroke: "#1d8f43",
+                        strokeWidth: 2,
+                        countLabelDistance: 18,
+                        fontSize: 12,
+                        countLabelWidth: 64,
+                        maxLabelsNum: 8,
+                        labelAccessor: (circleElem) => {
+                            const datum = d3.select(circleElem).datum();
+                            return datum?.Name || datum?.Origin || "";
+                        },
+                        colorAccessor: (circleElem) => {
+                            const datum = d3.select(circleElem).datum();
+                            return originColor?.(datum?.Origin) || "#666";
+                        },
+                        count: {
+                            field: "Horsepower",
+                            op: "mean",
+                            formatter: (value, { count }) => `${count} / ${Math.round(value || 0)}`,
+                        },
+                    },
+                },
+            },
         },
         {
                     Name: "lensMain",
@@ -345,9 +422,18 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 }
     ];
 
-    compileInteractionsDSL(interactions, {
+    await compileInteractionsDSL(interactions, {
         layersByName: { bgLayer, dustLayer, magnetLayer },
     });
+
+    const labelLayer = dustLayer.getLayerFromQueue("LabelLayer");
+    const lensLayer = dustLayer.getLayerFromQueue("LensLayer");
+    if (labelLayer?.getGraphic) {
+        d3.select(labelLayer.getGraphic()).style("pointer-events", "none");
+    }
+    if (lensLayer?.getGraphic) {
+        d3.select(lensLayer.getGraphic()).style("pointer-events", "none");
+    }
 
     if (Libra.createHistoryTrack) {
         await Libra.createHistoryTrack();
