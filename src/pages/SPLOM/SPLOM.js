@@ -198,20 +198,47 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
           .attr("stroke", "#ddd");
 
         const pointsG = cell.append("g").attr("clip-path", `url(#${clipId})`);
-        pointsG.selectAll("circle")
-          .data(data)
-          .join("circle")
-          .attr("r", 3)
-          .attr("cx", (d) => lx(d[xiField]))
-          .attr("cy", (d) => ly(d[yiField]))
-          .attr("fill", (d) => color(d.class))
-          .attr("fill-opacity", 0.7);
+        
+        if (xiField === yiField) {
+          const bins = d3.bin()
+            .domain(lx.domain())
+            .value(d => d[xiField])
+            .thresholds(lx.ticks(15))(data);
+            
+          const histY = d3.scaleLinear()
+            .domain([0, d3.max(bins, d => d.length)])
+            .range([cellHeight, 0])
+            .nice();
+
+          pointsG.selectAll("rect.bar")
+            .data(bins)
+            .join("rect")
+            .attr("class", "bar")
+            .attr("x", d => lx(d.x0) + 1)
+            .attr("y", d => histY(d.length))
+            .attr("width", d => Math.max(0, lx(d.x1) - lx(d.x0) - 1))
+            .attr("height", d => Math.max(0, cellHeight - histY(d.length)))
+            .attr("fill", "#4e79a7")
+            .attr("fill-opacity", 0.7);
+        } else {
+          pointsG.selectAll("circle")
+            .data(data)
+            .join("circle")
+            .attr("r", 3)
+            .attr("cx", (d) => lx(d[xiField]))
+            .attr("cy", (d) => ly(d[yiField]))
+            .attr("fill", (d) => color(d.class))
+            .attr("fill-opacity", 0.7);
+        }
 
         const axesG = cell.append("g");
         axesG.append("g")
           .attr("transform", `translate(0,${cellHeight})`)
           .call(d3.axisBottom(lx).ticks(3).tickSize(3));
-        axesG.append("g").call(d3.axisLeft(ly).ticks(3).tickSize(3));
+          
+        if (xiField !== yiField) {
+          axesG.append("g").call(d3.axisLeft(ly).ticks(3).tickSize(3));
+        }
       };
 
       drawCell(localX, localY);
@@ -376,6 +403,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       if (!match) return null;
       const xiField = match[1];
       const yiField = match[2];
+      if (xiField === yiField) return null; // 禁用对角线柱状图的刷选
       const sx = xScales[xiField];
       const sy = yScales[yiField];
       if (!sx || !sy) return null;

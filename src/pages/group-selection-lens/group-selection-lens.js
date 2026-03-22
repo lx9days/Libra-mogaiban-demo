@@ -4,8 +4,8 @@ import { compileInteractionsDSL } from "../../scripts/modules/interactionCompile
 
 export default async function init() {
   const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
-  const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
-  const DEFAULT_HEIGHT = 340 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
+  const DEFAULT_WIDTH = 600 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
+  const DEFAULT_HEIGHT = 450 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
 
   const g = typeof window !== "undefined" ? window : (typeof self !== "undefined" ? self : {});
   const fieldX = g.FIELD_X || "Horsepower";
@@ -130,8 +130,6 @@ export default async function init() {
       instrument: "GroupSelection",
       trigger: {
         type: "brush",
-        priority: 1,
-        stopPropagation: true,
       },
       target: {
         layer: "mainLayer",
@@ -149,6 +147,41 @@ export default async function init() {
         },
       },
     },
+    {
+          instrument: "Lens",
+          trigger: {
+            type: "hover",
+            modifierKey:"ctrl",
+            stopPropagation: true,
+          },
+          target: {
+            layer: "mainLayer",
+            name: "lensMain",
+          },
+          feedback: {
+            lens: {
+              excentricLabeling: {
+                renderSelection: false,
+                r: 36,
+                stroke: "#1d8f43",
+                strokeWidth: 2,
+                countLabelDistance: 15,
+                fontSize: 12,
+                countLabelWidth: 56,
+                maxLabelsNum: 18,
+                labelAccessor: (circleElem) => {
+                  const datum = d3.select(circleElem).datum();
+                  return `${datum.Name} (${datum.Horsepower}, ${datum.Miles_per_Gallon})`;
+                },
+                colorAccessor: (circleElem) => color(d3.select(circleElem).datum().Origin),
+                filter: (circleElem) => d3.select(circleElem).datum().Origin === "USA",
+                count: {
+                  op: "count",
+                },
+              },
+            },
+          },
+        },
 
   ];
   await compileInteractionsDSL(interactions, {

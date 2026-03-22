@@ -2,13 +2,16 @@ import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+// 全局安全对象获取
+const g = typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+
 const CONFIG = {
   MARGIN: { top: 30, right: 70, bottom: 40, left: 60 },
   WIDTH: 500 - 60 - 70, // 减去左、右边距
   HEIGHT: 380 - 30 - 40, // 减去上、下边距
   FIELD_X: "Horsepower",
   FIELD_Y: "Miles_per_Gallon",
-  FIELD_COLOR: "Origin",
+  FIELD_COLOR: g.FIELD_COLOR || "Origin",
 };
 
 // 状态变量
@@ -165,7 +168,6 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
     .join("circle")
     .attr("class", "mark")
     .attr("fill", "white")
-    .attr("stroke-width", 1)
     .attr("stroke", (d) => colorScale(d[CONFIG.FIELD_COLOR]))
     .attr("cx", (d) => currentXScale(d[CONFIG.FIELD_X]))
     .attr("cy", (d) => currentYScale(d[CONFIG.FIELD_Y]))
@@ -184,7 +186,7 @@ async function mountInteraction(layer, transformer) {
         Trigger: "brush",
         targetLayer: "mainLayer",
         feedbackOptions: {
-          Highlight: "red",
+          Highlight: { color: (d) => d ? colorScale(d[CONFIG.FIELD_COLOR]) : "red" },
         },
         priority: 1,
         stopPropagation: true,

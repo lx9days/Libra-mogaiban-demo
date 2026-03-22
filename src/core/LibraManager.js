@@ -1158,6 +1158,7 @@ export default class LibraManager {
                     count: null,
                     countAccessor: null,
                     countFormatter: null,
+                    filter: null,
                 },
                 override: [
                     {
@@ -1180,6 +1181,7 @@ export default class LibraManager {
                                     count,
                                     countAccessor,
                                     countFormatter,
+                                    filter,
                                     event,
                                     layer,
                                     lensState,
@@ -1207,6 +1209,12 @@ export default class LibraManager {
                                             lensState.count = 0;
                                             lensState.countValue = 0;
                                             lensState.countText = null;
+                                            if (lensState.previouslyFilteredElements) {
+                                                lensState.previouslyFilteredElements.forEach((elem) => {
+                                                    d3.select(elem).style("opacity", null);
+                                                });
+                                                lensState.previouslyFilteredElements = [];
+                                            }
                                         }
                                         return [];
                                     }
@@ -1339,6 +1347,28 @@ export default class LibraManager {
                                         { x: layerX, y: layerY },
                                         lensRadius
                                     );
+                                    
+                                    if (lensState) {
+                                        if (lensState.previouslyFilteredElements) {
+                                            lensState.previouslyFilteredElements.forEach((elem) => {
+                                                d3.select(elem).style("opacity", null);
+                                            });
+                                        }
+                                        lensState.previouslyFilteredElements = [];
+                                    }
+
+                                    if (typeof filter === "function") {
+                                        elementsInRadius.forEach((obj) => {
+                                            const screenElem = obj?.__libra__screenElement || obj;
+                                            if (screenElem && !filter(screenElem)) {
+                                                d3.select(screenElem).style("opacity", 0.1);
+                                                if (lensState) {
+                                                    lensState.previouslyFilteredElements.push(screenElem);
+                                                }
+                                            }
+                                        });
+                                    }
+
                                     if (lensState) {
                                         lensState.count = elementsInRadius.length;
                                         const baseCtx = {
@@ -1667,6 +1697,7 @@ export default class LibraManager {
         if (context.count !== undefined) sharedVar.count = context.count;
         if (context.countAccessor) sharedVar.countAccessor = context.countAccessor;
         if (context.countFormatter) sharedVar.countFormatter = context.countFormatter;
+        if (context.filter !== undefined) sharedVar.filter = context.filter;
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
         if (context.renderSelection !== undefined) sharedVar.renderSelection = context.renderSelection;
         if (context.r !== undefined) sharedVar.r = context.r;
@@ -1986,6 +2017,7 @@ export default class LibraManager {
             brushEntry: context.brushEntry,
         };
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
+        if (context.updateBrush !== undefined) sharedVar.updateBrush = context.updateBrush;
         const buildLayers = Array.isArray(context.layers) && context.layers.length ? context.layers : [layer];
         const buildOptions = {
             inherit: "BrushMoveInstrument",

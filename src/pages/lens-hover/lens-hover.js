@@ -1,10 +1,10 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
-import { setupIrisScatter } from "../_shared/irisScatter";
+import { setupCarsScatter } from "../_shared/carsScatter";
 
 export default async function init() {
-  const { color, layersByName } = await setupIrisScatter({
+  const { color, layersByName } = await setupCarsScatter({
     pointFill: () => "none",
     pointStrokeWidth: 1.5,
   });
@@ -34,9 +34,10 @@ export default async function init() {
             maxLabelsNum: 12,
             labelAccessor: (circleElem) => {
               const datum = d3.select(circleElem).datum();
-              return `${datum.class} (${datum.sepal_length.toFixed(1)}, ${datum.petal_length.toFixed(1)})`;
+              return `${datum.Name} (${datum.Horsepower}, ${datum.Miles_per_Gallon})`;
             },
-            colorAccessor: (circleElem) => color(d3.select(circleElem).datum().class),
+            colorAccessor: (circleElem) => color(d3.select(circleElem).datum().Origin),
+            filter: (circleElem) => d3.select(circleElem).datum().Origin === "USA",
             count: {
               op: "count",
             },

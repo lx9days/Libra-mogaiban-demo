@@ -4,8 +4,8 @@ import Libra from "libra-vis";
 // global constants
 const START_YEAR = 1980;
 const MARGIN = { top: 2.5, right: 168, bottom: 39.5, left: 36 };
-const WIDTH = 800;
-const HEIGHT = 600;
+const WIDTH = 450;
+const HEIGHT = 350;
 
 // global variables
 let data = [];
@@ -138,8 +138,8 @@ function renderStaticVisualization() {
     .append("g")
     .attr("class", "year")
     .append("text")
-    .attr("x", 300)
-    .attr("y", 300)
+    .attr("x", WIDTH / 2 - 100)
+    .attr("y", HEIGHT / 2 + 50)
     .attr("font-family", "sans-serif")
     .attr("font-size", 100)
     .attr("fill", "grey")
@@ -270,7 +270,7 @@ function renderMainVisualization(currentInterpolatedData) {
     .attr("r", 6);
 
   // Update the year
-  svg.select(".year text").text(currentInterpolatedData[0].year);
+  svg.select(".year text").text(Math.round(currentInterpolatedData[0].year));
 
   return returnVal;
 }
@@ -300,7 +300,7 @@ async function mountInteraction(layer) {
                 )(data)
               )
               .attr("fill", "none")
-              .attr("stroke", "#bbb")
+              .attr("stroke", "#8c8c8cff")
               .attr("stroke-width", 3)
               .attr("stroke-opacity", 0.5);
           })
@@ -381,6 +381,9 @@ async function mountInteraction(layer) {
   Libra.Interaction.build({
     inherit: "HoverInstrument",
     layers: [layer],
+    sharedVar: {
+      data: data,
+    },
     remove: [{ find: "SelectionTransformer" }],
     insert: [useTraceTransformerFlow, useCountryFlow],
   }).on(

@@ -725,17 +725,36 @@ export function compileInteractionsDSL(specList = [], ctx) {
             }
           }
         } else {
-          let resolved =
-            (typeof targetName === "string" && layersByName[targetName]) ||
-            layersByName.mainLayer ||
-            layersByName.layer ||
-            null;
-          if (resolved) {
-            layers = Array.isArray(resolved) ? resolved : [resolved];
+          let resolved = null;
+          if (typeof targetName === "string" && layersByName[targetName]) {
+            resolved = layersByName[targetName];
           } else if (typeof targetName === "string") {
             const found = Libra.Layer.findLayer(targetName);
-            if (Array.isArray(found)) layers = found;
-            else if (found) layers = [found];
+            if (found) {
+              resolved = found;
+            }
+          }
+          
+          if (!resolved && typeof targetName === "string" && targetName) {
+            // Try to find it in the queue of mainLayer/layer
+            const defaultHost = layersByName.mainLayer || layersByName.layer;
+            if (defaultHost && typeof defaultHost.getLayerFromQueue === "function") {
+              let queuedLayer = defaultHost.getLayerFromQueue(targetName);
+              if (!queuedLayer) {
+                // Try pascal case or lowercase variations
+                queuedLayer = defaultHost.getLayerFromQueue(targetName.charAt(0).toUpperCase() + targetName.slice(1)) || 
+                              defaultHost.getLayerFromQueue(targetName.toLowerCase());
+              }
+              if (queuedLayer) resolved = queuedLayer;
+            }
+          }
+
+          if (!resolved) {
+            resolved = layersByName.mainLayer || layersByName.layer || null;
+          }
+
+          if (resolved) {
+            layers = Array.isArray(resolved) ? resolved : [resolved];
           }
         }
       }
@@ -905,45 +924,111 @@ export function compileInteractionsDSL(specList = [], ctx) {
         const targetInstrument = instrumentRegistry.get(targetInstrumentName);
         if (targetInstrument?.type === "brush" && targetInstrument?.instrument) {
           const brushConfig =
-            (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw) && isPlainObject(spec.feedbackRaw.brush)
-              ? spec.feedbackRaw.brush
+            (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw)
+              ? spec.feedbackRaw.service || spec.feedbackRaw.brush
               : feedbackOptions?.BrushMove ?? feedbackOptions?.brushMove ?? {}) || {};
-          const buildContext = { ...brushConfig, brushEntry: targetInstrument };
-          const modifierKeyRaw =
-            spec?.modifierKey ??
-            spec?.ModifierKey ??
-            feedbackOptions?.modifierKey ??
-            feedbackOptions?.ModifierKey;
-          if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
-          const priority =
-            spec?.priority !== undefined ? spec.priority : spec?.Priority;
-          const stopPropagation =
-            spec?.stopPropagation !== undefined
-              ? spec.stopPropagation
-              : spec?.StopPropagation;
-          if (priority !== undefined) buildContext.priority = priority;
-          if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
-          const layerOptions =
-            spec?.layerOptions ??
-            spec?.LayerOptions ??
-            feedbackOptions?.layerOptions ??
-            feedbackOptions?.LayerOptions ??
-            autoLayerOptions;
-          buildContext.layers =
-            layerOptions && typeof layerOptions === "object"
-              ? layers.map((layer) => ({ layer, options: layerOptions }))
-              : layers;
+          if (brushConfig.updateBrush) {
+            const buildContext = { ...brushConfig, brushEntry: targetInstrument };
+            const modifierKeyRaw =
+              spec?.modifierKey ??
+              spec?.ModifierKey ??
+              feedbackOptions?.modifierKey ??
+              feedbackOptions?.ModifierKey;
+            if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+            const priority =
+              spec?.priority !== undefined ? spec.priority : spec?.Priority;
+            const stopPropagation =
+              spec?.stopPropagation !== undefined
+                ? spec.stopPropagation
+                : spec?.StopPropagation;
+            if (priority !== undefined) buildContext.priority = priority;
+            if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+            const layerOptions =
+              spec?.layerOptions ??
+              spec?.LayerOptions ??
+              feedbackOptions?.layerOptions ??
+              feedbackOptions?.LayerOptions ??
+              autoLayerOptions;
+            buildContext.layers =
+              layerOptions && typeof layerOptions === "object"
+                ? layers.map((layer) => ({ layer, options: layerOptions }))
+                : layers;
 
-          for (const layer of layers) {
-            LibraManager.buildBrushMoveInstrument(layer, buildContext);
+            for (const layer of layers) {
+              LibraManager.buildBrushMoveInstrument(layer, buildContext);
+            }
+            if (instrumentName) {
+              instrumentRegistry.set(instrumentName, {
+                type: "move",
+                layer: layers[0],
+              });
+            }
+            continue;
           }
-          if (instrumentName) {
-            instrumentRegistry.set(instrumentName, {
-              type: "move",
-              layer: layers[0],
-            });
+        }
+      }
+      // Reverse lookup for Brush Move via queue layer when targetInstrumentName is not provided
+      if ((interaction === "moving" || interaction === "move") && (!targetInstrumentName || !instrumentRegistry.has(targetInstrumentName))) {
+        const queueLayerName = typeof targetName === "string" ? stripInlineComment(targetName) : "";
+        if (layers && layers.length > 0) {
+          const activeLayer = layers[0];
+          const candidates = [];
+          instrumentRegistry.forEach((entry) => {
+            if (entry?.type === "brush") {
+              const matched =
+                entry.selectionLayer === activeLayer ||
+                entry.transientLayer === activeLayer ||
+                (queueLayerName &&
+                  typeof entry.layer?.getLayerFromQueue === "function" &&
+                  entry.layer.getLayerFromQueue(queueLayerName) === activeLayer);
+              if (matched) candidates.push(entry);
+            }
+          });
+          if (candidates.length === 1) {
+            const targetInstrument = candidates[0];
+            const brushConfig =
+              (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw)
+                ? spec.feedbackRaw.service || spec.feedbackRaw.brush
+                : feedbackOptions?.BrushMove ?? feedbackOptions?.brushMove ?? {}) || {};
+            if (brushConfig.updateBrush) {
+              const buildContext = { ...brushConfig, brushEntry: targetInstrument };
+              const modifierKeyRaw =
+                spec?.modifierKey ??
+                spec?.ModifierKey ??
+                feedbackOptions?.modifierKey ??
+                feedbackOptions?.ModifierKey;
+              if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+              const priority =
+                spec?.priority !== undefined ? spec.priority : spec?.Priority;
+              const stopPropagation =
+                spec?.stopPropagation !== undefined
+                  ? spec.stopPropagation
+                  : spec?.StopPropagation;
+              if (priority !== undefined) buildContext.priority = priority;
+              if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+              const layerOptions =
+                spec?.layerOptions ??
+                spec?.LayerOptions ??
+                feedbackOptions?.layerOptions ??
+                feedbackOptions?.LayerOptions ??
+                autoLayerOptions;
+              buildContext.layers =
+                layerOptions && typeof layerOptions === "object"
+                  ? layers.map((layer) => ({ layer, options: layerOptions }))
+                  : layers;
+
+              for (const layer of layers) {
+                LibraManager.buildBrushMoveInstrument(layer, buildContext);
+              }
+              if (instrumentName) {
+                instrumentRegistry.set(instrumentName, {
+                  type: "move",
+                  layer: layers[0],
+                });
+              }
+              continue;
+            }
           }
-          continue;
         }
       }
 
@@ -952,60 +1037,140 @@ export function compileInteractionsDSL(specList = [], ctx) {
           const targetInstrument = instrumentRegistry.get(targetInstrumentName);
           if (targetInstrument?.type === "brush" && targetInstrument?.instrument) {
             const brushConfig =
-              (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw) && isPlainObject(spec.feedbackRaw.brush)
-                ? spec.feedbackRaw.brush
+              (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw)
+                ? spec.feedbackRaw.service || spec.feedbackRaw.brush
                 : feedbackOptions?.BrushZoom ?? feedbackOptions?.brushZoom ?? {}) || {};
-            const zoomContext = { ...brushConfig, brushEntry: targetInstrument };
-            const modifierKeyRaw =
-              spec?.modifierKey ??
-              spec?.ModifierKey ??
-              feedbackOptions?.modifierKey ??
-              feedbackOptions?.ModifierKey ??
-              zoomContext?.modifierKey ??
-              zoomContext?.ModifierKey;
-            if (typeof modifierKeyRaw === "string") {
-              zoomContext.modifierKey = stripInlineComment(modifierKeyRaw);
-            } else if (Array.isArray(modifierKeyRaw)) {
-              zoomContext.modifierKey = modifierKeyRaw
-                .map((k) => stripInlineComment(k))
-                .filter((k) => !!k);
-            } else if (modifierKeyRaw === null) {
-              zoomContext.modifierKey = null;
-            }
-            const priority =
-              spec?.priority !== undefined ? spec.priority : spec?.Priority;
-            const stopPropagation =
-              spec?.stopPropagation !== undefined
-                ? spec.stopPropagation
-                : spec?.StopPropagation;
-            if (priority !== undefined) zoomContext.priority = priority;
-            if (stopPropagation !== undefined)
-              zoomContext.stopPropagation = stopPropagation;
-            const layerOptions =
-              spec?.layerOptions ??
-              spec?.LayerOptions ??
-              feedbackOptions?.layerOptions ??
-              feedbackOptions?.LayerOptions ??
-              autoLayerOptions;
-            zoomContext.layers =
-              layerOptions && typeof layerOptions === "object"
-                ? layers.map((layer) => ({ layer, options: layerOptions }))
-                : layers;
+            if (brushConfig.updateBrush) {
+              const zoomContext = { ...brushConfig, brushEntry: targetInstrument };
+              const modifierKeyRaw =
+                spec?.modifierKey ??
+                spec?.ModifierKey ??
+                feedbackOptions?.modifierKey ??
+                feedbackOptions?.ModifierKey ??
+                zoomContext?.modifierKey ??
+                zoomContext?.ModifierKey;
+              if (typeof modifierKeyRaw === "string") {
+                zoomContext.modifierKey = stripInlineComment(modifierKeyRaw);
+              } else if (Array.isArray(modifierKeyRaw)) {
+                zoomContext.modifierKey = modifierKeyRaw
+                  .map((k) => stripInlineComment(k))
+                  .filter((k) => !!k);
+              } else if (modifierKeyRaw === null) {
+                zoomContext.modifierKey = null;
+              }
+              const priority =
+                spec?.priority !== undefined ? spec.priority : spec?.Priority;
+              const stopPropagation =
+                spec?.stopPropagation !== undefined
+                  ? spec.stopPropagation
+                  : spec?.StopPropagation;
+              if (priority !== undefined) zoomContext.priority = priority;
+              if (stopPropagation !== undefined)
+                zoomContext.stopPropagation = stopPropagation;
+              const layerOptions =
+                spec?.layerOptions ??
+                spec?.LayerOptions ??
+                feedbackOptions?.layerOptions ??
+                feedbackOptions?.LayerOptions ??
+                autoLayerOptions;
+              zoomContext.layers =
+                layerOptions && typeof layerOptions === "object"
+                  ? layers.map((layer) => ({ layer, options: layerOptions }))
+                  : layers;
 
-            for (const layer of layers) {
-              LibraManager.buildBrushZoomInstrument(layer, zoomContext);
+              for (const layer of layers) {
+                LibraManager.buildBrushZoomInstrument(layer, zoomContext);
+              }
+              if (instrumentName) {
+                instrumentRegistry.set(instrumentName, {
+                  type: "zoom",
+                  layer: layers[0],
+                });
+              }
+              continue;
             }
-            if (instrumentName) {
-              instrumentRegistry.set(instrumentName, {
-                type: "zoom",
-                layer: layers[0],
-              });
+          }
+        }
+        // Reverse lookup for Brush Zoom via queue layer when targetInstrumentName is not provided
+        if (!targetInstrumentName || !instrumentRegistry.has(targetInstrumentName)) {
+          const queueLayerName = typeof targetName === "string" ? stripInlineComment(targetName) : "";
+          if (layers && layers.length > 0) {
+            const activeLayer = layers[0];
+            const candidates = [];
+            instrumentRegistry.forEach((entry) => {
+              if (entry?.type === "brush") {
+                const matched =
+                  entry.selectionLayer === activeLayer ||
+                  entry.transientLayer === activeLayer ||
+                  (queueLayerName &&
+                    typeof entry.layer?.getLayerFromQueue === "function" &&
+                    entry.layer.getLayerFromQueue(queueLayerName) === activeLayer);
+                if (matched) candidates.push(entry);
+              }
+            });
+            if (candidates.length === 1) {
+              const targetInstrument = candidates[0];
+              const brushConfig =
+                (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw)
+                  ? spec.feedbackRaw.service || spec.feedbackRaw.brush
+                  : feedbackOptions?.BrushZoom ?? feedbackOptions?.brushZoom ?? {}) || {};
+              if (brushConfig.updateBrush) {
+                const zoomContext = { ...brushConfig, brushEntry: targetInstrument };
+                const modifierKeyRaw =
+                  spec?.modifierKey ??
+                  spec?.ModifierKey ??
+                  feedbackOptions?.modifierKey ??
+                  feedbackOptions?.ModifierKey ??
+                  zoomContext?.modifierKey ??
+                  zoomContext?.ModifierKey;
+                if (typeof modifierKeyRaw === "string") {
+                  zoomContext.modifierKey = stripInlineComment(modifierKeyRaw);
+                } else if (Array.isArray(modifierKeyRaw)) {
+                  zoomContext.modifierKey = modifierKeyRaw
+                    .map((k) => stripInlineComment(k))
+                    .filter((k) => !!k);
+                } else if (modifierKeyRaw === null) {
+                  zoomContext.modifierKey = null;
+                }
+                const priority =
+                  spec?.priority !== undefined ? spec.priority : spec?.Priority;
+                const stopPropagation =
+                  spec?.stopPropagation !== undefined
+                    ? spec.stopPropagation
+                    : spec?.StopPropagation;
+                if (priority !== undefined) zoomContext.priority = priority;
+                if (stopPropagation !== undefined)
+                  zoomContext.stopPropagation = stopPropagation;
+                const layerOptions =
+                  spec?.layerOptions ??
+                  spec?.LayerOptions ??
+                  feedbackOptions?.layerOptions ??
+                  feedbackOptions?.LayerOptions ??
+                  autoLayerOptions;
+                zoomContext.layers =
+                  layerOptions && typeof layerOptions === "object"
+                    ? layers.map((layer) => ({ layer, options: layerOptions }))
+                    : layers;
+
+                for (const layer of layers) {
+                  LibraManager.buildBrushZoomInstrument(layer, zoomContext);
+                }
+                if (instrumentName) {
+                  instrumentRegistry.set(instrumentName, {
+                    type: "zoom",
+                    layer: layers[0],
+                  });
+                }
+                continue;
+              }
             }
-            continue;
           }
         }
 
         const lensZoomOptionsRaw =
+          (spec?.feedbackRaw && isPlainObject(spec.feedbackRaw)
+            ? spec.feedbackRaw.service || spec.feedbackRaw.lens
+            : null) ??
           feedbackOptions?.LensZoom ??
           feedbackOptions?.lensZoom ??
           feedbackOptions?.RadiusZoom ??
@@ -1039,8 +1204,13 @@ export function compileInteractionsDSL(specList = [], ctx) {
             const hostLayer = layers[0];
             const lensCandidates = [];
             instrumentRegistry.forEach((value) => {
-              if (value?.type === "lens" && value.layer === hostLayer && value.bindingKey) {
-                lensCandidates.push(value.bindingKey);
+              if (value?.type === "lens" && value.bindingKey) {
+                if (value.layer === hostLayer || 
+                   (typeof value.layer?.getLayerFromQueue === "function" && 
+                    (value.layer.getLayerFromQueue("lensLayer") === hostLayer || 
+                     value.layer.getLayerFromQueue("LensLayer") === hostLayer))) {
+                  lensCandidates.push(value.bindingKey);
+                }
               }
             });
             if (lensCandidates.length === 1) return lensCandidates[0];
@@ -1050,8 +1220,8 @@ export function compileInteractionsDSL(specList = [], ctx) {
         };
 
         const bindingKey = tryResolveLensBindingKey();
-        if (bindingKey && lensZoomOptions) {
-          const zoomContext = { ...lensZoomOptions };
+        if (bindingKey && lensZoomOptions && lensZoomOptions.updateLens) {
+          const zoomContext = { ...lensZoomOptions.updateLens };
           zoomContext.bindingKey = bindingKey;
           const modifierKeyRaw =
             spec?.modifierKey ??

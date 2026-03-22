@@ -9,6 +9,9 @@ const HEIGHT = 400 - MARGIN.top - MARGIN.bottom;
 const TICK_COUNT = 5;
 
 export default async function init() {
+  const g = typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+  const fieldColor = g.FIELD_COLOR || "class";
+
   const container = document.getElementById("LibraPlayground");
   if (!container) return;
   container.innerHTML = "";
@@ -49,13 +52,13 @@ export default async function init() {
 
   const color = d3
     .scaleOrdinal()
-    .domain(Array.from(new Set(data.map((d) => d.class))))
+    .domain(Array.from(new Set(data.map((d) => d[fieldColor]))))
     .range(d3.schemeTableau10);
 
   const panZoomLinker = createPanZoomLinker();
-  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker);
+  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker, fieldColor);
   // Mount interaction
-  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers, panZoomLinker);
+  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers, panZoomLinker, fieldColor);
 }
 
 function createPanZoomLinker() {
@@ -107,7 +110,7 @@ function createPanZoomLinker() {
   };
 }
 
-function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker) {
+function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker, fieldColor) {
   // Clear layers
   d3.select(xAxisLayer.getGraphic()).selectAll("*").remove();
   d3.select(yAxisLayer.getGraphic()).selectAll("*").remove();
@@ -228,8 +231,10 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
             .attr("r", 3)
             .attr("cx", (d) => lx(d[xiField]))
             .attr("cy", (d) => ly(d[yiField]))
-            .attr("fill", (d) => color(d.class))
-            .attr("fill-opacity", 0.7);
+            .attr("fill", (d) => color(d[fieldColor]))
+            .attr("fill-opacity", 0.2)
+            // .attr("stroke", (d) => color(d[fieldColor]))
+            ;
         }
 
         const axesG = cell.append("g");
@@ -329,10 +334,10 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 }
 
 
-async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers, panZoomLinker) {
+async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers, panZoomLinker, fieldColor) {
 
   const redrawSPLOM = (newNames, newX, newY) => {
-    renderSPLOM(svg, xAxisLayer, yAxisLayer, data, newNames, newX, newY, color, panZoomLinker);
+    renderSPLOM(svg, xAxisLayer, yAxisLayer, data, newNames, newX, newY, color, panZoomLinker, fieldColor);
   };
 
   const cellWidth = scaleX.bandwidth();
@@ -415,7 +420,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
         Trigger: "brush",
         targetLayer: layerName,
         feedbackOptions: {
-          Highlight: "#00ff1aff",
+          Highlight: { color: (d) => d ? color(d[fieldColor]) : "red" },
           RemnantKey: "Shift",
           ScaleX: sx,
           ScaleY: sy,

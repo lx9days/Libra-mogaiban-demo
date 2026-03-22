@@ -2,6 +2,13 @@ import Libra from "libra-vis";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 import { setupIrisScatter } from "../_shared/irisScatter";
 
+/*
+图层追踪机制（Brush Move-Drag，更新版）
+- 覆盖层命中：Move 的拖拽命中与矩形读写发生在 selectionLayer/transientLayer 等覆盖层上，需保证这些队列层可接收指针事件（如 pointerEvents: "visiblePainted"）。
+- 反向查找：当 target 仅写队列图层（如 transientLayer）而不写 instrument 时，编译器会按该队列图层在同宿主层上反向查找唯一的 GroupSelection（Brush）instrument 并自动绑定；若存在多个候选或需显式指定，则保留 target.instrument。
+- 推荐：目标指向队列覆盖层（transientLayer/selectionLayer），以确保拖拽命中与交互行为稳定。
+*/
+
 export default async function init() {
   const { layersByName } = await setupIrisScatter();
 
@@ -30,20 +37,12 @@ export default async function init() {
       },
     },
     {
-      instrument: "Move",
-      trigger: {
-        type: "drag",
-        priority: 2,
-        stopPropagation: true,
-      },
-      target: {
-        instrument: "brushMain",
-        layer: "transientLayer",
-        pointerEvents: "visiblePainted",
-      },
+      instrument: "move",
+      trigger: { type: "drag" },
+      target: { layer: "transientLayer" },
       feedback: {
-        brush: {
-          transform: "translate",
+        service: {
+          updateBrush: "translate",
         },
       },
     },

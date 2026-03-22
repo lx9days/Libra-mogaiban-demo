@@ -1,24 +1,30 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
-export default async function init() {
-  const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
-  const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
-  const DEFAULT_HEIGHT = 340 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
+const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
+const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
+const DEFAULT_HEIGHT = 340 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
 
-  const g = typeof window !== "undefined" ? window : (typeof self !== "undefined" ? self : {});
-  const fieldX = g.FIELD_X || "Horsepower";
-  const fieldY = g.FIELD_Y || "Miles_per_Gallon";
-  const fieldColor = g.FIELD_COLOR || "Origin";
-
-  const margin = DEFAULT_MARGIN;
-  const width = DEFAULT_WIDTH;
-  const height = DEFAULT_HEIGHT;
+export async function setupCarsScatter(options = {}) {
+  const {
+    fieldX = "Horsepower",
+    fieldY = "Miles_per_Gallon",
+    fieldColor = "Origin",
+    margin = DEFAULT_MARGIN,
+    width = DEFAULT_WIDTH,
+    height = DEFAULT_HEIGHT,
+    pointRadius = 4,
+    pointFill = () => "white",
+    pointStroke = (d, { color }) => color(d[fieldColor]),
+    pointFillOpacity = 1,
+    pointStrokeWidth = 1,
+  } = options;
 
   const url = "https://raw.githubusercontent.com/vega/vega/main/docs/data/cars.json";
   const rawData = await d3.json(url);
-  const data = rawData.filter((d) => !!(d?.[fieldX] && d?.[fieldY]));
+  const data = rawData.filter(
+    (d) => !!(d[fieldX] && d[fieldY])
+  );
 
   const container = document.getElementById("LibraPlayground");
   if (container) container.innerHTML = "";
@@ -30,7 +36,9 @@ export default async function init() {
     .attr("height", height + margin.top + margin.bottom)
     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`);
 
-  const root = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  const root = svg
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
   const x = d3
     .scaleLinear()
@@ -87,7 +95,13 @@ export default async function init() {
     .attr("x", width + margin.right / 2)
     .attr("y", -margin.top / 2 + 10)
     .text(fieldColor);
-  const legendItem = legend.append("g").selectAll("g").data(legendDomain).join("g");
+
+  const legendItem = legend
+    .append("g")
+    .selectAll("g")
+    .data(legendDomain)
+    .join("g");
+
   legendItem
     .append("circle")
     .attr("fill-opacity", 0)
@@ -96,6 +110,7 @@ export default async function init() {
     .attr("cx", width + 10)
     .attr("cy", (_, i) => i * 20)
     .attr("r", 5);
+
   legendItem
     .append("text")
     .attr("font-size", "12px")
@@ -110,50 +125,36 @@ export default async function init() {
     offset: { x: margin.left, y: margin.top },
     container: svg.node(),
   });
+
   const layerGraphic = d3.select(mainLayer.getGraphic());
+  const renderContext = { x, y, color, fieldX, fieldY, fieldColor, width, height, margin };
 
   layerGraphic
     .selectAll("circle")
     .data(data)
     .join("circle")
     .attr("class", "mark")
-    .attr("fill", "white")
-    .attr("fill-opacity", 1)
-    .attr("stroke-width", 1)
-    .attr("stroke", (d) => color(d[fieldColor]))
+    .attr("fill", (d) => pointFill(d, renderContext))
+    .attr("fill-opacity", pointFillOpacity)
+    .attr("stroke-width", pointStrokeWidth)
+    .attr("stroke", (d) => pointStroke(d, renderContext))
     .attr("cx", (d) => x(d[fieldX]))
     .attr("cy", (d) => y(d[fieldY]))
-    .attr("r", 4);
+    .attr("r", pointRadius);
 
-  const interactions = [
-    {
-      instrument: "GroupSelection",
-      trigger: {
-        type: "brush",
-        priority: 1,
-        stopPropagation: true,
-      },
-      target: {
-        layer: "mainLayer",
-        name: "brushMain",
-      },
-      feedback: {
-        selection: {
-          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
-          // dim: { opacity: 0.1, selector: ".mark" },
-          brushStyle: {
-            fill: "#5c5c5cff",
-            opacity: 0.3,
-            stroke: "none",
-          },
-        },
-      },
-    },
-
-  ];
-  await compileInteractionsDSL(interactions, {
+  return {
+    data,
+    x,
+    y,
+    color,
+    margin,
+    width,
+    height,
+    fieldX,
+    fieldY,
+    fieldColor,
+    svg,
+    mainLayer,
     layersByName: { mainLayer },
-    scales: { x, y, color },
-  });
-  await Libra.createHistoryTrack?.();
+  };
 }
