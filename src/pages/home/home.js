@@ -3,6 +3,17 @@ export default function(data) {
   if (!container) return;
   container.innerHTML = ""; 
 
+  const featuredPages = [
+    'group-selection',
+    'lens-hover',
+    'brush-move',
+    'brush-zoom',
+    'lens-zoom',
+    'edge-lens',
+    'Dust&Magnet',
+  ];
+  const featuredSet = new Set(featuredPages);
+
   const wrapper = document.createElement("div");
   wrapper.style.padding = "20px";
   wrapper.style.fontFamily = "system-ui, -apple-system, sans-serif";
@@ -51,7 +62,16 @@ export default function(data) {
     }
   });
 
-  const sortedPages = Array.from(pages).sort();
+  const sortedPages = Array.from(pages).sort((a, b) => {
+    const aFeatured = featuredSet.has(a);
+    const bFeatured = featuredSet.has(b);
+    if (aFeatured && bFeatured) {
+      return featuredPages.indexOf(a) - featuredPages.indexOf(b);
+    }
+    if (aFeatured) return -1;
+    if (bFeatured) return 1;
+    return a.localeCompare(b);
+  });
   
   if (sortedPages.length === 0) {
      const empty = document.createElement("p");
@@ -68,6 +88,9 @@ export default function(data) {
         a.style.color = "#0366d6";
         a.style.textDecoration = "none";
         a.style.fontSize = "16px";
+        if (featuredSet.has(page)) {
+          a.style.fontWeight = "700";
+        }
         
         a.addEventListener('mouseenter', () => a.style.textDecoration = "underline");
         a.addEventListener('mouseleave', () => a.style.textDecoration = "none");

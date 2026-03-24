@@ -1,343 +1,354 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
-// constants
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
-const WIDTH = 500 - MARGIN.left - MARGIN.right;
-const HEIGHT = 450 - MARGIN.top - MARGIN.bottom;
-const FIELD_COLOR = "degree";
-const FIELD_RADIUS = "degree";
-const FISHEYE_LENS = 100;
+const WIDTH = 800 - MARGIN.left - MARGIN.right;
+const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
 
-// module variables
-let data = [];
+const EDGE_LENS_SEED = 24;
+const EXCENTRIC_RADIUS = 52;
+const MAX_LABELS = 14;
+
 let nodes = [];
 let links = [];
 let radius = null;
 let color = null;
 
-async function loadData() {
-  try {
-    data = await d3.json("/public/data/miserables.json");
-  } catch (e) {
-    data = await d3.json("/data/miserables.json");
-  }
-  data.nodes.forEach(
-    (node) =>
-      (node.degree = data.links.filter(
-        (link) => link.target === node.id || link.source === node.id
-      ).length)
-  );
+const edgeLine = d3
+  .line()
+  .x((d) => d.x)
+  .y((d) => d.y)
+  .curve(d3.curveBasis);
 
-  nodes = data.nodes;
-  links = data.links.map((d, i) => ({ ...d, index: i }));
+async function loadData() {
+  let graph = null;
+  try {
+    graph = await d3.json("/public/data/miserables.json");
+  } catch (error) {
+    graph = await d3.json("/data/miserables.json");
+  }
+
+  const degreeById = new Map(graph.nodes.map((node) => [node.id, 0]));
+  graph.links.forEach((link) => {
+    degreeById.set(link.source, (degreeById.get(link.source) || 0) + 1);
+    degreeById.set(link.target, (degreeById.get(link.target) || 0) + 1);
+  });
+
+  nodes = graph.nodes.map((node) => ({
+    ...node,
+    degree: degreeById.get(node.id) || 0,
+  }));
+  links = graph.links.map((link, index) => ({ ...link, index }));
 
   d3.forceSimulation(nodes)
-    .force("charge", d3.forceManyBody().strength(-100))
+    .force("charge", d3.forceManyBody().strength(-160))
     .force(
       "link",
       d3
         .forceLink(links)
         .id((d) => d.id)
-        .distance(0)
-        .strength(0.3)
+        .distance(26)
+        .strength(0.35),
     )
     .force("x", d3.forceX())
     .force("y", d3.forceY())
-    .force(
-      "center",
-      d3.forceCenter(
-        (WIDTH - MARGIN.left - MARGIN.right) / 2 + MARGIN.left,
-        (HEIGHT - MARGIN.top - MARGIN.bottom) / 2 + MARGIN.top
-      )
-    )
+    .force("center", d3.forceCenter(WIDTH / 2, HEIGHT / 2))
     .stop()
-    .tick(200);
+    .tick(240);
+
+  radius = d3.scaleLinear().domain(d3.extent(nodes, (d) => d.degree)).range([4, 11]);
+  color = d3
+    .scaleOrdinal()
+    .domain(Array.from(new Set(nodes.map((d) => d.group))))
+    .range(d3.schemeTableau10);
 }
 
 function renderStaticVisualization() {
-  // append the svg object to the body of the page
-  const svg = d3
-    .select("#LibraPlayground")
-    .append("svg")
-    .attr(
-      "width",
-      WIDTH + MARGIN.left + MARGIN.right
-    )
-    .attr(
-      "height",
-      HEIGHT + MARGIN.top + MARGIN.bottom
-    )
-    .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
-
-  // Add color scale
-  const extentColor = [
-    0,
-    d3.max(nodes, (d) => d[FIELD_COLOR]),
-  ];
-  color = d3
-    .scaleDiverging()
-    .domain([
-      extentColor[1],
-      (extentColor[1] - extentColor[0]) / 2 + extentColor[0],
-      extentColor[0],
-    ])
-    .interpolator(d3.interpolateRdYlGn);
-
-  // Add radius scale
-  const extentRadius = d3.extent(nodes, (d) => d[FIELD_RADIUS]);
-  radius = d3.scaleLinear().domain(extentRadius).range([3, 10]);
-}
-
-function renderMainVisualization(
-  inputNodes = nodes,
-  inputLinks = links
-) {
-  // append the svg object to the body of the page
-  const svg = d3.select("#LibraPlayground svg");
-
-  let g = svg.select(".node");
-  let returnVal = null;
-  if (g.empty()) {
-    // create layer if not exists
-    const linkLayer = Libra.Layer.initialize("D3Layer", {
-      name: "linkLayer",
-      width: WIDTH,
-      height: HEIGHT,
-      offset: { x: MARGIN.left, y: MARGIN.top },
-      container: svg.node(),
-    });
-    g = d3.select(linkLayer.getGraphic());
-    g.attr("class", "link");
-
-    const nodeLayer = linkLayer.getLayerFromQueue("nodeLayer");
-    d3.select(nodeLayer.getGraphic()).attr("class", "node");
-
-    const bgLayer = linkLayer.getLayerFromQueue("backgroundLayer");
-
-    returnVal = [bgLayer, linkLayer, nodeLayer];
+  const container = document.getElementById("LibraPlayground");
+  if (container) {
+    container.innerHTML = "";
   }
 
-  renderNodeVisualization(inputNodes);
-  // renderLinkVisualization(inputLinks);
-
-  return returnVal;
+  d3.select("#LibraPlayground")
+    .append("svg")
+    .attr("width", WIDTH + MARGIN.left + MARGIN.right)
+    .attr("height", HEIGHT + MARGIN.top + MARGIN.bottom)
+    .attr("viewBox", `0 0 ${WIDTH + MARGIN.left + MARGIN.right} ${HEIGHT + MARGIN.top + MARGIN.bottom}`);
 }
 
-function renderNodeVisualization(inputNodes = nodes) {
-  // find node layer
-  const root = d3.select("#LibraPlayground").select(".node");
+function buildEdgeLensPath(edge, controlPoint) {
+  if (!controlPoint) return edgeLine([edge.source, edge.target]);
 
-  // clear graphical elements
-  root.selectChildren().remove();
+  const tangentVec = [edge.target.x - edge.source.x, edge.target.y - edge.source.y];
+  const tangentLength = Math.sqrt(tangentVec[0] * tangentVec[0] + tangentVec[1] * tangentVec[1]);
+  if (!Number.isFinite(tangentLength) || tangentLength === 0) {
+    return edgeLine([edge.source, edge.target]);
+  }
 
-  // draw nodes
-  root
-    .append("g")
-    .attr("fill", "#fff")
-    .attr("stroke", "#000")
-    .selectAll("circle")
-    .data(inputNodes)
-    .join("circle")
-    .attr("fill", (d) => (d.children ? null : "steelblue"))
-    .attr("r", (d) => {
-      const a = d.children
-        ? null
-        : radius(d[FIELD_RADIUS]);
-      return a;
-    })
-    .attr("cx", (d) => d.x)
-    .attr("cy", (d) => d.y);
+  const pointVec = [controlPoint.x - edge.source.x, controlPoint.y - edge.source.y];
+  const pointLength = Math.sqrt(pointVec[0] * pointVec[0] + pointVec[1] * pointVec[1]);
+  if (!Number.isFinite(pointLength) || pointLength === 0) {
+    return edgeLine([edge.source, edge.target]);
+  }
+
+  const normTangentVec = tangentVec.map((value) => value / tangentLength);
+  const projection =
+    (normTangentVec[0] * pointVec[0] + normTangentVec[1] * pointVec[1]) / tangentLength;
+  const cosine =
+    (tangentVec[0] * pointVec[0] + tangentVec[1] * pointVec[1]) / tangentLength / pointLength;
+
+  if (!(projection > 0 && projection < 1) || !(cosine < 1)) {
+    return edgeLine([edge.source, edge.target]);
+  }
+
+  let normNormalVec = [-normTangentVec[1], normTangentVec[0]];
+  const normalCosine =
+    (normNormalVec[0] * pointVec[0] + normNormalVec[1] * pointVec[1]) / pointLength;
+  if (normalCosine > 0) {
+    normNormalVec = [-normNormalVec[0], -normNormalVec[1]];
+  }
+
+  const distanceToLine = -(
+    normNormalVec[0] * pointVec[0] + normNormalVec[1] * pointVec[1]
+  );
+  if (distanceToLine >= EDGE_LENS_SEED) {
+    return edgeLine([edge.source, edge.target]);
+  }
+
+  const mirrorPoint = {
+    x: controlPoint.x + normNormalVec[0] * EDGE_LENS_SEED,
+    y: controlPoint.y + normNormalVec[1] * EDGE_LENS_SEED,
+  };
+  const offsetDistance = EDGE_LENS_SEED - distanceToLine;
+  const mirrorSource = {
+    x: edge.source.x + normNormalVec[0] * offsetDistance,
+    y: edge.source.y + normNormalVec[1] * offsetDistance,
+  };
+  const mirrorTarget = {
+    x: edge.target.x + normNormalVec[0] * offsetDistance,
+    y: edge.target.y + normNormalVec[1] * offsetDistance,
+  };
+
+  return edgeLine([
+    edge.source,
+    {
+      x: (mirrorSource.x + mirrorPoint.x) / 2,
+      y: (mirrorSource.y + mirrorPoint.y) / 2,
+    },
+    {
+      x: (mirrorTarget.x + mirrorPoint.x) / 2,
+      y: (mirrorTarget.y + mirrorPoint.y) / 2,
+    },
+    edge.target,
+  ]);
 }
 
-function renderLinkVisualization(inputLinks = links) {
-  // find link layer
-  const root = d3.select("#LibraPlayground").select(".link");
+function buildEdgePaths(currentLinks = links, controlPoint = null) {
+  return currentLinks.map((edge) => buildEdgeLensPath(edge, controlPoint));
+}
 
-  // clear graphical elements
-  root.selectChildren().remove();
+function ensureMarksGroup(layer, className) {
+  const root = d3.select(layer.getGraphic());
+  let group = root.select(`g.${className}`);
+  if (group.empty()) {
+    group = root.append("g").attr("class", className);
+  }
+  return group;
+}
 
-  // draw links
+function renderLinkVisualization(layer, edgePaths = buildEdgePaths()) {
+  const root = ensureMarksGroup(layer, "edge-lens-links-marks");
+  root.selectAll("*").remove();
+
   root
     .append("g")
     .attr("fill", "none")
-    .attr("stroke", "#999")
-    .attr("stroke-opacity", 0.6)
+    .attr("stroke", "#7f8794")
+    .attr("stroke-opacity", 0.5)
+    .attr("stroke-linecap", "round")
     .selectAll("path")
-    .data(inputLinks)
+    .data(edgePaths)
     .join("path")
-    .attr("d", (d) => d);
+    .attr("d", (d) => d)
+    .attr("stroke-width", 1.35);
 }
 
-function mountInteraction(bgLayer, linkLayer, nodeLayer) {
-  // register edge lens layout service
-  Libra.Service.register("EdgeLensLayoutService", {
-    constructor: Libra.Service.LayoutService,
-    params: { edges: [], vertices: [], controlPoints: [] },
-    evaluate({ edges, vertices, controlPoints }) {
-      const line = d3
-        .line()
-        .x((d) => d.x)
-        .y((d) => d.y)
-        .curve(d3.curveBasis);
-      if (controlPoints.length <= 0) {
-        return {
-          vertices,
-          edges: edges
-            .map((edge) => [edge.source, edge.target])
-            .map((x) => line(x)),
-        };
-      }
-      const controlPoint = controlPoints[0];
-      return {
-        vertices,
-        edges: edges
-          .map((edge) => {
-            const tangentVec = [
-              edge.target.x - edge.source.x,
-              edge.target.y - edge.source.y,
-            ];
-            const pointVec = [
-              controlPoint.x - edge.source.x,
-              controlPoint.y - edge.source.y,
-            ];
-            const normTangentVec = tangentVec.map(
-              (x) =>
-                x /
-                Math.sqrt(
-                  tangentVec[0] * tangentVec[0] + tangentVec[1] * tangentVec[1]
-                )
-            );
-            const project =
-              (normTangentVec[0] * pointVec[0] +
-                normTangentVec[1] * pointVec[1]) /
-              Math.sqrt(
-                tangentVec[0] * tangentVec[0] + tangentVec[1] * tangentVec[1]
-              );
-            const cos =
-              (tangentVec[0] * pointVec[0] + tangentVec[1] * pointVec[1]) /
-              Math.sqrt(
-                tangentVec[0] * tangentVec[0] + tangentVec[1] * tangentVec[1]
-              ) /
-              Math.sqrt(pointVec[0] * pointVec[0] + pointVec[1] * pointVec[1]);
-            if (project > 0 && project < 1 && cos < 1) {
-              const normNormalVec = [-normTangentVec[1], normTangentVec[0]];
-              const normCos =
-                (normNormalVec[0] * pointVec[0] +
-                  normNormalVec[1] * pointVec[1]) /
-                Math.sqrt(
-                  normNormalVec[0] * normNormalVec[0] +
-                    normNormalVec[1] * normNormalVec[1]
-                ) /
-                Math.sqrt(
-                  pointVec[0] * pointVec[0] + pointVec[1] * pointVec[1]
-                );
-              if (normCos > 0) {
-                normNormalVec[0] = -normNormalVec[0];
-                normNormalVec[1] = -normNormalVec[1];
-              }
-              const dist = -(
-                normNormalVec[0] * pointVec[0] +
-                normNormalVec[1] * pointVec[1]
-              );
-              const mirrorSeed = 20;
-              if (dist >= mirrorSeed) {
-                return [edge.source, edge.target];
-              } else {
-                const mirrorPoint = [
-                  controlPoint.x + normNormalVec[0] * mirrorSeed,
-                  controlPoint.y + normNormalVec[1] * mirrorSeed,
-                ];
-                const moveDist = mirrorSeed - dist;
-                const mirrorSource = [
-                  edge.source.x + normNormalVec[0] * moveDist,
-                  edge.source.y + normNormalVec[1] * moveDist,
-                ];
-                const mirrorTarget = [
-                  edge.target.x + normNormalVec[0] * moveDist,
-                  edge.target.y + normNormalVec[1] * moveDist,
-                ];
-                return [
-                  edge.source,
-                  {
-                    x: (mirrorSource[0] + mirrorPoint[0]) / 2,
-                    y: (mirrorSource[1] + mirrorPoint[1]) / 2,
-                  },
-                  {
-                    x: (mirrorTarget[0] + mirrorPoint[0]) / 2,
-                    y: (mirrorTarget[1] + mirrorPoint[1]) / 2,
-                  },
-                  edge.target,
-                ];
-              }
-            } else {
-              return [edge.source, edge.target];
-            }
-          })
-          .map((x) => line(x)),
-      };
-    },
+function renderNodeVisualization(layer, currentNodes = nodes) {
+  const root = ensureMarksGroup(layer, "edge-lens-node-marks");
+  root.selectAll("*").remove();
+
+  root
+    .append("g")
+    .selectAll("circle")
+    .data(currentNodes, (d) => d.id)
+    .join("circle")
+    .attr("cx", (d) => d.x)
+    .attr("cy", (d) => d.y)
+    .attr("r", (d) => radius(d.degree))
+    .attr("fill", (d) => color(d.group))
+    .attr("fill-opacity", 0.92)
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 1.1);
+}
+
+function renderMainVisualization() {
+  const svg = d3.select("#LibraPlayground svg");
+
+  const linkLayer = Libra.Layer.initialize("D3Layer", {
+    name: "linkLayer",
+    width: WIDTH,
+    height: HEIGHT,
+    offset: { x: MARGIN.left, y: MARGIN.top },
+    container: svg.node(),
+  });
+  const mainLayer = linkLayer.getLayerFromQueue("nodeLayer");
+  const backgroundLayer = linkLayer.getLayerFromQueue("backgroundLayer");
+
+  d3.select(linkLayer.getGraphic()).attr("class", "edge-lens-links").style("pointer-events", "none");
+  d3.select(mainLayer.getGraphic()).attr("class", "edge-lens-nodes");
+  d3.select(backgroundLayer.getGraphic()).attr("class", "edge-lens-background");
+  d3.select(backgroundLayer.getGraphic())
+    .select("rect")
+    .attr("fill", "#ffffff")
+    .attr("stroke", "#d7dde5")
+    .attr("stroke-width", 1);
+
+  linkLayer.setLayersOrder({
+    backgroundLayer: 0,
+    linkLayer: 1,
+    nodeLayer: 2,
   });
 
-  // register node & link transformers
-  Libra.GraphicalTransformer.register("NodeTransformer", {
-    redraw({ transformer }) {
-      const nodes = transformer.getSharedVar("result")?.vertices ?? [];
-      renderNodeVisualization(nodes);
-    },
-  });
+  renderLinkVisualization(linkLayer);
+  renderNodeVisualization(mainLayer);
 
-  Libra.GraphicalTransformer.register("LinkTransformer", {
-    redraw({ transformer }) {
-      const links = transformer.getSharedVar("result")?.edges ?? [];
-      renderLinkVisualization(links);
-    },
-  });
+  return {
+    linkLayer,
+    mainLayer,
+  };
+}
 
-  const nodeTransformer = Libra.GraphicalTransformer.initialize(
-    "NodeTransformer",
-    {
-      layer: nodeLayer,
-    }
-  );
-
-  const linkTransformer = Libra.GraphicalTransformer.initialize(
-    "LinkTransformer",
-    {
-      layer: linkLayer,
-    }
-  );
-
-  // compose hover instrument with customized service
-  const edgeLensService = Libra.Service.initialize("EdgeLensLayoutService", {
+async function mountInteraction({ linkLayer, mainLayer }) {
+  const linkTransformer = Libra.GraphicalTransformer.initialize("EdgeLensLinkTransformer", {
+    layer: linkLayer,
     sharedVar: {
-      vertices: nodes,
-      edges: links,
+      result: buildEdgePaths(),
     },
-    transformers: [nodeTransformer, linkTransformer],
+    redraw({ transformer }) {
+      const result = transformer.getSharedVar("result");
+      renderLinkVisualization(linkLayer, Array.isArray(result) ? result : buildEdgePaths());
+      linkLayer.postUpdate?.();
+    },
   });
-  edgeLensService.setSharedVar("controlPoints", []);
-  Libra.Instrument.initialize("HoverInstrument", {
-    layers: [bgLayer],
-    services: [edgeLensService],
-    on: {
-      hover: [
-        ({ event, instrument }) => {
-          instrument.services.setSharedVar("controlPoints", [
-            { x: event.offsetX, y: event.offsetY },
-          ]);
+
+  const interactions = [
+    {
+      name: "edgeLensHover",
+      instrument: "helperLine",
+      trigger: {
+        type: "hover",
+        priority: 1,
+        stopPropagation: false,
+      },
+      target: {
+        layer: "mainLayer",
+        pointerEvents: "viewport",
+      },
+      feedback: {
+        flow: {
+          remove: [{ find: "SelectionTransformer" }],
+          insert: [
+            {
+              find: "SelectionService",
+              flow: [
+                {
+                  comp: "EdgeLensLayoutService",
+                  sharedVar: {
+                    edges: links,
+                  },
+                  evaluate({ edges: currentEdges = [], offsetx, offsety, x, y, layer }) {
+                    const pointerX = Number.isFinite(offsetx) ? offsetx : x;
+                    const pointerY = Number.isFinite(offsety) ? offsety : y;
+                    if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
+                      return buildEdgePaths(currentEdges);
+                    }
+
+                    const controlPoint = {
+                      x: pointerX - (layer?._offset?.x || 0),
+                      y: pointerY - (layer?._offset?.y || 0),
+                    };
+                    return buildEdgePaths(currentEdges, controlPoint);
+                  },
+                },
+                linkTransformer,
+              ],
+            },
+          ],
         },
-      ],
+      },
+    },
+    {
+      name: "edgeLensExcentric",
+      instrument: "Lens",
+      trigger: {
+        type: "hover",
+        priority: 2,
+        stopPropagation: false,
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        lens: {
+          excentricLabeling: {
+            renderSelection: false,
+            r: EXCENTRIC_RADIUS,
+            stroke: "#1d8f43",
+            strokeWidth: 2,
+            countLabelDistance: 18,
+            fontSize: 12,
+            countLabelWidth: 60,
+            maxLabelsNum: MAX_LABELS,
+            labelAccessor: (circleElem) => {
+              const datum = d3.select(circleElem).datum();
+              return datum ? `${datum.id} (${datum.degree})` : "";
+            },
+            colorAccessor: (circleElem) => {
+              const datum = d3.select(circleElem).datum();
+              return datum ? color(datum.group) : "#666";
+            },
+            count: {
+              op: "count",
+            },
+          },
+        },
+      },
+    },
+  ];
+
+  await compileInteractionsDSL(interactions, {
+    layersByName: {
+      mainLayer,
+      linkLayer,
     },
   });
+
+  const labelLayer = mainLayer.getLayerFromQueue("LabelLayer");
+  const lensLayer = mainLayer.getLayerFromQueue("LensLayer");
+  if (labelLayer?.getGraphic) {
+    d3.select(labelLayer.getGraphic()).style("pointer-events", "none");
+  }
+  if (lensLayer?.getGraphic) {
+    d3.select(lensLayer.getGraphic()).style("pointer-events", "none");
+  }
+
+  await Libra.createHistoryTrack?.();
 }
 
 export default async function init() {
   await loadData();
   renderStaticVisualization();
-  const [bgLayer, linkLayer, nodeLayer] = renderMainVisualization();
-  mountInteraction(bgLayer, linkLayer, nodeLayer);
-  if (Libra.createHistoryTrack) {
-    await Libra.createHistoryTrack();
-  }
+  const layers = renderMainVisualization();
+  await mountInteraction(layers);
 }
