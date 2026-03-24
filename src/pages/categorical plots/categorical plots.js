@@ -184,7 +184,7 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
         .attr("cx", (d) => xScale(d.date))
         .attr("cy", (d) => yScale(d.division) + yScale.bandwidth() / 2)
         .attr("r", (d) => rScale(d.unemployment))
-        .attr("fill", (d) => colorScale(d.unemployment))
+        .attr("fill", "none")
         .attr("fill-opacity", 0.8)
         .attr("stroke", "#333")
         .attr("stroke-width", 0.5);
@@ -228,11 +228,19 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
                 },
             },
         },
-        
+        {
+            Instrument: "group selection",
+            Trigger: "brush",
+            targetLayer: "plotLayer",
+            feedbackOptions: {
+                Highlight: (d) => colorScale(d.unemployment),
+                BaseOpacity: 1,
+            },
+        },
     ];
 
     await compileInteractionsDSL(interactions, {
-        layersByName: { yAxisLayer },
+        layersByName: { yAxisLayer, plotLayer },
     });
 
     await Libra.createHistoryTrack();

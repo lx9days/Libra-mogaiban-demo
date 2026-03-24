@@ -552,9 +552,9 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
             {
                 instrument: "axis selection",
                 trigger: "brushy",
+                syntheticEvent:"start-vertically",
                 targetLayer: `axisLayer-${layerName}`,
                 feedbackOptions: {
-                    highlight: "#ff0000",
                     linkLayers: [linesLayer],
                     scale: y[dim],
                     attrName: dim,
@@ -571,9 +571,22 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
     const interactions = [
         {
+      Instrument: "point selection",
+      Trigger: "click",
+      targetLayer: "mainLayer",
+      feedbackOptions: {
+        Highlight: "#ff0000",
+        tooltip:d => d.datum(),
+        Dim: { opacity: 0.1, selector: ".mark" },
+      },
+      priority: 1,
+      stopPropagation: true,
+    },
+        {
             instrument: "reordering",
             trigger: "drag",
-            targetLayer: "headersLayer",
+            targetLayer: "linesLayer",
+            syntheticEvent: "start-horizontally",
             feedbackOptions: {
                 direction: "x",
                 redrawRef: redrawParallel,

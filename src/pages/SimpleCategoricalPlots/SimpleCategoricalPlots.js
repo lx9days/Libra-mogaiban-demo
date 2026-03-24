@@ -258,10 +258,19 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
                 },
             },
         },
+        {
+            Instrument: "group selection",
+            Trigger: "brush",
+            targetLayer: "plotLayer",
+            feedbackOptions: {
+                Highlight: "#00ff1aff",
+                BaseOpacity: 0.1,
+            },
+        },
     ];
 
     await compileInteractionsDSL(interactions, {
-        layersByName: { yAxisLayer },
+        layersByName: { yAxisLayer, plotLayer },
     });
 
     await Libra.createHistoryTrack();

@@ -173,6 +173,12 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
     .attr("cy", (d) => currentYScale(d[CONFIG.FIELD_Y]))
     .attr("r", 4);
 
+  // 触发图层更新，驱动交互选区（如 Brush）自动重算
+  const mainLayer = Libra.Layer.findLayer("mainLayer")?.[0];
+  if (mainLayer) {
+    mainLayer.postUpdate();
+  }
+
   return returnVal;
 }
 

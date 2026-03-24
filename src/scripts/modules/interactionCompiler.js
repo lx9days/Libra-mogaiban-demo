@@ -550,10 +550,16 @@ function buildSharedVar(feedback = [], scales = {}) {
     // Tooltip: prefix + fields
     if (type === "tooltip") {
       const content = action?.content || {};
-      sharedVar.tooltip = {
-        prefix: content?.prefix || "",
-        fields: Array.isArray(content?.fields) ? content.fields : [],
-      };
+    sharedVar.tooltip = {
+      prefix: content?.prefix || "",
+      fields: Array.isArray(content?.fields) ? content.fields : [],
+    };
+    if (typeof content?.position === "string") {
+      sharedVar.tooltip.position = content.position;
+    }
+    if (content?.offset && typeof content.offset === "object") {
+      sharedVar.tooltip.offset = content.offset;
+    }
     }
   }
 
@@ -1387,10 +1393,12 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (tooltip && typeof tooltip === "object") {
         const fields = Array.isArray(tooltip.fields) ? tooltip.fields : undefined;
         const prefix = typeof tooltip.prefix === "string" ? tooltip.prefix : undefined;
+        const position = typeof tooltip.position === "string" ? tooltip.position : undefined;
         const offset = tooltip.offset && typeof tooltip.offset === "object" ? tooltip.offset : undefined;
         sharedVar.tooltip = {};
         if (fields) sharedVar.tooltip.fields = fields;
         if (prefix) sharedVar.tooltip.prefix = prefix;
+        if (position) sharedVar.tooltip.position = position;
         if (offset) sharedVar.tooltip.offset = offset;
       }
 

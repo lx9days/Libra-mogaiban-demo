@@ -4,7 +4,7 @@ import { compileInteractionsDSL } from "../../scripts/modules/interactionCompile
 
 // global constants
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
-const WIDTH = 600 - MARGIN.left - MARGIN.right;
+const WIDTH = 500 - MARGIN.left - MARGIN.right;
 const HEIGHT = 450 - MARGIN.top - MARGIN.bottom;
 
 // module variables
@@ -196,7 +196,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                     dustLayoutService.setSharedVar("magnets", magnetData.magnets);
                     // Actively trigger evaluation
                     const result = dustLayoutService.evaluate();
-                    
+
                     // Since we trigger it manually, we need to push the result to the transformer
                     if (result) {
                         dustTransformer.setSharedVar("result", result);
@@ -232,7 +232,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                                     ],
                             });
                         }
-                        
+
                         const hub = Libra.helpers.globalHubManager.getHub("magnet-hub");
                         if (hub) hub.set("magnet-position", { magnets: currentMagnets });
 
@@ -360,6 +360,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 type: "hover",
                 priority: 5,
                 stopPropagation: true,
+                syntheticEvent:"idle"
             },
             target: {
                 layer: "dustLayer",
@@ -374,7 +375,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                         strokeWidth: 2,
                         countLabelDistance: 18,
                         fontSize: 12,
-                        countLabelWidth: 64,
+                        countLabelWidth: 180,
                         maxLabelsNum: 8,
                         labelAccessor: (circleElem) => {
                             const datum = d3.select(circleElem).datum();
@@ -387,39 +388,57 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                         count: {
                             field: "Horsepower",
                             op: "mean",
-                            formatter: (value, { count }) => `${count} / ${Math.round(value || 0)}`,
+                            formatter: (value, { count }) => `count: ${count} / maxHorsepower${Math.round(value || 0)}`,
                         },
                     },
                 },
             },
         },
+        // {
+        //     Name: "lensMain",
+        //     Instrument: "Lens",
+        //     Trigger: "hover",
+        //     targetLayer: "dustLayer",
+        //     syntheticEvent: "idle",
+        //     feedbackOptions: {
+        //         ExcentricLabeling: {
+        //             renderSelection: false,
+        //             r: 20,
+        //             stroke: "green",
+        //             strokeWidth: 2,
+        //             countLabelDistance: 20,
+        //             fontSize: 12,
+        //             countLabelWidth: 40,
+        //             maxLabelsNum: 10,
+        //             labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
+        //             colorAccessor: (circleElem) => "black",
+        //             count: {
+        //                 field: "Horsepower",
+        //                 op: "sum",
+        //                 formatter: (sum, { count }) => `${count}`,
+        //             },
+        //         },
+        //     },
+        //     stopPropagation: true,
+        // }, 
         {
-                    Name: "lensMain",
-                    Instrument: "Lens",
-                    Trigger: "hover",
-                    targetLayer: "dustLayer",
-                    syntheticEvent:"idle",
-                    feedbackOptions: {
-                        ExcentricLabeling: {
-                            renderSelection: false,
-                            r: 20,
-                            stroke: "green",
-                            strokeWidth: 2,
-                            countLabelDistance: 20,
-                            fontSize: 12,
-                            countLabelWidth: 40,
-                            maxLabelsNum: 10,
-                            labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
-                            colorAccessor: (circleElem) => "black",
-                            count: {
-                                field: "Horsepower",
-                                op: "sum",
-                                formatter: (sum, { count }) => `${count}`,
-                            },
-                        },
+            instrument: "Zoom",
+            trigger: {
+                type: "zoom",
+            },
+            target: {
+                layer: "dustLayer",
+            },
+            feedback: {
+                service: {
+                    updateLens: {
+                        step: 3,
+                        minR: 12,
+                        maxR: 96,
                     },
-                    stopPropagation: true,
-                }
+                },
+            },
+        },
     ];
 
     await compileInteractionsDSL(interactions, {
