@@ -1,48 +1,233 @@
 import * as d3 from "d3";
+import Libra from "libra-vis";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MAP_WIDTH = 840;
 const MAP_HEIGHT = 608;
 const PANEL_WIDTH = 250;
 const LOW_ZOOM = 1.35;
 const HIGH_ZOOM = 2.55;
-const LASSO_MIN_AREA = 180;
 
 let counties = [];
 let projection = null;
 let path = null;
-let zoomTransform = d3.zoomIdentity;
+let colorScale = null;
+let svg = null;
+let mainLayer = null;
+let labelsRoot = null;
+let panelRoot = null;
+let countiesSelection = null;
+
+let viewState = { transform: d3.zoomIdentity };
 let clickedIds = new Set();
 let lassoIds = new Set();
 let hoveredId = null;
-let lassoState = null;
-let colorScale = null;
+let interactions = [];
 
-let svg = null;
-let mapRoot = null;
-let labelsRoot = null;
-let lassoRoot = null;
-let panelRoot = null;
-let countiesSelection = null;
+function buildGeomapDSL() {
+  return [
+    {
+      Name: "mapPan",
+      Instrument: "panning",
+      trigger: {
+        type: "pan",
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        ViewTransform: {
+          stateRef: viewState,
+          redrawRef: redrawView,
+          translateExtent: [[0, 0], [MAP_WIDTH, MAP_HEIGHT]],
+        },
+      },
+      modifierKey: "None",
+      priority: 6,
+      stopPropagation: true,
+    },
+    {
+      Name: "mapZoom",
+      Instrument: "zooming",
+      trigger: {
+        type: "zoom",
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        SemanticZoom: {
+          stateRef: viewState,
+          redrawRef: redrawView,
+          translateExtent: [[0, 0], [MAP_WIDTH, MAP_HEIGHT]],
+          scaleExtent: [1, 8],
+          step: 0.14,
+        },
+      },
+      priority: 7,
+      stopPropagation: true,
+    },
+    {
+      Name: "mapLasso",
+      Instrument: "group selection",
+      trigger: {
+        type: "lasso",
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        selection: {
+          brushStyle: {
+            fill: "#d97706",
+            opacity: 0.12,
+            stroke: "#d97706",
+            "stroke-width": 1.6,
+            "stroke-dasharray": "5 5",
+          },
+        },
+        flow: {
+          remove: [{ find: "SelectionTransformer" }],
+          insert: [
+            {
+              find: "SelectionService",
+              Operator: ({ result = [] }) => {
+                lassoIds = new Set(
+                  result
+                    .map((node) => d3.select(node).datum()?.id)
+                    .filter(Boolean),
+                );
+                return Array.from(lassoIds);
+              },
+              Renderer: () => {
+                applyView();
+                updatePanel();
+              },
+            },
+          ],
+        },
+      },
+      modifierKey: "Shift",
+      priority: 8,
+      stopPropagation: true,
+    },
+    {
+      Name: "mapClick",
+      Instrument: "point selection",
+      trigger: {
+        type: "click",
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        flow: {
+          remove: [{ find: "SelectionTransformer" }],
+          insert: [
+            {
+              find: "SelectionService",
+              Operator: ({ result = [] }) => {
+                const id = result.map((node) => d3.select(node).datum()?.id).find(Boolean);
+                if (id) {
+                  if (clickedIds.has(id)) clickedIds.delete(id);
+                  else clickedIds.add(id);
+                }
+                return Array.from(clickedIds);
+              },
+              Renderer: () => {
+                applyView();
+                updatePanel();
+              },
+            },
+          ],
+        },
+      },
+      modifierKey: "None",
+      priority: 3,
+      stopPropagation: true,
+    },
+    {
+      Name: "mapHover",
+      Instrument: "point selection",
+      trigger: {
+        type: "hover",
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        flow: {
+          remove: [{ find: "SelectionTransformer" }],
+          insert: [
+            {
+              find: "SelectionService",
+              Operator: ({ result = [] }) => {
+                hoveredId = result.map((node) => d3.select(node).datum()?.id).find(Boolean) || null;
+                return hoveredId;
+              },
+              Renderer: () => {
+                applyView();
+                updatePanel();
+              },
+            },
+          ],
+        },
+      },
+      priority: 2,
+      stopPropagation: false,
+    },
+  ];
+}
 
 export default async function init() {
   const container = document.getElementById("LibraPlayground");
   if (!container) return;
   container.innerHTML = "";
-  zoomTransform = d3.zoomIdentity;
+
   clickedIds = new Set();
   lassoIds = new Set();
   hoveredId = null;
-  lassoState = null;
+  viewState = { transform: d3.zoomIdentity };
 
   const shell = buildLayout(container);
   svg = shell.svg;
   panelRoot = shell.panel;
+  labelsRoot = shell.labels;
 
   counties = await loadCounties();
   setupProjection();
+  mainLayer = Libra.Layer.initialize("D3Layer", {
+    name: "mainLayer",
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+    offset: { x: 0, y: 0 },
+    container: svg.node(),
+  });
+
   renderMap();
-  installInteractions();
-  updatePanel();
+  interactions = buildGeomapDSL();
+  await compileInteractionsDSL(interactions, {
+    layersByName: { mainLayer },
+  });
+
+  mainLayer.setLayersOrder?.({
+    selectionLayer: 2,
+    transientLayer: 3,
+  });
+  mainLayer.onUpdate?.(() => {
+    mainLayer.setLayersOrder?.({
+      selectionLayer: 2,
+      transientLayer: 3,
+    });
+  });
+
+  const selectionLayer = mainLayer.getLayerFromQueue("selectionLayer");
+  const transientLayer = mainLayer.getLayerFromQueue("transientLayer");
+  if (selectionLayer?.getGraphic) d3.select(selectionLayer.getGraphic()).style("pointer-events", "none");
+  if (transientLayer?.getGraphic) d3.select(transientLayer.getGraphic()).style("pointer-events", "none");
+
+  await Libra.createHistoryTrack?.();
+  redrawView(viewState.transform);
 }
 
 function buildLayout(container) {
@@ -58,8 +243,7 @@ function buildLayout(container) {
     .html(`
       <div style="font:700 26px/1.1 Iowan Old Style, Palatino Linotype, serif;color:#1f2937;">Semantic Geomap</div>
       <div style="margin-top:6px;font:14px/1.45 system-ui;color:#556070;">
-        Plain drag pans the map, wheel performs geometric zoom, <strong>Shift + drag</strong> brushes with a lasso,
-        and click pins individual counties. Label detail escalates with zoom level.
+        Interaction is declared through Libra DSL rules: pan, semantic zoom, lasso selection, click pinning, and hover inspection all target the same map layer.
       </div>
     `);
 
@@ -70,10 +254,10 @@ function buildLayout(container) {
     .style("flex-wrap", "wrap");
 
   [
-    ["Drag", "#eff6ff", "#2563eb"],
-    ["Wheel zoom", "#eefaf5", "#047857"],
-    ["Shift + drag lasso", "#fef3c7", "#b45309"],
-    ["Click to pin", "#fce7f3", "#be185d"],
+    ["DSL pan", "#eff6ff", "#2563eb"],
+    ["DSL zoom", "#eefaf5", "#047857"],
+    ["DSL lasso", "#fef3c7", "#b45309"],
+    ["DSL click + hover", "#fce7f3", "#be185d"],
   ].forEach(([label, bg, fg]) => {
     chips
       .append("span")
@@ -111,14 +295,9 @@ function buildLayout(container) {
     .attr("height", MAP_HEIGHT)
     .attr("fill", "#f8fafc");
 
-  mapRoot = svgSelection.append("g").attr("class", "semantic-geomap-map");
-  labelsRoot = svgSelection
+  const labels = svgSelection
     .append("g")
     .attr("class", "semantic-geomap-labels")
-    .style("pointer-events", "none");
-  lassoRoot = svgSelection
-    .append("g")
-    .attr("class", "semantic-geomap-lasso")
     .style("pointer-events", "none");
 
   const panel = content
@@ -130,6 +309,7 @@ function buildLayout(container) {
   return {
     svg: svgSelection,
     panel,
+    labels,
   };
 }
 
@@ -180,108 +360,31 @@ function setupProjection() {
 }
 
 function renderMap() {
-  countiesSelection = mapRoot
+  const root = d3.select(mainLayer.getGraphic());
+  root.selectAll("*").remove();
+
+  countiesSelection = root
     .selectAll("path.county")
     .data(counties, (d) => d.id)
     .join("path")
-    .attr("class", "county")
+    .attr("class", "county mark")
     .attr("d", path)
     .attr("fill", (d) => colorScale(d.properties.density))
-    .attr("stroke-linejoin", "round")
-    .attr("cursor", "pointer")
-    .on("mouseenter", (_, d) => {
-      hoveredId = d.id;
-      applyView();
-      updatePanel();
-    })
-    .on("mouseleave", () => {
-      hoveredId = null;
-      applyView();
-      updatePanel();
-    })
-    .on("click", (event, d) => {
-      event.stopPropagation();
-      if (clickedIds.has(d.id)) clickedIds.delete(d.id);
-      else clickedIds.add(d.id);
-      applyView();
-      updatePanel();
-    });
-
-  applyView();
+    .attr("stroke", "#ffffff")
+    .attr("stroke-width", 0.85)
+    .attr("stroke-linejoin", "round");
 }
 
-function installInteractions() {
-  const zoomBehavior = d3
-    .zoom()
-    .scaleExtent([1, 8])
-    .filter((event) => {
-      if (event.shiftKey) return false;
-      if (event.type === "dblclick") return false;
-      if (event.button !== undefined && event.button !== 0) return false;
-      return true;
-    })
-    .on("zoom", (event) => {
-      zoomTransform = event.transform;
-      applyView();
-      updatePanel();
-    });
-
-  svg.call(zoomBehavior).on("dblclick.zoom", null);
-
-  svg.on("pointerdown", (event) => {
-    if (!event.shiftKey || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const [x, y] = d3.pointer(event, svg.node());
-    lassoState = {
-      pointerId: event.pointerId,
-      points: [[x, y]],
-    };
-    svg.node().setPointerCapture?.(event.pointerId);
-    drawLasso();
-  });
-
-  svg.on("pointermove", (event) => {
-    if (!lassoState) return;
-    const [x, y] = d3.pointer(event, svg.node());
-    const last = lassoState.points[lassoState.points.length - 1];
-    if (!last || Math.hypot(last[0] - x, last[1] - y) > 3) {
-      lassoState.points.push([x, y]);
-      drawLasso();
-    }
-  });
-
-  const finishLasso = () => {
-    if (!lassoState) return;
-    const area = Math.abs(d3.polygonArea(lassoState.points));
-    if (lassoState.points.length < 3 || area < LASSO_MIN_AREA) {
-      lassoIds = new Set();
-    } else {
-      lassoIds = new Set(
-        counties
-          .filter((county) => d3.polygonContains(lassoState.points, zoomTransform.apply(county.centroid)))
-          .map((county) => county.id),
-      );
-    }
-    lassoState = null;
-    drawLasso();
-    applyView();
-    updatePanel();
-  };
-
-  svg.on("pointerup", finishLasso);
-  svg.on("pointercancel", finishLasso);
-  svg.on("pointerleave", (event) => {
-    if (!lassoState || event.buttons !== 0) return;
-    finishLasso();
-  });
+function redrawView(transform) {
+  viewState.transform = transform || d3.zoomIdentity;
+  d3.select(mainLayer.getGraphic()).attr("transform", viewState.transform.toString());
+  applyView();
+  updatePanel();
 }
 
 function applyView() {
-  const selected = getSelectedIds();
+  const selected = new Set([...clickedIds, ...lassoIds]);
   const selectionActive = selected.size > 0;
-
-  mapRoot.attr("transform", zoomTransform.toString());
 
   countiesSelection
     .attr("fill-opacity", (d) => {
@@ -296,10 +399,10 @@ function applyView() {
       return "#ffffff";
     })
     .attr("stroke-width", (d) => {
-      if (hoveredId === d.id) return 2.4 / Math.sqrt(zoomTransform.k);
-      if (clickedIds.has(d.id)) return 2.1 / Math.sqrt(zoomTransform.k);
-      if (lassoIds.has(d.id)) return 1.7 / Math.sqrt(zoomTransform.k);
-      return 0.85 / Math.sqrt(zoomTransform.k);
+      if (hoveredId === d.id) return 2.4 / Math.sqrt(viewState.transform.k);
+      if (clickedIds.has(d.id)) return 2.1 / Math.sqrt(viewState.transform.k);
+      if (lassoIds.has(d.id)) return 1.7 / Math.sqrt(viewState.transform.k);
+      return 0.85 / Math.sqrt(viewState.transform.k);
     });
 
   renderSemanticLabels();
@@ -307,7 +410,7 @@ function applyView() {
 
 function renderSemanticLabels() {
   const detail = semanticDetailLevel();
-  const selected = getSelectedIds();
+  const selected = new Set([...clickedIds, ...lassoIds]);
   const focusIds = new Set([...selected, hoveredId].filter(Boolean));
   const densityRanked = counties
     .slice()
@@ -329,7 +432,7 @@ function renderSemanticLabels() {
   }
 
   labelData = labelData.filter((county) => {
-    const [x, y] = zoomTransform.apply(county.centroid);
+    const [x, y] = viewState.transform.apply(county.centroid);
     county.screenLabel = [x, y];
     return Number.isFinite(x) && Number.isFinite(y) && x > 8 && x < MAP_WIDTH - 8 && y > 8 && y < MAP_HEIGHT - 8;
   });
@@ -372,25 +475,12 @@ function renderSemanticLabels() {
     .attr("display", detail === "detail" ? null : "none");
 }
 
-function drawLasso() {
-  const points = lassoState?.points || [];
-  lassoRoot.selectAll("*").remove();
-  if (points.length < 2) return;
-
-  lassoRoot
-    .append("path")
-    .attr("d", d3.line().curve(d3.curveLinearClosed)(points))
-    .attr("fill", "rgba(245, 158, 11, 0.12)")
-    .attr("stroke", "#d97706")
-    .attr("stroke-width", 1.6)
-    .attr("stroke-dasharray", "5 5");
-}
-
 function updatePanel() {
   const detail = semanticDetailLevel();
-  const hovered = hoveredCounty();
+  const hovered = counties.find((county) => county.id === hoveredId) || null;
+  const selected = new Set([...clickedIds, ...lassoIds]);
   const selectedCounties = counties
-    .filter((county) => getSelectedIds().has(county.id))
+    .filter((county) => selected.has(county.id))
     .sort((a, b) => b.properties.density - a.properties.density);
 
   panelRoot.html("");
@@ -422,7 +512,7 @@ function updatePanel() {
     .html(`
       <div style="padding:10px;border-radius:14px;background:#f8fafc;">
         <div style="font:600 11px/1 system-ui;color:#64748b;">Zoom</div>
-        <div style="margin-top:6px;font:700 18px/1 system-ui;color:#111827;">${zoomTransform.k.toFixed(2)}x</div>
+        <div style="margin-top:6px;font:700 18px/1 system-ui;color:#111827;">${viewState.transform.k.toFixed(2)}x</div>
       </div>
       <div style="padding:10px;border-radius:14px;background:#f8fafc;">
         <div style="font:600 11px/1 system-ui;color:#64748b;">Selected</div>
@@ -431,17 +521,6 @@ function updatePanel() {
     `);
 
   card
-    .append("div")
-    .style("margin-top", "12px")
-    .style("font", "12px/1.45 system-ui")
-    .style("color", "#556070")
-    .html(`
-      <div><strong>Overview</strong>: anchor labels only for the densest or selected counties.</div>
-      <div style="margin-top:4px;"><strong>County</strong>: county names expand as you zoom in.</div>
-      <div style="margin-top:4px;"><strong>Detail</strong>: names plus density values appear for every county.</div>
-    `);
-
-  const clearButton = card
     .append("button")
     .style("margin-top", "14px")
     .style("padding", "9px 12px")
@@ -451,14 +530,13 @@ function updatePanel() {
     .style("color", "#ffffff")
     .style("font", "600 12px/1 system-ui")
     .style("cursor", "pointer")
-    .text("Clear pinned + lasso selection");
-
-  clearButton.on("click", () => {
-    clickedIds = new Set();
-    lassoIds = new Set();
-    applyView();
-    updatePanel();
-  });
+    .text("Clear pinned + lasso selection")
+    .on("click", () => {
+      clickedIds = new Set();
+      lassoIds = new Set();
+      applyView();
+      updatePanel();
+    });
 
   const detailCard = panelRoot
     .append("div")
@@ -511,14 +589,12 @@ function updatePanel() {
     return;
   }
 
-  const rows = listCard
+  listCard
     .append("div")
     .style("margin-top", "10px")
     .style("display", "flex")
     .style("flex-direction", "column")
-    .style("gap", "8px");
-
-  rows
+    .style("gap", "8px")
     .selectAll("div.row")
     .data(selectedCounties.slice(0, 8), (d) => d.id)
     .join("div")
@@ -537,17 +613,9 @@ function updatePanel() {
 }
 
 function semanticDetailLevel() {
-  if (zoomTransform.k < LOW_ZOOM) return "overview";
-  if (zoomTransform.k < HIGH_ZOOM) return "county";
+  if (viewState.transform.k < LOW_ZOOM) return "overview";
+  if (viewState.transform.k < HIGH_ZOOM) return "county";
   return "detail";
-}
-
-function getSelectedIds() {
-  return new Set([...clickedIds, ...lassoIds]);
-}
-
-function hoveredCounty() {
-  return counties.find((county) => county.id === hoveredId) || null;
 }
 
 function mergeById(...groups) {

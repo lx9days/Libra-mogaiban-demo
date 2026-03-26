@@ -13,7 +13,7 @@ export default class LibraManager {
         if (!layer) return false;
         if (!context || !('Trigger' in context)) return false;
 
-        const validTriggers = ['hover', 'click', 'brush', 'drag', 'pan', 'zoom', 'brushx', 'brushy'];
+        const validTriggers = ['hover', 'click', 'brush', 'lasso', 'drag', 'pan', 'zoom', 'brushx', 'brushy'];
         if (typeof context.Trigger !== 'string') return false;
 
         const trigger = context.Trigger.toLowerCase();
@@ -83,6 +83,372 @@ export default class LibraManager {
             inherit: `${triggerPascal}Instrument`,
             layers: [layer],
             sharedVar: sharedVar,
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        Libra.Interaction.build(buildOptions);
+    }
+
+    static __ensureViewTransformState(context = {}) {
+        const state =
+            context.stateRef ??
+            context.state ??
+            context.viewState ??
+            { transform: d3.zoomIdentity };
+        if (!state.transform || !Number.isFinite(state.transform.k)) {
+            state.transform = d3.zoomIdentity;
+        }
+        return state;
+    }
+
+    static __buildViewTransformFromValues(k, x, y) {
+        return d3.zoomIdentity.translate(x, y).scale(k);
+    }
+
+    static __clampViewTransform(transform, layer, context = {}) {
+        if (!transform) return d3.zoomIdentity;
+        const translateExtent = context.translateExtent ?? context.TranslateExtent;
+        if (!Array.isArray(translateExtent) || translateExtent.length < 2) return transform;
+
+        const [[minX, minY], [maxX, maxY]] = translateExtent;
+        const viewportWidth = Number(context.viewportWidth ?? context.width ?? layer?._width ?? 0);
+        const viewportHeight = Number(context.viewportHeight ?? context.height ?? layer?._height ?? 0);
+        const k = Number(transform.k) || 1;
+
+        const minTranslateX = viewportWidth - maxX * k;
+        const maxTranslateX = -minX * k;
+        const minTranslateY = viewportHeight - maxY * k;
+        const maxTranslateY = -minY * k;
+
+        const clampAxis = (value, lo, hi) => {
+            if (!Number.isFinite(lo) || !Number.isFinite(hi)) return value;
+            if (lo <= hi) return Math.max(lo, Math.min(hi, value));
+            return (lo + hi) / 2;
+        };
+
+        return LibraManager.__buildViewTransformFromValues(
+            k,
+            clampAxis(transform.x, minTranslateX, maxTranslateX),
+            clampAxis(transform.y, minTranslateY, maxTranslateY),
+        );
+    }
+
+    static __applyViewTransform(layer, context = {}, transform, meta = {}) {
+        const state = LibraManager.__ensureViewTransformState(context);
+        const clampTransform =
+            typeof context.clampTransform === "function"
+                ? context.clampTransform
+                : typeof context.ClampTransform === "function"
+                    ? context.ClampTransform
+                    : (nextTransform) => LibraManager.__clampViewTransform(nextTransform, layer, context);
+        const nextTransform = clampTransform(transform, { layer, context, meta }) || transform;
+        state.transform = nextTransform;
+
+        const redraw =
+            typeof context.redraw === "function"
+                ? context.redraw
+                : typeof context.redrawRef === "function"
+                    ? context.redrawRef
+                    : null;
+        if (redraw) {
+            redraw(nextTransform, { layer, context, meta, state });
+        }
+        return nextTransform;
+    }
+
+    static buildViewTransformPanInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        if (!LibraManager.__viewTransformPanInstrumentRegistered) {
+            Libra.Instrument.register("ViewTransformPanInstrument", {
+                constructor: Libra.Instrument,
+                interactors: ["MouseTraceInteractor", "TouchTraceInteractor"],
+                on: {
+                    dragstart: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            if (!LibraManager.__checkModifier(inputEvent, instrument.getSharedVar("modifierKey"))) {
+                                instrument.setSharedVar("interactionValid", false);
+                                return;
+                            }
+                            instrument.setSharedVar("interactionValid", true);
+                            instrument.setSharedVar("startClientX", inputEvent.clientX);
+                            instrument.setSharedVar("startClientY", inputEvent.clientY);
+                            const state = instrument.getSharedVar("viewState");
+                            instrument.setSharedVar("startTransform", state?.transform || d3.zoomIdentity);
+                        },
+                    ],
+                    drag: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            if (!instrument.getSharedVar("interactionValid")) return;
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            const startTransform = instrument.getSharedVar("startTransform") || d3.zoomIdentity;
+                            const startClientX = Number(instrument.getSharedVar("startClientX"));
+                            const startClientY = Number(instrument.getSharedVar("startClientY"));
+                            const dx = inputEvent.clientX - startClientX;
+                            const dy = inputEvent.clientY - startClientY;
+                            const nextTransform = LibraManager.__buildViewTransformFromValues(
+                                startTransform.k || 1,
+                                (startTransform.x || 0) + dx,
+                                (startTransform.y || 0) + dy,
+                            );
+                            LibraManager.__applyViewTransform(
+                                activeLayer,
+                                instrument.getSharedVar("viewTransformContext") || {},
+                                nextTransform,
+                                { phase: "pan", event: inputEvent, instrument },
+                            );
+                        },
+                    ],
+                    dragend: [
+                        ({ instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                        },
+                    ],
+                    dragabort: [
+                        ({ instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                        },
+                    ],
+                },
+            });
+            LibraManager.__viewTransformPanInstrumentRegistered = true;
+        }
+
+        const sharedVar = {
+            modifierKey: context.modifierKey,
+            viewState: LibraManager.__ensureViewTransformState(context),
+            viewTransformContext: context,
+        };
+        const buildOptions = {
+            inherit: "ViewTransformPanInstrument",
+            layers: [layer],
+            sharedVar,
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+    }
+
+    static buildViewTransformZoomInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        if (!LibraManager.__viewTransformZoomInstrumentRegistered) {
+            Libra.Instrument.register("ViewTransformZoomInstrument", {
+                constructor: Libra.Instrument,
+                interactors: ["MouseWheelInteractor"],
+                on: {
+                    wheel: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            if (!LibraManager.__checkModifier(event, instrument.getSharedVar("modifierKey"))) {
+                                return;
+                            }
+                            if (typeof event?.preventDefault === "function") event.preventDefault();
+
+                            const context = instrument.getSharedVar("viewTransformContext") || {};
+                            const state = instrument.getSharedVar("viewState") || { transform: d3.zoomIdentity };
+                            const scaleExtent = context.scaleExtent ?? context.ScaleExtent ?? [1, 8];
+                            const step = Number.isFinite(context.step)
+                                ? context.step
+                                : Number.isFinite(context.wheelStep)
+                                    ? context.wheelStep
+                                    : 0.18;
+                            const currentTransform = state.transform || d3.zoomIdentity;
+                            const pointer = d3.pointer(event, activeLayer.getGraphic());
+                            const rawDelta =
+                                typeof event?.deltaY === "number"
+                                    ? event.deltaY
+                                    : typeof event?.wheelDelta === "number"
+                                        ? -event.wheelDelta
+                                        : 0;
+                            if (!rawDelta) return;
+
+                            const factor = rawDelta < 0 ? 1 + step : 1 / (1 + step);
+                            const nextK = Math.max(scaleExtent[0], Math.min(scaleExtent[1], (currentTransform.k || 1) * factor));
+                            const worldX = (pointer[0] - (currentTransform.x || 0)) / (currentTransform.k || 1);
+                            const worldY = (pointer[1] - (currentTransform.y || 0)) / (currentTransform.k || 1);
+                            const nextTransform = LibraManager.__buildViewTransformFromValues(
+                                nextK,
+                                pointer[0] - worldX * nextK,
+                                pointer[1] - worldY * nextK,
+                            );
+
+                            LibraManager.__applyViewTransform(
+                                activeLayer,
+                                context,
+                                nextTransform,
+                                { phase: "zoom", event, instrument, pointer },
+                            );
+                        },
+                    ],
+                },
+            });
+            LibraManager.__viewTransformZoomInstrumentRegistered = true;
+        }
+
+        const sharedVar = {
+            modifierKey: context.modifierKey,
+            viewState: LibraManager.__ensureViewTransformState(context),
+            viewTransformContext: context,
+        };
+        const buildOptions = {
+            inherit: "ViewTransformZoomInstrument",
+            layers: [layer],
+            sharedVar,
+        };
+        if (context.priority !== undefined) buildOptions.priority = context.priority;
+        if (context.Priority !== undefined) buildOptions.priority = context.Priority;
+        if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+        Libra.Interaction.build(buildOptions);
+    }
+
+    static buildLassoSelectionInstrument(layer, context = {}) {
+        if (!layer) return;
+
+        if (!LibraManager.__transientPolygonTransformerRegistered) {
+            Libra.GraphicalTransformer.register("TransientPolygonTransformer", {
+                constructor: Libra.GraphicalTransformer,
+                className: ["draw-shape", "transient-shape", "polygon-shape"],
+                redraw: ({ layer: activeLayer, transformer }) => {
+                    d3.select(activeLayer.getGraphic()).selectAll(":not(.ig-layer-background)").remove();
+                    const points = transformer.getSharedVar("points") || [];
+                    if (!Array.isArray(points) || points.length < 2) return;
+                    const brushStyle = transformer.getSharedVar("brushStyle") || {};
+                    const fill = brushStyle.fill ?? "#000";
+                    const opacity = brushStyle.opacity ?? 0.15;
+                    const line = d3.line().curve(d3.curveLinearClosed);
+                    const polygon = d3
+                        .select(activeLayer.getGraphic())
+                        .append("path")
+                        .attr("d", line(points))
+                        .attr("fill", fill)
+                        .attr("opacity", opacity);
+                    Object.entries(brushStyle).forEach(([key, value]) => {
+                        if (value !== undefined && value !== null) {
+                            polygon.attr(key, value);
+                        }
+                    });
+                },
+            });
+            LibraManager.__transientPolygonTransformerRegistered = true;
+        }
+
+        if (!LibraManager.__lassoInstrumentRegistered) {
+            Libra.Instrument.register("LassoInstrument", {
+                constructor: Libra.Instrument,
+                interactors: ["MouseTraceInteractor", "TouchTraceInteractor"],
+                on: {
+                    dragstart: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            if (!LibraManager.__checkModifier(inputEvent, instrument.getSharedVar("modifierKey"))) {
+                                instrument.setSharedVar("interactionValid", false);
+                                return;
+                            }
+                            instrument.setSharedVar("interactionValid", true);
+                            const startPoint = d3.pointer(inputEvent, activeLayer.getGraphic());
+                            const points = [startPoint];
+                            instrument.setSharedVar("points", points);
+                            instrument.transformers.find("TransientPolygonTransformer")?.setSharedVars({
+                                points,
+                                brushStyle: instrument.getSharedVar("brushStyle") || {},
+                            });
+                            instrument.services.find("SelectionService")?.setSharedVars(
+                                { points },
+                                { layer: activeLayer },
+                            );
+                        },
+                    ],
+                    drag: [
+                        ({ layer: activeLayer, event, instrument }) => {
+                            if (!instrument.getSharedVar("interactionValid")) return;
+                            const inputEvent = event?.changedTouches?.[0] ?? event;
+                            const points = instrument.getSharedVar("points") || [];
+                            const nextPoint = d3.pointer(inputEvent, activeLayer.getGraphic());
+                            const lastPoint = points[points.length - 1];
+                            if (!lastPoint || Math.hypot(lastPoint[0] - nextPoint[0], lastPoint[1] - nextPoint[1]) > 2) {
+                                points.push(nextPoint);
+                                instrument.setSharedVar("points", points);
+                                instrument.transformers.find("TransientPolygonTransformer")?.setSharedVars({
+                                    points,
+                                    brushStyle: instrument.getSharedVar("brushStyle") || {},
+                                });
+                                instrument.services.find("SelectionService")?.setSharedVars(
+                                    { points },
+                                    { layer: activeLayer },
+                                );
+                            }
+                        },
+                    ],
+                    dragend: [
+                        ({ layer: activeLayer, instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                            const points = instrument.getSharedVar("points") || [];
+                            instrument.services.find("SelectionService")?.setSharedVars(
+                                { points },
+                                { layer: activeLayer },
+                            );
+                        },
+                    ],
+                    dragabort: [
+                        ({ layer: activeLayer, instrument }) => {
+                            instrument.setSharedVar("interactionValid", false);
+                            instrument.setSharedVar("points", []);
+                            instrument.transformers.find("TransientPolygonTransformer")?.setSharedVars({
+                                points: [],
+                                brushStyle: instrument.getSharedVar("brushStyle") || {},
+                            });
+                            instrument.services.find("SelectionService")?.setSharedVars(
+                                { points: [] },
+                                { layer: activeLayer },
+                            );
+                        },
+                    ],
+                },
+                preAttach: (instrument, activeLayer) => {
+                    const hasDim = Object.prototype.hasOwnProperty.call(instrument._sharedVar, "dim");
+                    instrument.services.add("PolygonSelectionService", {
+                        layer: activeLayer,
+                        sharedVar: {
+                            deepClone: instrument.getSharedVar("deepClone"),
+                            highlightColor: instrument.getSharedVar("highlightColor"),
+                            highlightAttrValues: instrument.getSharedVar("highlightAttrValues"),
+                            ...(instrument.getSharedVar("brushStyle")
+                                ? { brushStyle: instrument.getSharedVar("brushStyle") }
+                                : {}),
+                            ...(hasDim ? { dim: instrument.getSharedVar("dim") } : {}),
+                        },
+                    });
+                    instrument.transformers.add("TransientPolygonTransformer", {
+                        transient: true,
+                        layer: activeLayer.getLayerFromQueue("transientLayer"),
+                        sharedVar: {
+                            points: [],
+                            brushStyle: instrument.getSharedVar("brushStyle") || {},
+                        },
+                    });
+                },
+            });
+            LibraManager.__lassoInstrumentRegistered = true;
+        }
+
+        const sharedVar = {};
+        if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
+        if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
+        if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
+        if (context.brushStyle) sharedVar.brushStyle = context.brushStyle;
+        if (context.BrushStyle) sharedVar.brushStyle = context.BrushStyle;
+        if (context.dim !== undefined) sharedVar.dim = context.dim;
+        if (context.Dim !== undefined) sharedVar.dim = context.Dim;
+
+        const buildOptions = {
+            inherit: "LassoInstrument",
+            layers: [layer],
+            sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
@@ -579,7 +945,7 @@ export default class LibraManager {
                 const copyFrom = self.getSharedVar("copyFrom");
 
                 if (direction === "x" && scaleX) {
-                    const bandwidth = scaleX.bandwidth() / 10;
+                    const bandwidth = scaleX.bandwidth();
                     const targetColumn = scaleX.domain().find(name => {
                         const colX = scaleX(name);
                         return startOffsetX >= colX && startOffsetX <= colX + bandwidth;
@@ -627,7 +993,7 @@ export default class LibraManager {
 
                     return { rectSelection, dx: currentx - startx, dragging, direction: "x", finalCopyFromLayer };
                 } else if (direction === "y" && scaleY) {
-                    const bandwidth = scaleY.bandwidth() / 10;
+                    const bandwidth = scaleY.bandwidth();
                     const targetRow = scaleY.domain().find(name => {
                         const rowY = scaleY(name);
                         return startOffsetY >= rowY && startOffsetY <= rowY + bandwidth;
@@ -683,7 +1049,7 @@ export default class LibraManager {
                 scaleX: null,
                 scaleY: null,
             },
-            evaluate({ startx, offsetx, currentx, starty, offsety, currenty, self, dragging }) {
+            evaluate({ startOffsetX, offsetx, startOffsetY, offsety, self, dragging }) {
                 const direction = self.getSharedVar("direction");
                 const names = self.getSharedVar("names");
                 const scaleX = self.getSharedVar("scaleX");
@@ -691,14 +1057,13 @@ export default class LibraManager {
 
                 let startItem, targetItem;
 
-                if (direction === "x" && offsetx) {
-                    const offset = offsetx - currentx;
+                if (direction === "x" && offsetx !== undefined) {
                     startItem = scaleX
                         .domain()
                         .find(
                             (name) =>
-                                scaleX(name) <= startx + offset &&
-                                startx + offset <=
+                                scaleX(name) <= startOffsetX &&
+                                startOffsetX <=
                                 scaleX(name) + scaleX.bandwidth()
                         );
                     targetItem = scaleX
@@ -709,14 +1074,13 @@ export default class LibraManager {
                                 offsetx <=
                                 scaleX(name) + scaleX.bandwidth()
                         );
-                } else if (direction === "y" && offsety && scaleY) {
-                    const offset = offsety - currenty;
+                } else if (direction === "y" && offsety !== undefined && scaleY) {
                     startItem = scaleY
                         .domain()
                         .find(
                             (name) =>
-                                scaleY(name) <= starty + offset &&
-                                starty + offset <=
+                                scaleY(name) <= startOffsetY &&
+                                startOffsetY <=
                                 scaleY(name) + scaleY.bandwidth()
                         );
                     targetItem = scaleY
@@ -1808,12 +2172,15 @@ export default class LibraManager {
     }
 
     static __checkModifier(event, modifierKey) {
+        const noModifierPressed = !event?.shiftKey && !event?.ctrlKey && !event?.altKey && !event?.metaKey;
+        if (modifierKey === "None" || modifierKey === "none") return noModifierPressed;
         if (!modifierKey) return true;
         const keys = Array.isArray(modifierKey) ? modifierKey : [modifierKey];
         if (!keys.length) return true;
         return keys.every((rawKey) => {
             const key = String(rawKey || "").trim().toLowerCase();
             if (!key) return true;
+            if (key === "none") return noModifierPressed;
             if (key === "shift") return !!event?.shiftKey;
             if (key === "ctrl" || key === "control") return !!event?.ctrlKey;
             if (key === "alt" || key === "option") return !!event?.altKey;
