@@ -36,7 +36,7 @@ export default async function init() {
     const yScale = d3
         .scaleBand()
         .domain(topics)
-        .range([MARGIN.top, HEIGHT + MARGIN.top])
+        .range([0, HEIGHT])
         .padding(0.35);
     const reorderScaleX = d3.scaleBand().domain(topics).range([0, topics.length]).padding(0);
 
@@ -50,8 +50,18 @@ export default async function init() {
     const plotLayer = LibraManager.getOrCreateLayer(
         svg,
         "plotLayer",
-        WIDTH + MARGIN.left + MARGIN.right,
-        HEIGHT + MARGIN.top + MARGIN.bottom
+        WIDTH,
+        HEIGHT,
+        MARGIN.left,
+        MARGIN.top
+    );
+    const gridLayer = LibraManager.getOrCreateLayer(
+        svg,
+        "gridLayer",
+        WIDTH,
+        HEIGHT,
+        MARGIN.left,
+        MARGIN.top
     );
     const xAxisLayer = LibraManager.getOrCreateLayer(
         svg,
@@ -63,9 +73,10 @@ export default async function init() {
     );
     const yAxisLayer = LibraManager.getOrCreateLayer(svg, "yAxisLayer", MARGIN.left, HEIGHT + MARGIN.top + MARGIN.bottom);
 
+    renderGridLines(gridLayer, topics, yScale);
     renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, xScale, yScale, rScale, colorScale);
     renderLegend(svg, colorScale, WIDTH + MARGIN.left);
-    await mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale);
+    await mountInteraction(plotLayer, gridLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale);
 }
 
 function renderLegend(svg, colorScale, xPos) {
@@ -184,22 +195,21 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     const plotG = d3.select(plotLayer.getGraphic());
     plotG.selectAll("*").remove();
     
+    plotG
+        .append("rect")
+        .attr("class", "ig-layer-background")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", WIDTH)
+        .attr("height", HEIGHT)
+        .attr("fill", "#000")
+        .attr("opacity", 0)
+        .style("pointer-events", "none");
+
     // Main plot group with margin translation
     const g = plotG.append("g")
         .attr("class", "main-group")
-        .attr("transform", `translate(${MARGIN.left}, 0)`);
-
-    g.selectAll("line.grid-line")
-        .data(topics)
-        .join("line")
-        .attr("class", "grid-line")
-        .attr("x1", 0)
-        .attr("x2", WIDTH)
-        .attr("y1", (d) => yScale(d) + yScale.bandwidth() / 2)
-        .attr("y2", (d) => yScale(d) + yScale.bandwidth() / 2)
-        .attr("stroke", "#e0e0e0")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "4,4");
+        .attr("transform", `translate(0, 0)`);
 
     g.selectAll("circle.dot")
         .data(data)
@@ -208,10 +218,9 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
         .attr("cx", (d) => xScale(d.date))
         .attr("cy", (d) => yScale(d.division) + yScale.bandwidth() / 2)
         .attr("r", (d) => rScale(d.unemployment))
-        .attr("fill", (d) => colorScale(d.unemployment))
-        .attr("fill-opacity", 0.8)
-        .attr("stroke", "#333")
-        .attr("stroke-width", 1)
+        .attr("fill", "none")
+        .attr("stroke", (d) => colorScale(d.unemployment))
+        .attr("stroke-width", 2)
         .selectAll("title")
         .data((d) => [d])
         .join("title")
@@ -221,7 +230,7 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     yAxisG.selectAll("*").remove();
     yAxisG
         .append("g")
-        .attr("transform", `translate(${MARGIN.left - 50}, 0)`)
+        .attr("transform", `translate(${MARGIN.left - 50}, ${MARGIN.top})`)
         .call(d3.axisLeft(yScale).tickSize(0))
         .call((g) => g.select(".domain").remove())
         .selectAll("text")
@@ -237,9 +246,29 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
         .style("font-size", `${AXIS_FONT_SIZE_PX}px`);
 }
 
-async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale) {
+function renderGridLines(gridLayer, topics, yScale) {
+    const gridG = d3.select(gridLayer.getGraphic());
+    gridG.selectAll("*").remove();
+    const g = gridG.append("g").attr("class", "grid-group").attr("transform", `translate(0, 0)`);
+    g.selectAll("line.grid-line")
+        .data(topics)
+        .join("line")
+        .attr("class", "grid-line")
+        .attr("x1", 0)
+        .attr("x2", WIDTH)
+        .attr("y1", (d) => yScale(d) + yScale.bandwidth() / 2)
+        .attr("y2", (d) => yScale(d) + yScale.bandwidth() / 2)
+        .attr("stroke", "#e0e0e0")
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "4,4")
+        .attr("pointer-events", "none");
+}
+
+async function mountInteraction(plotLayer, gridLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale) {
     const redraw = (newTopics, _newX, newY) => {
-        renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, newTopics, xScale, newY || yScale, rScale, colorScale);
+        const yNew = newY || yScale;
+        renderGridLines(gridLayer, newTopics, yNew);
+        renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, newTopics, xScale, yNew, rScale, colorScale);
     };
 
     const interactions = [
@@ -263,7 +292,7 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
             Trigger: "brush",
             targetLayer: "plotLayer",
             feedbackOptions: {
-                Highlight: "#00ff1aff",
+                Highlight: { color: (d) => (d ? colorScale(d.unemployment) : "#00ff1aff") },
                 BaseOpacity: 0.1,
             },
         },
