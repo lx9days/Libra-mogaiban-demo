@@ -4,6 +4,9 @@ export default function(data) {
   container.innerHTML = ""; 
 
   const featuredPages = [
+    'categorical-axis',
+    'semantic-geomap',
+    'treemap-semantic',
     'group-selection',
     'lens-hover',
     'brush-move',
