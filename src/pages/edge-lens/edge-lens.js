@@ -245,9 +245,10 @@ async function mountInteraction({ linkLayer, mainLayer }) {
   const interactions = [
     {
       name: "edgeLensHover",
-      instrument: "helperLine",
+      instrument: "pointSelection",
       trigger: {
         type: "hover",
+        modifierKey:"shift",
         priority: 1,
         stopPropagation: false,
       },

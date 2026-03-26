@@ -210,6 +210,7 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
 async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics, reorderScaleX, yScale, xScale, rScale, colorScale) {
     const redraw = (newTopics, _newX, newY) => {
         renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, newTopics, xScale, newY || yScale, rScale, colorScale);
+        plotLayer.postUpdate();
     };
 
     const interactions = [
@@ -233,7 +234,7 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
             Trigger: "brush",
             targetLayer: "plotLayer",
             feedbackOptions: {
-                Highlight: (d) => colorScale(d.unemployment),
+                Highlight: {color:(d) => d?colorScale(d.unemployment):"none"},
                 BaseOpacity: 1,
             },
         },
