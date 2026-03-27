@@ -17,6 +17,60 @@ let data = [];
 let order = [];
 let scales = null;
 let layersByName = {};
+let dragState = null;
+let interactions = [];
+
+function buildInteractions() {
+  return [
+    {
+      instrument: "reordering",
+      trigger: {
+        type: "drag",
+      },
+      target: {
+        layer: "yAxisLayer",
+      },
+      feedback: {
+        context: {
+          orientation: "y",
+        },
+      },
+    },
+    {
+      instrument: "group selection",
+      trigger: {
+        type: "brush",
+      },
+      target: {
+        layer: "plotLayer",
+      },
+      feedback: {
+        selection: {
+          dim: {
+            opacity: 0.14,
+            selector: ".dot",
+          },
+          highlight: {
+            fill: (d) => scales.color(d.unemployment),
+            stroke: (d) => scales.color(d.unemployment),
+            "fill-opacity": 0.95,
+            "stroke-opacity": 1,
+            "stroke-width": 1.2,
+          },
+          brushStyle: {
+            fill: BRUSH_COLOR,
+            opacity: 0.08,
+            stroke: BRUSH_COLOR,
+            "stroke-width": 1.5,
+            "stroke-dasharray": "6 4",
+          },
+        },
+      },
+      priority: 1,
+      stopPropagation: true,
+    },
+  ];
+}
 
 export default async function init() {
   const container = document.getElementById("LibraPlayground");
@@ -28,6 +82,7 @@ export default async function init() {
   data = loaded.data;
   order = loaded.topics.slice();
   scales = createScales(order, loaded.dateExtent, loaded.unempExtent);
+  interactions = buildInteractions();
 
   const svg = d3
     .select(container)
@@ -38,7 +93,8 @@ export default async function init() {
 
   layersByName = createLayers(svg);
   renderAll();
-  await mountInteractions();
+  installManualReorder();
+  await mountBrush();
 }
 
 function renderHeading(container) {
@@ -56,9 +112,6 @@ function renderHeading(container) {
     .append("div")
     .html(`
       <div style="font-size:26px;font-weight:700;color:#1f2937;">Categorical Axis: Reorder + Brush</div>
-      <div style="margin-top:6px;font-size:14px;color:#5b6474;">
-        Libra DSL version: a reordering rule targets the category axis layer, and a group-selection rule targets the plot layer.
-      </div>
     `);
 
   shell
@@ -67,7 +120,7 @@ function renderHeading(container) {
     .style("gap", "8px")
     .style("flex-wrap", "wrap")
     .html(`
-      <span style="padding:6px 10px;border-radius:999px;background:#eef6f4;color:#0f766e;font:600 12px/1.1 system-ui;">Drag labels</span>
+      <span style="padding:6px 10px;border-radius:999px;background:#eef6f4;color:#0f766e;font:600 12px/1.1 system-ui;">Drag one row</span>
       <span style="padding:6px 10px;border-radius:999px;background:#f4f5f7;color:#4b5563;font:600 12px/1.1 system-ui;">Brush circles</span>
     `);
 }
@@ -146,65 +199,17 @@ function createScales(topics, dateExtent, unempExtent) {
     y: d3.scaleBand().domain(topics).range([0, HEIGHT]).padding(0.34),
     radius: d3.scaleSqrt().domain([0, unempExtent[1] ?? 0]).range([4, 17]),
     color: d3.scaleSequential(d3.interpolateYlOrRd).domain(unempExtent),
-    reorderX: d3.scaleBand().domain(topics).range([0, topics.length]).padding(0),
   };
 }
 
 function createLayers(svg) {
-  const annotationLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "annotationLayer",
-    WIDTH + MARGIN.left + MARGIN.right,
-    MARGIN.top,
-  );
-  const yAxisLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "yAxisLayer",
-    MARGIN.left,
-    HEIGHT,
-    0,
-    MARGIN.top,
-  );
-  const trendLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "trendLayer",
-    WIDTH,
-    HEIGHT,
-    MARGIN.left,
-    MARGIN.top,
-  );
-  const plotLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "plotLayer",
-    WIDTH,
-    HEIGHT,
-    MARGIN.left,
-    MARGIN.top,
-  );
-  const xAxisLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "xAxisLayer",
-    WIDTH + MARGIN.left + MARGIN.right,
-    MARGIN.bottom,
-    0,
-    MARGIN.top + HEIGHT,
-  );
-  const legendLayer = LibraManager.getOrCreateLayer(
-    svg,
-    "legendLayer",
-    MARGIN.right,
-    HEIGHT + MARGIN.top,
-    MARGIN.left + WIDTH,
-    0,
-  );
-
   return {
-    annotationLayer,
-    yAxisLayer,
-    trendLayer,
-    plotLayer,
-    xAxisLayer,
-    legendLayer,
+    annotationLayer: LibraManager.getOrCreateLayer(svg, "annotationLayer", WIDTH + MARGIN.left + MARGIN.right, MARGIN.top),
+    yAxisLayer: LibraManager.getOrCreateLayer(svg, "yAxisLayer", MARGIN.left, HEIGHT, 0, MARGIN.top),
+    trendLayer: LibraManager.getOrCreateLayer(svg, "trendLayer", WIDTH, HEIGHT, MARGIN.left, MARGIN.top),
+    plotLayer: LibraManager.getOrCreateLayer(svg, "plotLayer", WIDTH, HEIGHT, MARGIN.left, MARGIN.top),
+    xAxisLayer: LibraManager.getOrCreateLayer(svg, "xAxisLayer", WIDTH + MARGIN.left + MARGIN.right, MARGIN.bottom, 0, MARGIN.top + HEIGHT),
+    legendLayer: LibraManager.getOrCreateLayer(svg, "legendLayer", MARGIN.right, HEIGHT + MARGIN.top, MARGIN.left + WIDTH, 0),
   };
 }
 
@@ -220,36 +225,14 @@ function renderAll() {
 function renderAnnotation() {
   const root = d3.select(layersByName.annotationLayer.getGraphic());
   root.selectAll("*").remove();
-
-  root
-    .append("text")
-    .attr("x", MARGIN.left)
-    .attr("y", MARGIN.top - 16)
-    .attr("fill", "#334155")
-    .style("font", "700 13px system-ui")
-    .text("Metro division");
-
-  root
-    .append("text")
-    .attr("x", MARGIN.left + 140)
-    .attr("y", MARGIN.top - 16)
-    .attr("fill", "#64748b")
-    .style("font", "12px system-ui")
-    .text("Each row is a division. X is year. Circle size and selected fill encode unemployment.");
-
-  root
-    .append("text")
-    .attr("x", MARGIN.left + WIDTH + 10)
-    .attr("y", MARGIN.top - 16)
-    .attr("fill", "#334155")
-    .style("font", "700 12px system-ui")
-    .text("Latest");
+  root.append("text").attr("x", MARGIN.left).attr("y", MARGIN.top - 16).attr("fill", "#334155").style("font", "700 13px system-ui").text("Metro division");
+  root.append("text").attr("x", MARGIN.left + 140).attr("y", MARGIN.top - 16).attr("fill", "#64748b").style("font", "12px system-ui").text("Each row is a division. X is year. Circle size and selected fill encode unemployment.");
+  root.append("text").attr("x", MARGIN.left + WIDTH + 10).attr("y", MARGIN.top - 16).attr("fill", "#334155").style("font", "700 12px system-ui").text("Latest");
 }
 
 function renderYAxis() {
   const root = d3.select(layersByName.yAxisLayer.getGraphic());
   root.selectAll("*").remove();
-
   root
     .selectAll("g.axis-row")
     .data(order, (d) => d)
@@ -262,87 +245,33 @@ function renderYAxis() {
     .attr("transform", (topic) => `translate(0, ${(scales.y(topic) ?? 0) + scales.y.bandwidth() / 2})`)
     .each(function(topic) {
       const row = d3.select(this);
-      row
-        .select("rect.row-hit")
-        .attr("x", 12)
-        .attr("y", -scales.y.bandwidth() / 2)
-        .attr("width", MARGIN.left - 30)
-        .attr("height", scales.y.bandwidth())
-        .attr("rx", 10)
-        .attr("fill", "rgba(255,255,255,0.001)");
-
-      row
-        .select("text.row-label")
-        .attr("x", MARGIN.left - 18)
-        .attr("y", 5)
-        .attr("text-anchor", "end")
-        .attr("fill", "#1f2937")
-        .style("font", "600 13px system-ui")
-        .text(topic);
+      row.select("rect.row-hit").attr("x", 12).attr("y", -scales.y.bandwidth() / 2).attr("width", MARGIN.left - 30).attr("height", scales.y.bandwidth()).attr("rx", 10).attr("fill", "rgba(255,255,255,0.001)");
+      row.select("text.row-label").attr("x", MARGIN.left - 18).attr("y", 5).attr("text-anchor", "end").attr("fill", "#1f2937").style("font", "600 13px system-ui").text(topic);
     });
 }
 
 function renderTrendLayer() {
   const root = d3.select(layersByName.trendLayer.getGraphic());
   root.selectAll("*").remove();
-
+  root.append("rect").attr("x", 0).attr("y", 0).attr("width", WIDTH).attr("height", HEIGHT).attr("rx", 18).attr("fill", "#fbfcfd");
   root
-    .append("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", WIDTH)
-    .attr("height", HEIGHT)
-    .attr("rx", 18)
-    .attr("fill", "#fbfcfd");
-
-  const rows = root
     .selectAll("g.row-trend")
     .data(order, (d) => d)
-    .join("g")
-    .attr("class", "row-trend")
-    .attr("transform", (topic) => `translate(0, ${(scales.y(topic) ?? 0) + scales.y.bandwidth() / 2})`);
-
-  rows
-    .append("line")
-    .attr("x1", 0)
-    .attr("x2", WIDTH)
-    .attr("y1", 0)
-    .attr("y2", 0)
-    .attr("stroke", GRID_COLOR)
-    .attr("stroke-width", 1.2)
-    .attr("stroke-dasharray", "3 5");
-
-  rows
-    .append("path")
-    .attr("fill", "none")
-    .attr("stroke", TREND_STROKE)
-    .attr("stroke-width", 1.2)
-    .attr("stroke-opacity", 0.75)
-    .attr(
-      "d",
-      (topic) =>
-        d3
-          .line()
-          .x((d) => scales.x(d.date))
-          .y(() => 0)(
-          data
-            .filter((d) => d.division === topic)
-            .sort((a, b) => d3.ascending(a.date, b.date)),
-        ),
-    );
-
-  rows
-    .append("text")
-    .attr("x", WIDTH + 10)
-    .attr("y", 5)
-    .attr("fill", "#556070")
-    .style("font", "600 12px system-ui")
-    .text((topic) => {
-      const latest = data
-        .filter((d) => d.division === topic)
-        .sort((a, b) => d3.ascending(a.date, b.date))
-        .at(-1);
-      return latest ? `${latest.unemployment.toFixed(1)}%` : "";
+    .join((enter) => {
+      const row = enter.append("g").attr("class", "row-trend");
+      row.append("line").attr("class", "track");
+      row.append("path").attr("class", "trend");
+      row.append("text").attr("class", "latest-value");
+      return row;
+    })
+    .attr("transform", (topic) => `translate(0, ${(scales.y(topic) ?? 0) + scales.y.bandwidth() / 2})`)
+    .each(function(topic) {
+      const row = d3.select(this);
+      const rowData = data.filter((d) => d.division === topic).sort((a, b) => d3.ascending(a.date, b.date));
+      const latest = rowData.at(-1);
+      row.select("line.track").attr("x1", 0).attr("x2", WIDTH).attr("y1", 0).attr("y2", 0).attr("stroke", GRID_COLOR).attr("stroke-width", 1.2).attr("stroke-dasharray", "3 5");
+      row.select("path.trend").attr("d", d3.line().x((d) => scales.x(d.date)).y(() => 0)(rowData)).attr("fill", "none").attr("stroke", TREND_STROKE).attr("stroke-width", 1.2).attr("stroke-opacity", 0.75);
+      row.select("text.latest-value").attr("x", WIDTH + 10).attr("y", 5).attr("fill", "#556070").style("font", "600 12px system-ui").text(latest ? `${latest.unemployment.toFixed(1)}%` : "");
     });
 }
 
@@ -363,14 +292,15 @@ function renderPlotLayer() {
     .attr("stroke", BASE_STROKE)
     .attr("stroke-width", 1.2)
     .attr("stroke-opacity", 0.58)
-    .append("title")
-    .text((d) => `${d.division}\n${d.year}: ${d.unemployment.toFixed(1)}%`);
+    .each(function(d) {
+      d3.select(this).selectAll("title").remove();
+      d3.select(this).append("title").text(`${d.division}\n${d.year}: ${d.unemployment.toFixed(1)}%`);
+    });
 }
 
 function renderXAxis() {
   const root = d3.select(layersByName.xAxisLayer.getGraphic());
   root.selectAll("*").remove();
-
   root
     .append("g")
     .attr("transform", `translate(${MARGIN.left}, 0)`)
@@ -380,153 +310,94 @@ function renderXAxis() {
     .selectAll("text")
     .attr("fill", "#475569")
     .style("font", "12px system-ui");
-
-  root
-    .append("text")
-    .attr("x", MARGIN.left + WIDTH / 2)
-    .attr("y", 40)
-    .attr("text-anchor", "middle")
-    .attr("fill", "#334155")
-    .style("font", "700 13px system-ui")
-    .text("Year");
+  root.append("text").attr("x", MARGIN.left + WIDTH / 2).attr("y", 40).attr("text-anchor", "middle").attr("fill", "#334155").style("font", "700 13px system-ui").text("Year");
 }
 
 function renderLegend() {
   const root = d3.select(layersByName.legendLayer.getGraphic());
   root.selectAll("*").remove();
-
-  const defs = d3.select("svg defs#categorical-axis-gradient-defs");
-  if (!defs.empty()) defs.remove();
+  d3.select("svg defs#categorical-axis-gradient-defs").remove();
   const gradientDefs = d3.select("svg").append("defs").attr("id", "categorical-axis-gradient-defs");
-  const gradient = gradientDefs
-    .append("linearGradient")
-    .attr("id", "categorical-axis-gradient")
-    .attr("x1", "0%")
-    .attr("y1", "0%")
-    .attr("x2", "0%")
-    .attr("y2", "100%");
-
-  gradient
-    .selectAll("stop")
-    .data(d3.range(0, 1.01, 0.1))
-    .join("stop")
-    .attr("offset", (d) => `${d * 100}%`)
-    .attr("stop-color", (d) =>
-      scales.color((1 - d) * (scales.color.domain()[1] - scales.color.domain()[0]) + scales.color.domain()[0]),
-    );
-
+  const gradient = gradientDefs.append("linearGradient").attr("id", "categorical-axis-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+  gradient.selectAll("stop").data(d3.range(0, 1.01, 0.1)).join("stop").attr("offset", (d) => `${d * 100}%`).attr("stop-color", (d) => scales.color((1 - d) * (scales.color.domain()[1] - scales.color.domain()[0]) + scales.color.domain()[0]));
   const legendWidth = 12;
   const legendHeight = 216;
-
-  root
-    .append("text")
-    .attr("x", 26)
-    .attr("y", MARGIN.top - 14)
-    .attr("fill", "#334155")
-    .style("font", "600 12px system-ui")
-    .text("Avg. unemployment");
-
-  root
-    .append("rect")
-    .attr("x", 26)
-    .attr("y", MARGIN.top)
-    .attr("rx", 6)
-    .attr("width", legendWidth)
-    .attr("height", legendHeight)
-    .attr("fill", "url(#categorical-axis-gradient)");
-
-  root
-    .append("g")
-    .attr("transform", `translate(${26 + legendWidth + 6}, ${MARGIN.top})`)
-    .call(d3.axisRight(d3.scaleLinear().domain(scales.color.domain()).range([legendHeight, 0])).ticks(5).tickFormat((d) => `${d}%`))
-    .call((g) => g.select(".domain").remove())
-    .selectAll("text")
-    .style("font", "12px system-ui")
-    .attr("fill", "#4b5563");
-
-  root
-    .append("text")
-    .attr("x", 26)
-    .attr("y", MARGIN.top + legendHeight + 24)
-    .attr("fill", "#64748b")
-    .style("font", "12px system-ui")
-    .text("Circle size + selected fill");
-
-  root
-    .append("text")
-    .attr("x", 26)
-    .attr("y", MARGIN.top + legendHeight + 40)
-    .attr("fill", "#64748b")
-    .style("font", "12px system-ui")
-    .text("encode unemployment");
+  root.append("text").attr("x", 26).attr("y", MARGIN.top - 14).attr("fill", "#334155").style("font", "600 12px system-ui").text("Avg. unemployment");
+  root.append("rect").attr("x", 26).attr("y", MARGIN.top).attr("rx", 6).attr("width", legendWidth).attr("height", legendHeight).attr("fill", "url(#categorical-axis-gradient)");
+  root.append("g").attr("transform", `translate(${26 + legendWidth + 6}, ${MARGIN.top})`).call(d3.axisRight(d3.scaleLinear().domain(scales.color.domain()).range([legendHeight, 0])).ticks(5).tickFormat((d) => `${d}%`)).call((g) => g.select(".domain").remove()).selectAll("text").style("font", "12px system-ui").attr("fill", "#4b5563");
 }
 
-async function mountInteractions() {
-  const interactions = [
-    {
-      instrument: "reordering",
-      trigger: {
-        type: "drag",
-      },
-      target: {
-        layer: "yAxisLayer",
-      },
-      feedback: {
-        redrawRef: (newNames, _newX, newY) => {
-          order = newNames.slice();
-          scales.y = newY || scales.y;
-          renderAll();
-        },
-        contextRef: {
-          names: order,
-          scales: { x: scales.reorderX, y: scales.y },
-          copyFrom: [layersByName.yAxisLayer, layersByName.trendLayer, layersByName.plotLayer],
-          offset: { x: 0, y: 0 },
-        },
-      },
-      priority: 2,
-      stopPropagation: true,
-    },
-    {
-      instrument: "group selection",
-      trigger: {
-        type: "brush",
-      },
-      target: {
-        layer: "plotLayer",
-      },
-      feedback: {
-        selection: {
-          dim: {
-            opacity: 0.14,
-            selector: ".dot",
-          },
-          highlight: {
-            fill: (d) => scales.color(d.unemployment),
-            stroke: (d) => scales.color(d.unemployment),
-            "fill-opacity": 0.95,
-            "stroke-opacity": 1,
-            "stroke-width": 1.2,
-          },
-          brushStyle: {
-            fill: BRUSH_COLOR,
-            opacity: 0.08,
-            stroke: BRUSH_COLOR,
-            "stroke-width": 1.5,
-            "stroke-dasharray": "6 4",
-          },
-        },
-      },
-      priority: 1,
-      stopPropagation: true,
-    },
-  ];
+function installManualReorder() {
+  const rule = interactions.find((d) => String(d.instrument || d.Instrument).toLowerCase() === "reordering");
+  const orientation = rule?.feedback?.context?.orientation || "y";
+  if (orientation !== "y") return;
+  const drag = d3.drag().on("start", dragStarted).on("drag", dragged).on("end", dragEnded);
+  d3.select(layersByName.yAxisLayer.getGraphic()).selectAll("g.axis-row").call(drag);
+}
 
-  await compileInteractionsDSL(interactions, { layersByName });
+function dragStarted(event, topic) {
+  const [, y] = d3.pointer(event, layersByName.plotLayer.getGraphic());
+  dragState = { topic, currentY: y };
+  applyDragPreview();
+}
 
+function dragged(event) {
+  if (!dragState) return;
+  const [, y] = d3.pointer(event, layersByName.plotLayer.getGraphic());
+  dragState.currentY = clamp(y, 0, HEIGHT);
+  applyDragPreview();
+}
+
+function dragEnded() {
+  if (!dragState) return;
+  order = computePreviewOrder();
+  scales.y.domain(order);
+  dragState = null;
+  renderAll();
+  installManualReorder();
+}
+
+function applyDragPreview() {
+  const previewOrder = computePreviewOrder();
+  const previewScale = scales.y.copy().domain(previewOrder);
+
+  const placeRows = (selection, className) => {
+    selection.selectAll(className).attr("transform", (topic) => {
+      const baseY = (previewScale(topic) ?? 0) + previewScale.bandwidth() / 2;
+      const dragY = dragState?.topic === topic ? dragState.currentY : baseY;
+      return `translate(0, ${dragY})`;
+    });
+  };
+
+  placeRows(d3.select(layersByName.yAxisLayer.getGraphic()), "g.axis-row");
+  placeRows(d3.select(layersByName.trendLayer.getGraphic()), "g.row-trend");
+  d3.select(layersByName.plotLayer.getGraphic())
+    .selectAll("circle.dot")
+    .attr("cy", (d) => {
+      const baseY = (previewScale(d.division) ?? 0) + previewScale.bandwidth() / 2;
+      return dragState?.topic === d.division ? dragState.currentY : baseY;
+    });
+}
+
+function computePreviewOrder() {
+  if (!dragState) return order.slice();
+  const next = order.filter((topic) => topic !== dragState.topic);
+  const step = scales.y.step ? scales.y.step() : scales.y.bandwidth();
+  const index = clamp(Math.round((dragState.currentY - scales.y.bandwidth() / 2) / step), 0, next.length);
+  next.splice(index, 0, dragState.topic);
+  return next;
+}
+
+async function mountBrush() {
+  const brushRule = interactions.find((d) => String(d.instrument || d.Instrument).toLowerCase() === "group selection");
+  await compileInteractionsDSL([brushRule], { layersByName });
   const selectionLayer = layersByName.plotLayer.getLayerFromQueue?.("selectionLayer");
   const transientLayer = layersByName.plotLayer.getLayerFromQueue?.("transientLayer");
   if (selectionLayer?.getGraphic) d3.select(selectionLayer.getGraphic()).style("pointer-events", "none");
   if (transientLayer?.getGraphic) d3.select(transientLayer.getGraphic()).style("pointer-events", "none");
   await Libra.createHistoryTrack?.();
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
