@@ -10,6 +10,7 @@ const LENS_RADIUS = 62;
 let root = null;
 let leaves = [];
 let color = null;
+let svgRoot = null;
 let mainLayer = null;
 let overlayRoot = null;
 let viewState = { transform: d3.zoomIdentity };
@@ -80,7 +81,7 @@ function buildTreemapSemanticDSL() {
                 return {
                   hovered,
                   pointer: event
-                    ? d3.pointer(event, d3.select(mainLayer.getGraphic()).node())
+                    ? d3.pointer(event, svgRoot.node())
                     : null,
                 };
               },
@@ -156,9 +157,6 @@ function renderScene() {
     .html(`
       <div>
         <div style="font:700 26px/1.1 Iowan Old Style, Palatino Linotype, serif;color:#1f2937;">Treemap: Excentric Labeling + Semantic Zoom</div>
-        <div style="margin-top:6px;font:14px/1.45 system-ui;color:#556070;">
-          Interaction is declared through Libra DSL rules: panning, semantic zoom, hover highlight, and excentric labeling all target the same treemap layer.
-        </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <span style="padding:6px 10px;border-radius:999px;background:#eef6ff;color:#2563eb;font:600 12px/1 system-ui;">DSL pan + zoom</span>
@@ -166,7 +164,7 @@ function renderScene() {
       </div>
     `);
 
-  const svg = d3
+  svgRoot = d3
     .select(container)
     .append("svg")
     .attr("width", WIDTH)
@@ -182,11 +180,11 @@ function renderScene() {
     width: WIDTH,
     height: HEIGHT,
     offset: { x: 0, y: 0 },
-    container: svg.node(),
+    container: svgRoot.node(),
   });
 
   d3.select(mainLayer.getGraphic()).attr("class", "treemap-main");
-  overlayRoot = svg.append("g").attr("class", "treemap-overlay").style("pointer-events", "none");
+  overlayRoot = svgRoot.append("g").attr("class", "treemap-overlay").style("pointer-events", "none");
 }
 
 function renderTreemap() {

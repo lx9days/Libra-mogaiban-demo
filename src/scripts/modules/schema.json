@@ -25,12 +25,13 @@
       "oneOf": [
         {
           "type": "string",
-          "enum": ["Hover", "Click", "Brush", "Drag", "Pan", "Zoom", "Resize", "DoubleClick", "Longpress", "KeyDown", "Wheel"]
+          "enum": ["Hover", "Click", "Brush", "Lasso", "Drag", "Pan", "Zoom", "Resize", "DoubleClick", "Longpress", "KeyDown", "Wheel"]
         },
         {
           "oneOf": [
             { "$ref": "#/$defs/triggers/genericTrigger" },
             { "$ref": "#/$defs/triggers/brushTrigger" },
+            { "$ref": "#/$defs/triggers/lassoTrigger" },
             { "$ref": "#/$defs/triggers/panTrigger" },
             { "$ref": "#/$defs/triggers/zoomTrigger" }
           ]
@@ -128,6 +129,14 @@
           "on": { "const": "Brush" },
           "key": { "$ref": "#/$defs/modifierKey" },
           "shape": { "enum": ["rectangle", "circle", "x-axis", "y-axis", "radial"] }
+        },
+        "required": ["on"]
+      },
+      "lassoTrigger": {
+        "type": "object",
+        "properties": {
+          "on": { "const": "Lasso" },
+          "key": { "$ref": "#/$defs/modifierKey" }
         },
         "required": ["on"]
       },

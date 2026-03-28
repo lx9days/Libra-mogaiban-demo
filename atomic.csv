@@ -1,6 +1,6 @@
 Categories,Instruments,Available Triggers,Available feedbackOptions
 selection,point selection,Hover Click,Highlighting/Tooltip/Dim
-,group selection,Brush,Highlighting/Dim
+,group selection,Brush Lasso,Highlighting/Dim
 ,axis selection,Brush,Highlighting/Dim
 Rearrangement,moving,Drag,callback function
 ,reordering,Drag,callback function

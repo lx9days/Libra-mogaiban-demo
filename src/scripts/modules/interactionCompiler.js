@@ -8,6 +8,7 @@ const triggerToInstrument = {
   hover: "HoverInstrument",
   click: "ClickInstrument",
   brush: "BrushInstrument",
+  lasso: "LassoInstrument",
   "brush-x": "BrushXInstrument",
   brushx: "BrushXInstrument",
   "brush-y": "BrushYInstrument",
@@ -516,6 +517,15 @@ function createAutoRedraw(autoRedraw, layersByName) {
   return null;
 }
 
+function resolveNamedOrInlineRef(value, refs = {}, handlers = {}) {
+  if (typeof value === "function") return value;
+  if (typeof value === "string") {
+    if (refs && value in refs) return refs[value];
+    if (handlers && value in handlers) return handlers[value];
+  }
+  return value;
+}
+
 function buildSharedVar(feedback = [], scales = {}) {
   const sharedVar = {};
 
@@ -799,6 +809,147 @@ export function compileInteractionsDSL(specList = [], ctx) {
           const { color, Color, ...rest } = highlight;
           if (Object.keys(rest).length > 0) highlightAttrValues = rest;
         }
+      }
+
+      const brushStyleValue = feedbackOptions?.BrushStyle ?? feedbackOptions?.brushStyle;
+      const dimValue = feedbackOptions?.Dim ?? feedbackOptions?.dim;
+      const modifierKeyRaw =
+        spec?.modifierKey ??
+        spec?.ModifierKey ??
+        feedbackOptions?.modifierKey ??
+        feedbackOptions?.ModifierKey;
+      const priority =
+        spec?.priority !== undefined ? spec.priority : spec?.Priority;
+      const stopPropagation =
+        spec?.stopPropagation !== undefined
+          ? spec.stopPropagation
+          : spec?.StopPropagation;
+
+      if (
+        (interaction === "group selection" ||
+          interaction === "groupselection" ||
+          interaction === "lasso selection" ||
+          interaction === "lassoselection" ||
+          interaction === "lasso") &&
+        trigger === "lasso"
+      ) {
+        const buildContext = {
+          Trigger: "lasso",
+        };
+        if (typeof highlight === "string") {
+          buildContext.HighlightColor = highlight;
+        } else if (highlight && typeof highlight === "object") {
+          if (highlight.color !== undefined) buildContext.HighlightColor = highlight.color;
+          if (highlight.Color !== undefined) buildContext.HighlightColor = highlight.Color;
+          if (highlightAttrValues && typeof highlightAttrValues === "object") {
+            buildContext.highlightAttrValues = highlightAttrValues;
+          }
+        }
+        if (brushStyleValue !== undefined) buildContext.brushStyle = brushStyleValue;
+        if (dimValue !== undefined) buildContext.dim = dimValue;
+        if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+        if (priority !== undefined) buildContext.priority = priority;
+        if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+
+        for (const layer of layers) {
+          LibraManager.buildLassoSelectionInstrument(layer, buildContext);
+        }
+
+        if (instrumentName) {
+          instrumentRegistry.set(instrumentName, {
+            type: "brush",
+            layer: layers[0],
+            selectionLayer:
+              typeof layers[0]?.getLayerFromQueue === "function"
+                ? layers[0].getLayerFromQueue("selectionLayer")
+                : null,
+            transientLayer:
+              typeof layers[0]?.getLayerFromQueue === "function"
+                ? layers[0].getLayerFromQueue("transientLayer")
+                : null,
+          });
+        }
+        continue;
+      }
+
+      const viewTransformRaw =
+        feedbackOptions?.ViewTransform ??
+        feedbackOptions?.viewTransform ??
+        feedbackOptions?.SemanticZoom ??
+        feedbackOptions?.semanticZoom;
+
+      if (
+        (interaction === "panning" || interaction === "pan") &&
+        viewTransformRaw &&
+        typeof viewTransformRaw === "object"
+      ) {
+        const buildContext = { ...viewTransformRaw };
+        buildContext.redraw =
+          resolveNamedOrInlineRef(
+            buildContext.redraw ?? buildContext.redrawRef ?? buildContext.Renderer ?? buildContext.renderer,
+            refs,
+            handlers,
+          ) || null;
+        buildContext.stateRef =
+          resolveNamedOrInlineRef(
+            buildContext.stateRef ?? buildContext.state ?? buildContext.viewState,
+            refs,
+            handlers,
+          ) || buildContext.stateRef;
+        if (buildContext.stateRef && typeof buildContext.stateRef === "object") {
+          buildContext.state = buildContext.stateRef;
+        }
+        if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+        if (priority !== undefined) buildContext.priority = priority;
+        if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+
+        for (const layer of layers) {
+          LibraManager.buildViewTransformPanInstrument(layer, buildContext);
+        }
+        if (instrumentName) {
+          instrumentRegistry.set(instrumentName, {
+            type: "panning",
+            layer: layers[0],
+          });
+        }
+        continue;
+      }
+
+      if (
+        (interaction === "zooming" || interaction === "zoom") &&
+        viewTransformRaw &&
+        typeof viewTransformRaw === "object"
+      ) {
+        const buildContext = { ...viewTransformRaw };
+        buildContext.redraw =
+          resolveNamedOrInlineRef(
+            buildContext.redraw ?? buildContext.redrawRef ?? buildContext.Renderer ?? buildContext.renderer,
+            refs,
+            handlers,
+          ) || null;
+        buildContext.stateRef =
+          resolveNamedOrInlineRef(
+            buildContext.stateRef ?? buildContext.state ?? buildContext.viewState,
+            refs,
+            handlers,
+          ) || buildContext.stateRef;
+        if (buildContext.stateRef && typeof buildContext.stateRef === "object") {
+          buildContext.state = buildContext.stateRef;
+        }
+        if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
+        if (priority !== undefined) buildContext.priority = priority;
+        if (stopPropagation !== undefined) buildContext.stopPropagation = stopPropagation;
+
+        for (const layer of layers) {
+          LibraManager.buildViewTransformZoomInstrument(layer, buildContext);
+        }
+        if (instrumentName) {
+          instrumentRegistry.set(instrumentName, {
+            type: "zooming",
+            layer: layers[0],
+          });
+        }
+        continue;
       }
 
       if (interaction === "reordering" || interaction === "reorderinstrument" || interaction === "reorder") {
@@ -1493,11 +1644,6 @@ export function compileInteractionsDSL(specList = [], ctx) {
         sharedVar.dim = dim;
       }
 
-      const modifierKeyRaw =
-        spec?.modifierKey ??
-        spec?.ModifierKey ??
-        feedbackOptions?.modifierKey ??
-        feedbackOptions?.ModifierKey;
       if (typeof modifierKeyRaw === "string") {
         sharedVar.modifierKey = stripInlineComment(modifierKeyRaw);
       } else if (Array.isArray(modifierKeyRaw)) {
@@ -1530,12 +1676,6 @@ export function compileInteractionsDSL(specList = [], ctx) {
         sharedVar.gestureMoveDelay = gestureMoveDelay;
       }
 
-      const priority =
-        spec?.priority !== undefined ? spec.priority : spec?.Priority;
-      const stopPropagation =
-        spec?.stopPropagation !== undefined
-          ? spec.stopPropagation
-          : spec?.StopPropagation;
       const onMap = spec?.on ?? spec?.On ?? feedbackOptions?.on ?? feedbackOptions?.On;
 
       // Handle Operator/Renderer in feedbackOptions (Top level)

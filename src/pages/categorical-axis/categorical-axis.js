@@ -28,6 +28,7 @@ export default async function init() {
   data = loaded.data;
   order = loaded.topics.slice();
   scales = createScales(order, loaded.dateExtent, loaded.unempExtent);
+  interactions = buildInteractions();
 
   const svg = d3
     .select(container)
