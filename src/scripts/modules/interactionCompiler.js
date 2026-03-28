@@ -1422,9 +1422,30 @@ export function compileInteractionsDSL(specList = [], ctx) {
       if (attrName) {
         sharedVar.attrName = attrName;
       }
-      const linkLayers = feedbackOptions?.LinkLayers ?? feedbackOptions?.linkLayers;
-      if (linkLayers) {
-        sharedVar.linkLayers = linkLayers;
+      
+      const linkLayersRaw = feedbackOptions?.LinkLayers ?? feedbackOptions?.linkLayers;
+      let resolvedLinkLayers = linkLayersRaw;
+      if (typeof linkLayersRaw === "string") {
+        const key = stripInlineComment(linkLayersRaw);
+        const resolved = layersByName?.[key] || Libra.Layer.findLayer(key);
+        resolvedLinkLayers = resolved ? [resolved] : [];
+      } else if (Array.isArray(linkLayersRaw)) {
+        const acc = [];
+        linkLayersRaw.forEach((entry) => {
+          if (typeof entry === "string") {
+            const key = stripInlineComment(entry);
+            const resolved = layersByName?.[key] || Libra.Layer.findLayer(key);
+            if (Array.isArray(resolved)) acc.push(...resolved);
+            else if (resolved) acc.push(resolved);
+          } else if (entry) {
+            acc.push(entry);
+          }
+        });
+        resolvedLinkLayers = acc;
+      }
+      
+      if (resolvedLinkLayers) {
+        sharedVar.linkLayers = resolvedLinkLayers;
       }
       const linkMatchMode =
         feedbackOptions?.LinkMatchMode ?? feedbackOptions?.linkMatchMode;

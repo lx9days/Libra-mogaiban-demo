@@ -1613,8 +1613,21 @@ export default class LibraManager {
                                         .getLayerFromQueue("mainLayer")
                                         .getGraphic()
                                         .getBoundingClientRect();
-                                    const cx = transformer.getSharedVar("x") - mainGraphic.left;
-                                    const cy = transformer.getSharedVar("y") - mainGraphic.top;
+                                    const evt = transformer.getSharedVar("event");
+                                    const hasClient = lensState && Number.isFinite(lensState.clientX) && Number.isFinite(lensState.clientY);
+                                    let cx, cy;
+                                    if (evt) {
+                                        const mainLayerGraphic = layer.getLayerFromQueue("mainLayer").getGraphic();
+                                        const p = d3.pointer(evt, mainLayerGraphic);
+                                        cx = p[0];
+                                        cy = p[1];
+                                    } else if (hasClient) {
+                                        cx = lensState.clientX - mainGraphic.left;
+                                        cy = lensState.clientY - mainGraphic.top;
+                                    } else {
+                                        cx = transformer.getSharedVar("x");
+                                        cy = transformer.getSharedVar("y");
+                                    }
                                     const opacity = 1;
                                     const lensRadius =
                                         lensState && Number.isFinite(lensState.r)

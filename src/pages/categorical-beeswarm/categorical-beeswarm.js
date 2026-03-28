@@ -142,7 +142,7 @@ function updateBeeswarm(mainLayer) {
           .append("circle")
           .attr("class", "mark")
           .attr("r", RADIUS)
-          .attr("fill", (d) => color(d.category))
+          .attr("fill", "#bbb")
           .attr("fill-opacity", 0.8)
           .attr("stroke", "#fff")
           .attr("stroke-width", 0.5)
@@ -198,6 +198,20 @@ async function mountInteraction(mainLayer, yAxisLayer) {
           scales: { x: reorderScaleX, y },
           copyFrom: mainLayer,
           offset: { x: 0, y: 0 },
+        },
+      },
+    },
+    {
+      Instrument: "group selection",
+      Trigger: "Brush",
+      targetLayer: "mainLayer",
+      feedbackOptions: {
+        Highlight: {
+          color: (d) => color(d.category),
+        },
+        Tooltip: {
+          prefix: "Penguin",
+          fields: ["category", "value"],
         },
       },
     },

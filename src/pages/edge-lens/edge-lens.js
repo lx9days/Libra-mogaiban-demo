@@ -3,8 +3,8 @@ import Libra from "libra-vis";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
-const WIDTH = 800 - MARGIN.left - MARGIN.right;
-const HEIGHT = 600 - MARGIN.top - MARGIN.bottom;
+const WIDTH = 600 - MARGIN.left - MARGIN.right;
+const HEIGHT = 450 - MARGIN.top - MARGIN.bottom;
 
 const EDGE_LENS_SEED = 24;
 const EXCENTRIC_RADIUS = 52;
@@ -39,7 +39,11 @@ async function loadData() {
     ...node,
     degree: degreeById.get(node.id) || 0,
   }));
-  links = graph.links.map((link, index) => ({ ...link, index }));
+  links = graph.links.map((link, index) => ({
+    ...link,
+    index,
+    id: [link.source, link.target] // For LinkSelection matching against node id
+  }));
 
   d3.forceSimulation(nodes)
     .force("charge", d3.forceManyBody().strength(-160))
@@ -144,10 +148,6 @@ function buildEdgeLensPath(edge, controlPoint) {
   ]);
 }
 
-function buildEdgePaths(currentLinks = links, controlPoint = null) {
-  return currentLinks.map((edge) => buildEdgeLensPath(edge, controlPoint));
-}
-
 function ensureMarksGroup(layer, className) {
   const root = d3.select(layer.getGraphic());
   let group = root.select(`g.${className}`);
@@ -157,7 +157,7 @@ function ensureMarksGroup(layer, className) {
   return group;
 }
 
-function renderLinkVisualization(layer, edgePaths = buildEdgePaths()) {
+function renderLinkVisualization(layer, currentLinks = links, controlPoint = null) {
   const root = ensureMarksGroup(layer, "edge-lens-links-marks");
   root.selectAll("*").remove();
 
@@ -168,9 +168,9 @@ function renderLinkVisualization(layer, edgePaths = buildEdgePaths()) {
     .attr("stroke-opacity", 0.5)
     .attr("stroke-linecap", "round")
     .selectAll("path")
-    .data(edgePaths)
+    .data(currentLinks)
     .join("path")
-    .attr("d", (d) => d)
+    .attr("d", (d) => buildEdgeLensPath(d, controlPoint))
     .attr("stroke-width", 1.35);
 }
 
@@ -178,18 +178,30 @@ function renderNodeVisualization(layer, currentNodes = nodes) {
   const root = ensureMarksGroup(layer, "edge-lens-node-marks");
   root.selectAll("*").remove();
 
-  root
+  const nodeGroups = root
     .append("g")
-    .selectAll("circle")
+    .selectAll("g.node")
     .data(currentNodes, (d) => d.id)
-    .join("circle")
-    .attr("cx", (d) => d.x)
-    .attr("cy", (d) => d.y)
+    .join("g")
+    .attr("class", "node")
+    .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+  nodeGroups
+    .append("circle")
     .attr("r", (d) => radius(d.degree))
     .attr("fill", (d) => color(d.group))
     .attr("fill-opacity", 0.92)
     .attr("stroke", "#fff")
     .attr("stroke-width", 1.1);
+
+  nodeGroups
+    .append("text")
+    .text((d, i) => i + 1)
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.3em")
+    .attr("font-size", "10px")
+    .attr("fill", "#000")
+    .style("pointer-events", "none");
 }
 
 function renderMainVisualization() {
@@ -217,7 +229,9 @@ function renderMainVisualization() {
   linkLayer.setLayersOrder({
     backgroundLayer: 0,
     linkLayer: 1,
-    nodeLayer: 2,
+    nodeLayer: 3,
+    linkSelectionLayer: 2,
+    selectionLayer: 4
   });
 
   renderLinkVisualization(linkLayer);
@@ -233,22 +247,44 @@ async function mountInteraction({ linkLayer, mainLayer }) {
   const linkTransformer = Libra.GraphicalTransformer.initialize("EdgeLensLinkTransformer", {
     layer: linkLayer,
     sharedVar: {
-      result: buildEdgePaths(),
+      result: { edges: links, controlPoint: null },
     },
     redraw({ transformer }) {
       const result = transformer.getSharedVar("result");
-      renderLinkVisualization(linkLayer, Array.isArray(result) ? result : buildEdgePaths());
+      const currentLinks = result?.edges || links;
+      const controlPoint = result?.controlPoint || null;
+      renderLinkVisualization(linkLayer, currentLinks, controlPoint);
       linkLayer.postUpdate?.();
     },
   });
 
   const interactions = [
     {
+      Instrument: "point selection",
+      Trigger: "hover",
+      targetLayer: "nodeLayer",
+      feedbackOptions: {
+        Highlight: {
+          stroke: "#ff0000",
+          "stroke-width": 2,
+          fill: "none"
+        },
+        LinkLayers: ["linkLayer"],
+        LinkMatchMode: "field",
+        LinkFields: ["id"],
+        LinkDefaultOpacity: 0.6,
+        LinkBaseOpacity: 0.08,
+        LinkSelectedOpacity: 0.95,
+      },
+      priority: 1,
+      stopPropagation: false
+    },
+    {
       name: "edgeLensHover",
       instrument: "pointSelection",
       trigger: {
         type: "hover",
-        modifierKey:"shift",
+        modifierKey: "shift",
         priority: 1,
         stopPropagation: false,
       },
@@ -258,7 +294,7 @@ async function mountInteraction({ linkLayer, mainLayer }) {
       },
       feedback: {
         flow: {
-          remove: [{ find: "SelectionTransformer" }],
+          // remove: [{ find: "SelectionTransformer" }],
           insert: [
             {
               find: "SelectionService",
@@ -272,14 +308,14 @@ async function mountInteraction({ linkLayer, mainLayer }) {
                     const pointerX = Number.isFinite(offsetx) ? offsetx : x;
                     const pointerY = Number.isFinite(offsety) ? offsety : y;
                     if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
-                      return buildEdgePaths(currentEdges);
+                      return { edges: currentEdges, controlPoint: null };
                     }
 
                     const controlPoint = {
                       x: pointerX - (layer?._offset?.x || 0),
                       y: pointerY - (layer?._offset?.y || 0),
                     };
-                    return buildEdgePaths(currentEdges, controlPoint);
+                    return { edges: currentEdges, controlPoint };
                   },
                 },
                 linkTransformer,
@@ -289,43 +325,44 @@ async function mountInteraction({ linkLayer, mainLayer }) {
         },
       },
     },
-    {
-      name: "edgeLensExcentric",
-      instrument: "Lens",
-      trigger: {
-        type: "hover",
-        priority: 2,
-        stopPropagation: false,
-      },
-      target: {
-        layer: "mainLayer",
-      },
-      feedback: {
-        lens: {
-          excentricLabeling: {
-            renderSelection: false,
-            r: EXCENTRIC_RADIUS,
-            stroke: "#1d8f43",
-            strokeWidth: 2,
-            countLabelDistance: 18,
-            fontSize: 12,
-            countLabelWidth: 60,
-            maxLabelsNum: MAX_LABELS,
-            labelAccessor: (circleElem) => {
-              const datum = d3.select(circleElem).datum();
-              return datum ? `${datum.id} (${datum.degree})` : "";
-            },
-            colorAccessor: (circleElem) => {
-              const datum = d3.select(circleElem).datum();
-              return datum ? color(datum.group) : "#666";
-            },
-            count: {
-              op: "count",
-            },
-          },
-        },
-      },
-    },
+    // {
+    //   name: "edgeLensExcentric",
+    //   instrument: "Lens",
+    //   trigger: {
+    //     type: "hover",
+    //     priority: 2,
+    //     stopPropagation: false,
+    //   },
+    //   target: {
+    //     layer: "mainLayer",
+    //   },
+    //   feedback: {
+    //     lens: {
+    //       excentricLabeling: {
+    //         renderSelection: false,
+    //         r: EXCENTRIC_RADIUS,
+    //         stroke: "#1d8f43",
+    //         strokeWidth: 2,
+    //         countLabelDistance: 18,
+    //         fontSize: 12,
+    //         countLabelWidth: 60,
+    //         maxLabelsNum: MAX_LABELS,
+    //         labelAccessor: (circleElem) => {
+    //           const datum = d3.select(circleElem).datum();
+    //           return datum ? `${datum.id} (${datum.degree})` : "";
+    //         },
+    //         colorAccessor: (circleElem) => {
+    //           const datum = d3.select(circleElem).datum();
+    //           return datum ? color(datum.group) : "#666";
+    //         },
+    //         count: {
+    //           op: "count",
+    //         },
+    //       },
+    //     },
+    //   },
+    // },
+
   ];
 
   await compileInteractionsDSL(interactions, {

@@ -187,7 +187,43 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
  */
 async function mountInteraction(layer, transformer) {
   await compileInteractionsDSL(
-    [
+    [{
+          instrument: "Lens",
+          trigger: {
+            type: "hover",
+            priority: 1,
+            stopPropagation: true,
+          },
+          target: {
+            layer: "mainLayer",
+            name: "lensMain",
+          },
+          feedback: {
+            lens: {
+              excentricLabeling: {
+                renderSelection: false,
+                r: 40,
+                stroke: "#1d8f43",
+                strokeWidth: 4,
+                countLabelDistance: 18,
+                fontSize: 12,
+                countLabelWidth: 56,
+                maxLabelsNum: 12,
+                labelAccessor: (elem) => {
+                  const d = d3.select(elem).datum();
+                  return d?.data?.name || d?.id || "";
+                },
+                colorAccessor: (elem) => {
+                  const d = d3.select(elem).datum();
+                  return "#ffffffff";
+                },
+                count: {
+                  op: "count",
+                },
+              },
+            },
+          },
+        },
       {
         Trigger: "brush",
         targetLayer: "mainLayer",
