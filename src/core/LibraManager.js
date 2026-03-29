@@ -1114,9 +1114,11 @@ export default class LibraManager {
                     const startIndex = reorderedNames.indexOf(startItem);
                     const targetIndex = reorderedNames.indexOf(targetItem);
 
-                    if (startIndex !== -1 && targetIndex !== -1) {
+                    if (startIndex !== -1 && targetIndex !== -1 && startIndex !== targetIndex) {
+                        console.log(`[ReorderInstrument] Before reorder (${direction}):`, names);
                         reorderedNames.splice(startIndex, 1);
                         reorderedNames.splice(targetIndex, 0, startItem);
+                        console.log(`[ReorderInstrument] After reorder (${direction}):`, reorderedNames);
                     }
 
                     const x = scaleX.copy().domain(reorderedNames);

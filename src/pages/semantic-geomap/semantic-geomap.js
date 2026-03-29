@@ -5,7 +5,7 @@ const MAP_HEIGHT = 608;
 const PANEL_WIDTH = 250;
 const LOW_ZOOM = 1.35;
 const HIGH_ZOOM = 2.55;
-const BRUSH_MIN_AREA = 180;
+const LASSO_MIN_AREA = 180;
 
 let counties = [];
 let projection = null;
@@ -14,7 +14,7 @@ let colorScale = null;
 let svg = null;
 let mapRoot = null;
 let labelsRoot = null;
-let brushRoot = null;
+let lassoRoot = null;
 let panelRoot = null;
 let countiesSelection = null;
 
@@ -109,7 +109,7 @@ export default async function init() {
   container.innerHTML = "";
 
   clickedIds = new Set();
-  brushIds = new Set();
+  lassoIds = new Set();
   hoveredId = null;
   lassoState = null;
   suppressClick = false;
@@ -331,7 +331,7 @@ function applyView() {
     .attr("stroke", (d) => {
       if (hoveredId === d.id) return "#0f172a";
       if (clickedIds.has(d.id)) return "#be185d";
-      if (brushIds.has(d.id)) return "#0f766e";
+      if (lassoIds.has(d.id)) return "#0f766e";
       return "#ffffff";
     })
     .attr("stroke-width", (d) => {
