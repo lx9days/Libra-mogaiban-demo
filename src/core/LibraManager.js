@@ -1114,11 +1114,21 @@ export default class LibraManager {
                     const startIndex = reorderedNames.indexOf(startItem);
                     const targetIndex = reorderedNames.indexOf(targetItem);
 
-                    if (startIndex !== -1 && targetIndex !== -1 && startIndex !== targetIndex) {
-                        console.log(`[ReorderInstrument] Before reorder (${direction}):`, names);
+                    if (startIndex !== -1 && targetIndex !== -1) {
                         reorderedNames.splice(startIndex, 1);
                         reorderedNames.splice(targetIndex, 0, startItem);
-                        console.log(`[ReorderInstrument] After reorder (${direction}):`, reorderedNames);
+                    }
+
+                    if (!dragging) {
+                        names.splice(0, names.length, ...reorderedNames);
+                        scaleX.domain(reorderedNames);
+                        if (scaleY) scaleY.domain(reorderedNames);
+                        return {
+                            reorderedNames: names.slice(),
+                            x: scaleX,
+                            y: scaleY,
+                            dragging
+                        };
                     }
 
                     const x = scaleX.copy().domain(reorderedNames);
@@ -1242,19 +1252,20 @@ export default class LibraManager {
             on: {
                 dragstart: [
                     ({ layer, event, instrument }) => {
-                        if (event.changedTouches) event = event.changedTouches[0];
+                        const inputEvent = event.changedTouches ? event.changedTouches[0] : event;
+                        const [layerOffsetX, layerOffsetY] = d3.pointer(inputEvent, layer.getGraphic());
                         instrument.services.setSharedVars(
                             {
-                                x: event.clientX,
-                                y: event.clientY,
-                                startx: event.clientX,
-                                starty: event.clientY,
-                                startOffsetX: event.offsetX,
-                                startOffsetY: event.offsetY,
-                                currentx: event.clientX,
-                                currenty: event.clientY,
-                                offsetx: event.offsetX,
-                                offsety: event.offsetY,
+                                x: inputEvent.clientX,
+                                y: inputEvent.clientY,
+                                startx: inputEvent.clientX,
+                                starty: inputEvent.clientY,
+                                startOffsetX: layerOffsetX,
+                                startOffsetY: layerOffsetY,
+                                currentx: inputEvent.clientX,
+                                currenty: inputEvent.clientY,
+                                offsetx: layerOffsetX,
+                                offsety: layerOffsetY,
                                 offset: { x: 0, y: 0 },
                                 skipPicking: false,
                             },
@@ -1264,21 +1275,22 @@ export default class LibraManager {
                 ],
                 drag: [
                     ({ layer, event, instrument }) => {
-                        if (event.changedTouches) event = event.changedTouches[0];
+                        const inputEvent = event.changedTouches ? event.changedTouches[0] : event;
+                        const [layerOffsetX, layerOffsetY] = d3.pointer(inputEvent, layer.getGraphic());
                         const offsetX =
-                            event.clientX - instrument.services.getSharedVar("x", { layer })[0];
+                            inputEvent.clientX - instrument.services.getSharedVar("x", { layer })[0];
                         const offsetY =
-                            event.clientY - instrument.services.getSharedVar("y", { layer })[0];
+                            inputEvent.clientY - instrument.services.getSharedVar("y", { layer })[0];
                         instrument.setSharedVar("offsetx", offsetX, { layer });
                         instrument.setSharedVar("offsety", offsetY, { layer });
                         instrument.services.setSharedVars(
                             {
-                                x: event.clientX,
-                                y: event.clientY,
-                                currentx: event.clientX,
-                                currenty: event.clientY,
-                                offsetx: event.offsetX,
-                                offsety: event.offsetY,
+                                x: inputEvent.clientX,
+                                y: inputEvent.clientY,
+                                currentx: inputEvent.clientX,
+                                currenty: inputEvent.clientY,
+                                offsetx: layerOffsetX,
+                                offsety: layerOffsetY,
                                 offset: { x: offsetX, y: offsetY },
                                 skipPicking: true,
                                 dragging: 1,
@@ -1289,21 +1301,22 @@ export default class LibraManager {
                 ],
                 dragend: [
                     ({ layer, event, instrument }) => {
-                        if (event.changedTouches) event = event.changedTouches[0];
+                        const inputEvent = event.changedTouches ? event.changedTouches[0] : event;
+                        const [layerOffsetX, layerOffsetY] = d3.pointer(inputEvent, layer.getGraphic());
                         const offsetX =
-                            event.clientX - instrument.services.getSharedVar("x", { layer })[0];
+                            inputEvent.clientX - instrument.services.getSharedVar("x", { layer })[0];
                         const offsetY =
-                            event.clientY - instrument.services.getSharedVar("y", { layer })[0];
+                            inputEvent.clientY - instrument.services.getSharedVar("y", { layer })[0];
                         instrument.services.setSharedVars(
                             {
                                 x: 0,
                                 y: 0,
-                                currentx: event.clientX,
-                                currenty: event.clientY,
-                                endx: event.clientX,
-                                endy: event.clientY,
-                                offsetx: 0,
-                                offsety: 0,
+                                currentx: inputEvent.clientX,
+                                currenty: inputEvent.clientY,
+                                endx: inputEvent.clientX,
+                                endy: inputEvent.clientY,
+                                offsetx: layerOffsetX,
+                                offsety: layerOffsetY,
                                 offset: { x: 0, y: 0 },
                                 skipPicking: true,
                                 dragging: 0,
