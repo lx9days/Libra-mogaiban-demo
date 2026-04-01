@@ -1,0 +1,138 @@
+warning: in the working copy of 'src/pages/group-selection-lens/group-selection-lens.js', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/pages/group-selection-lens/group-selection-lens.js b/src/pages/group-selection-lens/group-selection-lens.js[m
+[1mindex dd8cb0f..7c723be 100644[m
+[1m--- a/src/pages/group-selection-lens/group-selection-lens.js[m
+[1m+++ b/src/pages/group-selection-lens/group-selection-lens.js[m
+[36m@@ -1,6 +1,7 @@[m
+ import * as d3 from "d3";[m
+ import Libra from "libra-vis";[m
+[31m-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";[m
+[32m+[m[32mimport { compileDSL } from "../../scripts/dsl-compiler";[m
+[32m+[m[32mimport excentricLabeling from "excentric-labeling";[m
+ [m
+ export default async function init() {[m
+   const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };[m
+[36m@@ -124,69 +125,83 @@[m [mexport default async function init() {[m
+     .attr("cx", (d) => x(d[fieldX]))[m
+     .attr("cy", (d) => y(d[fieldY]))[m
+     .attr("r", 4);[m
+[32m+[m[32m  mainLayer.postUpdate();[m
+ [m
+   const interactions = [[m
+[32m+[m[32m    // {[m
+[32m+[m[32m    //   name: "brushMain",[m
+[32m+[m[32m    //   instrument: "GroupSelection",[m
+[32m+[m[32m    //   trigger: {[m
+[32m+[m[32m    //     type: "brush",[m
+[32m+[m[32m    //   },[m
+[32m+[m[32m    //   target: {[m
+[32m+[m[32m    //     layer: "mainLayer",[m
+[32m+[m[32m    //   },[m
+[32m+[m[32m    //   feedback: {[m
+[32m+[m[32m    //     redrawFunc: {[m
+[32m+[m[32m    //       highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },[m
+[32m+[m[32m    //       // dim: { opacity: 0.1, selector: ".mark" },[m
+[32m+[m[32m    //       brushStyle: {[m
+[32m+[m[32m    //         fill: "#5c5c5cff",[m
+[32m+[m[32m    //         opacity: 0.3,[m
+[32m+[m[32m    //         stroke: "none",[m
+[32m+[m[32m    //       },[m
+[32m+[m[32m    //     },[m
+[32m+[m[32m    //   },[m
+[32m+[m[32m    // },[m
+     {[m
+[31m-      instrument: "GroupSelection",[m
+[31m-      trigger: {[m
+[31m-        type: "brush",[m
+[31m-      },[m
+[31m-      target: {[m
+[31m-        layer: "mainLayer",[m
+[31m-        name: "brushMain",[m
+[31m-      },[m
+[31m-      feedback: {[m
+[31m-        selection: {[m
+[31m-          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },[m
+[31m-          // dim: { opacity: 0.1, selector: ".mark" },[m
+[31m-          brushStyle: {[m
+[31m-            fill: "#5c5c5cff",[m
+[31m-            opacity: 0.3,[m
+[31m-            stroke: "none",[m
+[31m-          },[m
+[31m-        },[m
+[31m-      },[m
+[31m-    },[m
+[31m-    {[m
+[31m-          instrument: "Lens",[m
+[32m+[m[32m          name: "lensMain",[m
+[32m+[m[32m          instrument: "lens",[m
+           trigger: {[m
+             type: "hover",[m
+[31m-            modifierKey:"ctrl",[m
+[32m+[m[32m            priority: 0,[m
+             stopPropagation: true,[m
+           },[m
+           target: {[m
+             layer: "mainLayer",[m
+[31m-            name: "lensMain",[m
+           },[m
+           feedback: {[m
+[31m-            lens: {[m
+[31m-              excentricLabeling: {[m
+[32m+[m[32m            service: {[m
+[32m+[m[32m              lens: {[m
+                 renderSelection: false,[m
+[31m-                r: 36,[m
+[32m+[m[32m                r: 40,[m
+                 stroke: "#1d8f43",[m
+[31m-                strokeWidth: 2,[m
+[31m-                countLabelDistance: 15,[m
+[32m+[m[32m                strokeWidth: 4,[m
+                 fontSize: 12,[m
+                 countLabelWidth: 56,[m
+[31m-                maxLabelsNum: 18,[m
+[31m-                labelAccessor: (circleElem) => {[m
+[31m-                  const datum = d3.select(circleElem).datum();[m
+[31m-                  return `${datum.Name} (${datum.Horsepower}, ${datum.Miles_per_Gallon})`;[m
+[31m-                },[m
+[31m-                colorAccessor: (circleElem) => color(d3.select(circleElem).datum().Origin),[m
+[31m-                filter: (circleElem) => d3.select(circleElem).datum().Origin === "USA",[m
+                 count: {[m
+                   op: "count",[m
+                 },[m
+               },[m
+[32m+[m[32m              excentricLabeling: {[m
+[32m+[m[32m                countLabelDistance: 18,[m
+[32m+[m[32m                maxLabelsNum: 12,[m
+[32m+[m[32m                labelAccessor: (elem) => {[m
+[32m+[m[32m                  const d = d3.select(elem).datum();[m
+[32m+[m[32m                  console.log(123);[m
+[32m+[m[41m                  [m
+[32m+[m[32m                  return d ? `${d.Name} (${d.Horsepower}, ${d.Miles_per_Gallon})` : "";[m
+[32m+[m[32m                },[m
+[32m+[m[32m                colorAccessor: (elem) => {[m
+[32m+[m[32m                  const d = d3.select(elem).datum();[m
+[32m+[m[32m                  return d ? color(d[fieldColor]) : "#ffffffff";[m
+[32m+[m[32m                },[m
+[32m+[m[32m              }[m
+             },[m
+           },[m
+[31m-        },[m
+[32m+[m[32m        }[m
+ [m
+   ];[m
+[31m-  await compileInteractionsDSL(interactions, {[m
+[32m+[m[32m  await compileDSL(interactions, {[m
+     layersByName: { mainLayer },[m
+[31m-    scales: { x, y, color },[m
+[31m-  });[m
+[32m+[m[32m  }, { execute: true });[m
+[32m+[m[32m  const labelLayer = mainLayer.getLayerFromQueue("LabelLayer");[m
+[32m+[m[32m  const lensLayer = mainLayer.getLayerFromQueue("LensLayer");[m
+[32m+[m[32m  if (labelLayer?.getGraphic) {[m
+[32m+[m[32m    d3.select(labelLayer.getGraphic()).style("pointer-events", "none");[m
+[32m+[m[32m  }[m
+[32m+[m[32m  if (lensLayer?.getGraphic) {[m
+[32m+[m[32m    d3.select(lensLayer.getGraphic()).style("pointer-events", "none");[m
+[32m+[m[32m  }[m
+   await Libra.createHistoryTrack?.();[m
+ }[m

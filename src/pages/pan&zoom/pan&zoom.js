@@ -1,7 +1,8 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
+import excentricLabeling from "excentric-labeling";
 // 全局安全对象获取
 const g = typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
 
@@ -64,7 +65,7 @@ function renderStaticVisualization() {
 
   xScale = d3.scaleLinear().domain(extentX).range([0, CONFIG.WIDTH]).nice();
   yScale = d3.scaleLinear().domain(extentY).range([CONFIG.HEIGHT, 0]).nice();
-  
+
   colorScale = d3
     .scaleOrdinal()
     .domain(new Set(dataset.map((d) => d[CONFIG.FIELD_COLOR])))
@@ -119,7 +120,7 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
       offset: { x: CONFIG.MARGIN.left, y: CONFIG.MARGIN.top },
       container: svg.node(),
     });
-    
+
     g = d3.select(mainLayer.getGraphic());
     g.attr("class", "main-content-layer");
 
@@ -185,87 +186,123 @@ function renderMainVisualization(currentXScale = xScale, currentYScale = yScale)
 /**
  * 挂载交互
  */
-async function mountInteraction(layer, transformer) {
-  await compileInteractionsDSL(
-    [{
-          instrument: "Lens",
-          trigger: {
-            type: "hover",
-            priority: 1,
-            stopPropagation: true,
-          },
-          target: {
-            layer: "mainLayer",
-            name: "lensMain",
-          },
-          feedback: {
-            lens: {
-              excentricLabeling: {
-                renderSelection: false,
-                r: 40,
-                stroke: "#1d8f43",
-                strokeWidth: 4,
-                countLabelDistance: 18,
-                fontSize: 12,
-                countLabelWidth: 56,
-                maxLabelsNum: 12,
-                labelAccessor: (elem) => {
-                  const d = d3.select(elem).datum();
-                  return d?.data?.name || d?.id || "";
-                },
-                colorAccessor: (elem) => {
-                  const d = d3.select(elem).datum();
-                  return "#ffffffff";
-                },
-                count: {
-                  op: "count",
-                },
-              },
+async function mountInteraction(layer) {
+  const interactions = [
+      {
+      name: "lensMain",
+      instrument: "lens",
+      trigger: {
+        type: "hover",
+        priority: 0,
+        stopPropagation: true,
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        service: {
+          lens: {
+            renderSelection: false,
+            r: 40,
+            stroke: "#1d8f43",
+            strokeWidth: 4,
+            fontSize: 12,
+            countLabelWidth: 56,
+            count: {
+              op: "count",
             },
           },
+          excentricLabeling: {
+            countLabelDistance: 18,
+            maxLabelsNum: 12,
+            labelAccessor: (elem) => {
+              const d = d3.select(elem).datum();
+              console.log(123);
+              
+              return d ? `${d.Name} (${d.Horsepower}, ${d.Miles_per_Gallon})` : "";
+            },
+            colorAccessor: (elem) => {
+              const d = d3.select(elem).datum();
+              return d ? colorScale(d[CONFIG.FIELD_COLOR]) : "#ffffffff";
+            },
+          }
         },
-      {
-        Trigger: "brush",
-        targetLayer: "mainLayer",
-        feedbackOptions: {
-          Highlight: { color: (d) => d ? colorScale(d[CONFIG.FIELD_COLOR]) : "red" },
-        },
+      },
+    },
+    {
+      instrument: "groupSelection",
+      trigger: {
+        type: "brush",
         priority: 1,
         stopPropagation: true,
       },
-      {
-        Trigger: "pan",
-        targetLayer: "mainLayer",
-        feedbackOptions: {
-          scaleX: xScale,
-          scaleY: yScale,
-          fixRange: true,
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        redrawFunc: {
+          highlight: {
+            color: (d) => d ? colorScale(d[CONFIG.FIELD_COLOR]) : "red",
+          },
         },
+      },
+    },
+    {
+      instrument: "pan",
+      trigger: {
+        type: "pan",
         modifierKey: "ctrl",
         priority: 2,
         stopPropagation: true,
       },
-      {
-        Trigger: "zoom",
-        targetLayer: "mainLayer",
-        feedbackOptions: {
+      target: { layer: "mainLayer" },
+      feedback: {
+        context: {
           scaleX: xScale,
           scaleY: yScale,
           fixRange: true,
         },
+      },
+    },
+    {
+      instrument: "zoom",
+      trigger: {
+        type: "zoom",
         modifierKey: "ctrl",
         priority: 3,
         stopPropagation: true,
       },
-    ],
+      target: { layer: "mainLayer" },
+      feedback: {
+        context: {
+          scaleX: xScale,
+          scaleY: yScale,
+          fixRange: true,
+        },
+      },
+    },
+  ];
+
+  await compileDSL(
+    interactions,
     {
       layersByName: { mainLayer: layer },
-    }
+    },
+    { execute: true }
   );
 
   // 历史记录（撤销/重做）
   if (Libra.createHistoryTrack) {
     await Libra.createHistoryTrack();
+  }
+
+  const labelLayer = layer.getLayerFromQueue("LabelLayer");
+  const lensLayer = layer.getLayerFromQueue("LensLayer");
+  if (labelLayer?.getGraphic) {
+    // d3.select(labelLayer.getGraphic()).style("pointer-events", "none");
+  }
+  if (lensLayer?.getGraphic) {
+    // d3.select(lensLayer.getGraphic()).style("pointer-events", "none");
   }
 }
 
@@ -278,8 +315,8 @@ async function main() {
     renderStaticVisualization();
     const result = renderMainVisualization();
     if (result) {
-      const [layer, transformer] = result;
-      await mountInteraction(layer, transformer);
+      const [layer] = result;
+      await mountInteraction(layer);
     }
   } catch (err) {
     console.error("初始化可视化失败:", err);

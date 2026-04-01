@@ -38,10 +38,60 @@ export default class LibraManager {
 
         const triggerPascal = trigger.charAt(0).toUpperCase() + trigger.slice(1);
         const sharedVar = {};
+        const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
+            ? context.link
+            : {};
+        const highlight = context.Highlight !== undefined ? context.Highlight : context.highlight;
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        else if (typeof highlight === "string") sharedVar.highlightColor = highlight;
+        else if (highlight && typeof highlight === "object") {
+            if (highlight.color !== undefined) sharedVar.highlightColor = highlight.color;
+            if (highlight.Color !== undefined) sharedVar.highlightColor = highlight.Color;
+            const attrValues =
+                (highlight.attrValues && typeof highlight.attrValues === "object" && highlight.attrValues) ||
+                (highlight.AttrValues && typeof highlight.AttrValues === "object" && highlight.AttrValues) ||
+                null;
+            if (attrValues) {
+                sharedVar.highlightAttrValues = attrValues;
+            } else {
+                const { color, Color, attrValues: _, AttrValues: __, ...rest } = highlight;
+                if (Object.keys(rest).length > 0) sharedVar.highlightAttrValues = rest;
+            }
+        }
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
+        if (context.Dim !== undefined) sharedVar.dim = context.Dim;
+        if (context.dim !== undefined) sharedVar.dim = context.dim;
+        if (context.scaleX) sharedVar.scaleX = context.scaleX;
+        if (context.scaleY) sharedVar.scaleY = context.scaleY;
+        if (link.layers !== undefined) sharedVar.linkLayers = link.layers;
+        else if (context.LinkLayers !== undefined) sharedVar.linkLayers = context.LinkLayers;
+        else if (context.linkLayers !== undefined) sharedVar.linkLayers = context.linkLayers;
+        if (link.matchMode !== undefined) sharedVar.linkMatchMode = link.matchMode;
+        else if (context.LinkMatchMode !== undefined) sharedVar.linkMatchMode = context.LinkMatchMode;
+        else if (context.linkMatchMode !== undefined) sharedVar.linkMatchMode = context.linkMatchMode;
+        if (link.fields !== undefined) sharedVar.linkFields = link.fields;
+        else if (link.field !== undefined) sharedVar.linkFields = link.field;
+        else if (context.LinkFields !== undefined) sharedVar.linkFields = context.LinkFields;
+        else if (context.linkFields !== undefined) sharedVar.linkFields = context.linkFields;
+        else if (context.LinkField !== undefined) sharedVar.linkFields = context.LinkField;
+        else if (context.linkField !== undefined) sharedVar.linkFields = context.linkField;
+        if (link.defaultOpacity !== undefined) sharedVar.linkDefaultOpacity = link.defaultOpacity;
+        else if (context.LinkDefaultOpacity !== undefined) sharedVar.linkDefaultOpacity = context.LinkDefaultOpacity;
+        else if (context.linkDefaultOpacity !== undefined) sharedVar.linkDefaultOpacity = context.linkDefaultOpacity;
+        if (link.baseOpacity !== undefined) sharedVar.linkBaseOpacity = link.baseOpacity;
+        else if (context.LinkBaseOpacity !== undefined) sharedVar.linkBaseOpacity = context.LinkBaseOpacity;
+        else if (context.linkBaseOpacity !== undefined) sharedVar.linkBaseOpacity = context.linkBaseOpacity;
+        if (link.selectedOpacity !== undefined) sharedVar.linkSelectedOpacity = link.selectedOpacity;
+        else if (context.LinkSelectedOpacity !== undefined) sharedVar.linkSelectedOpacity = context.LinkSelectedOpacity;
+        else if (context.linkSelectedOpacity !== undefined) sharedVar.linkSelectedOpacity = context.linkSelectedOpacity;
+        if (link.strokeColor !== undefined) sharedVar.linkStrokeColor = link.strokeColor;
+        else if (context.LinkStrokeColor !== undefined) sharedVar.linkStrokeColor = context.LinkStrokeColor;
+        else if (context.linkStrokeColor !== undefined) sharedVar.linkStrokeColor = context.linkStrokeColor;
+        if (link.strokeWidth !== undefined) sharedVar.linkStrokeWidth = link.strokeWidth;
+        else if (context.LinkStrokeWidth !== undefined) sharedVar.linkStrokeWidth = context.LinkStrokeWidth;
+        else if (context.linkStrokeWidth !== undefined) sharedVar.linkStrokeWidth = context.linkStrokeWidth;
         if (context.Tooltip) {
             sharedVar.tooltip = {
                 prefix: context.Tooltip.Prefix,
@@ -57,6 +107,22 @@ export default class LibraManager {
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        if (context.customFeedbackFlow) {
+            if (context.customFeedbackFlow.insert) buildOptions.insert = context.customFeedbackFlow.insert;
+            if (context.customFeedbackFlow.remove) buildOptions.remove = context.customFeedbackFlow.remove;
+            if (context.customFeedbackFlow.override) buildOptions.override = context.customFeedbackFlow.override;
+        }
+
+        // 添加断点，方便检查 buildAPI 的输入参数
+        if (context.customFeedbackFlow) {
+            console.log('--- breakpoint before buildAPI ---');
+            console.log('layer:', layer);
+            console.log('context:', context);
+            console.log('buildOptions:', buildOptions);
+            // eslint-disable-next-line no-debugger
+            debugger;
+        }
 
         Libra.Interaction.build(buildOptions);
     }
@@ -68,10 +134,30 @@ export default class LibraManager {
 
         const triggerPascal = trigger.charAt(0).toUpperCase() + trigger.slice(1);
         const sharedVar = {};
+        const highlight = context.Highlight !== undefined ? context.Highlight : context.highlight;
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        else if (typeof highlight === "string") sharedVar.highlightColor = highlight;
+        else if (highlight && typeof highlight === "object") {
+            if (highlight.color !== undefined) sharedVar.highlightColor = highlight.color;
+            if (highlight.Color !== undefined) sharedVar.highlightColor = highlight.Color;
+            const attrValues =
+                (highlight.attrValues && typeof highlight.attrValues === "object" && highlight.attrValues) ||
+                (highlight.AttrValues && typeof highlight.AttrValues === "object" && highlight.AttrValues) ||
+                null;
+            if (attrValues) {
+                sharedVar.highlightAttrValues = attrValues;
+            } else {
+                const { color, Color, attrValues: _, AttrValues: __, ...rest } = highlight;
+                if (Object.keys(rest).length > 0) sharedVar.highlightAttrValues = rest;
+            }
+        }
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
+        if (context.Dim !== undefined) sharedVar.dim = context.Dim;
+        if (context.dim !== undefined) sharedVar.dim = context.dim;
+        if (context.brushStyle) sharedVar.brushStyle = context.brushStyle;
+        if (context.BrushStyle) sharedVar.brushStyle = context.BrushStyle;
         if (context.Tooltip) {
             sharedVar.tooltip = {
                 prefix: context.Tooltip.Prefix,
@@ -87,6 +173,12 @@ export default class LibraManager {
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
+
+        if (context.customFeedbackFlow) {
+            if (context.customFeedbackFlow.insert) buildOptions.insert = context.customFeedbackFlow.insert;
+            if (context.customFeedbackFlow.remove) buildOptions.remove = context.customFeedbackFlow.remove;
+            if (context.customFeedbackFlow.override) buildOptions.override = context.customFeedbackFlow.override;
+        }
 
         Libra.Interaction.build(buildOptions);
     }
@@ -477,15 +569,32 @@ export default class LibraManager {
 
         const sharedVar = {};
 
-        // Extract feedbackOptions
         const feedback = context.feedbackOptions || context["Feedback options"] || {};
+        const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
+            ? context.link
+            : {};
 
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         
-        // Handle HighlightColor from context or feedbackOptions
+        const highlight = context.Highlight !== undefined ? context.Highlight : context.highlight;
         if (feedback.Highlight) sharedVar.highlightColor = feedback.Highlight;
         else if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
+        else if (typeof highlight === "string") sharedVar.highlightColor = highlight;
+        else if (highlight && typeof highlight === "object") {
+            if (highlight.color !== undefined) sharedVar.highlightColor = highlight.color;
+            if (highlight.Color !== undefined) sharedVar.highlightColor = highlight.Color;
+            const attrValues =
+                (highlight.attrValues && typeof highlight.attrValues === "object" && highlight.attrValues) ||
+                (highlight.AttrValues && typeof highlight.AttrValues === "object" && highlight.AttrValues) ||
+                null;
+            if (attrValues) {
+                sharedVar.highlightAttrValues = attrValues;
+            } else {
+                const { color, Color, attrValues: _, AttrValues: __, ...rest } = highlight;
+                if (Object.keys(rest).length > 0) sharedVar.highlightAttrValues = rest;
+            }
+        }
         
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
         
@@ -496,8 +605,8 @@ export default class LibraManager {
             };
         }
 
-        // Handle LinkLayers from context or feedbackOptions
-        if (feedback.LinkLayers) sharedVar.linkLayers = feedback.LinkLayers;
+        if (link.layers !== undefined) sharedVar.linkLayers = link.layers;
+        else if (feedback.LinkLayers) sharedVar.linkLayers = feedback.LinkLayers;
         else if (context.LinkLayers) sharedVar.linkLayers = context.LinkLayers;
         else if (context.linkLayers) sharedVar.linkLayers = context.linkLayers;
         
@@ -514,6 +623,7 @@ export default class LibraManager {
         }
 
         if (context.dimension) sharedVar.dimension = context.dimension;
+        else if (context.attrName) sharedVar.dimension = context.attrName;
         
         // Handle scale from context or feedbackOptions
         if (feedback.Scale) sharedVar.scale = feedback.Scale;
@@ -522,6 +632,8 @@ export default class LibraManager {
         // Handle AttrName/dimension from feedbackOptions if not present
         if (!sharedVar.dimension && feedback.AttrName) {
             sharedVar.dimension = feedback.AttrName;
+        } else if (!sharedVar.dimension && context.AttrName) {
+            sharedVar.dimension = context.AttrName;
         }
 
         // Generate a selectionId for cross-filtering
@@ -532,9 +644,6 @@ export default class LibraManager {
         } else {
             sharedVar.selectionId = triggerPascal.replace('Brush', '').toLowerCase();
         }
-
-        if (context.BaseOpacity !== undefined) sharedVar.baseOpacity = context.BaseOpacity;
-        if (context.baseOpacity !== undefined) sharedVar.baseOpacity = context.baseOpacity;
 
         Libra.Service.register("LinkRectSelectionService", {
             sharedVar: sharedVar,

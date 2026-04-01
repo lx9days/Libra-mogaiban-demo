@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 10, right: 10, bottom: 50, left: 50 };
 const WIDTH = 800 - MARGIN.left - MARGIN.right;
@@ -51,62 +51,12 @@ export default async function init() {
     .domain(Array.from(new Set(data.map((d) => d.class))))
     .range(d3.schemeTableau10);
 
-  const panZoomLinker = createPanZoomLinker();
-  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker);
+  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color);
   // Mount interaction
-  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers, panZoomLinker);
+  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers);
 }
 
-function createPanZoomLinker() {
-  const transformersByLayerName = new Map();
-  const layerNamesByXField = new Map();
-  const layerNamesByYField = new Map();
-  let isPropagating = false;
-
-  const ensureSet = (map, key) => {
-    const existing = map.get(key);
-    if (existing) return existing;
-    const created = new Set();
-    map.set(key, created);
-    return created;
-  };
-
-  return {
-    register({ layerName, xField, yField, transformer }) {
-      if (!layerName || !transformer) return;
-      transformersByLayerName.set(layerName, transformer);
-      ensureSet(layerNamesByXField, xField).add(layerName);
-      ensureSet(layerNamesByYField, yField).add(layerName);
-    },
-    propagate({ originLayerName, xField, yField, scaleX: sX, scaleY: sY }) {
-      if (isPropagating) return;
-      isPropagating = true;
-      try {
-        const sameColumn = layerNamesByXField.get(xField);
-        if (sameColumn && sX) {
-          for (const layerName of sameColumn) {
-            if (layerName === originLayerName) continue;
-            const transformer = transformersByLayerName.get(layerName);
-            if (transformer) transformer.setSharedVar("scaleX", sX);
-          }
-        }
-
-        const sameRow = layerNamesByYField.get(yField);
-        if (sameRow && sY) {
-          for (const layerName of sameRow) {
-            if (layerName === originLayerName) continue;
-            const transformer = transformersByLayerName.get(layerName);
-            if (transformer) transformer.setSharedVar("scaleY", sY);
-          }
-        }
-      } finally {
-        isPropagating = false;
-      }
-    },
-  };
-}
-
-function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker) {
+function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color) {
   // Clear layers
   d3.select(xAxisLayer.getGraphic()).selectAll("*").remove();
   d3.select(yAxisLayer.getGraphic()).selectAll("*").remove();
@@ -216,69 +166,6 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 
       drawCell(localX, localY);
 
-      cellLayer.__drawCell = drawCell;
-      cellLayer.__panZoomOnRedraw = (sX, sY) => {
-        const currentDrawCell = cellLayer.__drawCell;
-        if (typeof currentDrawCell === "function") currentDrawCell(sX, sY);
-        if (panZoomLinker) {
-          panZoomLinker.propagate({
-            originLayerName: layerName,
-            xField: xiField,
-            yField: yiField,
-            scaleX: sX,
-            scaleY: sY,
-          });
-        }
-      };
-
-      const attached = d3.select(cellLayer.getGraphic()).attr("data-panzoom-attached");
-      if (!attached) {
-        const panZoomInteractions = [
-          {
-            Trigger: "pan",
-            targetLayer: layerName,
-            priority: 3,
-            modifierKey: "ctrl",
-            stopPropagation: true
-          },
-          {
-            Trigger: "zoom",
-            targetLayer: layerName,
-            priority: 4,
-            modifierKey: "ctrl",
-            stopPropagation: true
-          }
-        ];
-        compileInteractionsDSL(panZoomInteractions, {
-          layersByName: { [layerName]: cellLayer },
-          scales: { x: localX, y: localY }
-        });
-        const geometricTransformer = LibraManager.buildGeometricTransformer(cellLayer, {
-          scaleX: localX,
-          scaleY: localY,
-          redraw: (sX, sY) => {
-            const onRedraw = cellLayer.__panZoomOnRedraw;
-            if (typeof onRedraw === "function") onRedraw(sX, sY);
-          },
-        });
-        cellLayer.__geometricTransformer = geometricTransformer;
-        if (panZoomLinker) {
-          panZoomLinker.register({
-            layerName,
-            xField: xiField,
-            yField: yiField,
-            transformer: geometricTransformer,
-          });
-        }
-        d3.select(cellLayer.getGraphic()).attr("data-panzoom-attached", "1");
-      } else if (panZoomLinker && cellLayer.__geometricTransformer) {
-        panZoomLinker.register({
-          layerName,
-          xField: xiField,
-          yField: yiField,
-          transformer: cellLayer.__geometricTransformer,
-        });
-      }
     });
   });
 
@@ -299,12 +186,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 }
 
 
-async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers, panZoomLinker) {
-
-  const redrawSPLOM = (newNames, newX, newY) => {
-    renderSPLOM(svg, xAxisLayer, yAxisLayer, data, newNames, newX, newY, color, panZoomLinker);
-  };
-
+async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers) {
   const cellWidth = scaleX.bandwidth();
   const cellHeight = scaleY.bandwidth();
   const xScales = {};
@@ -325,23 +207,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
   const interactions = [
 
   ];
-  const pointSelectionInteractions = [
-    // {
-    //   Instrument: "point selection",
-    //   Trigger: "hover",
-    //   targetLayer: Object.keys(cellLayers),
-    //   feedbackOptions: {
-    //     Highlight: "#ff0000",
-    //     Tooltip: {
-    //       fields: ["class"],
-    //       offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
-    //     }
-    //   },
-    //   priority: 0,
-    //   stopPropagation: true
-    // }
-  ];
-  const groupSelectionInteractions = Object.keys(cellLayers)
+  const pointSelectionInteractions = Object.keys(cellLayers)
     .map((layerName) => {
       const match = /^cell-(.+?)-(.+)$/.exec(layerName);
       if (!match) return null;
@@ -351,28 +217,42 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       const sy = yScales[yiField];
       if (!sx || !sy) return null;
       return {
-        Instrument: "point selection",
-        Trigger: "hover",
-        targetLayer: layerName,
-        feedbackOptions: {
-          Highlight: "#00ff1aff",
-          ScaleX: sx,
-          ScaleY: sy,
-          LinkLayers: Object.values(cellLayers),
-          LinkMatchMode: "datum",
-          LinkDefaultOpacity: 0.7,
-          LinkBaseOpacity: 0.08,
-          LinkSelectedOpacity: 0.95,
-          LinkStrokeWidth: 1
+        instrument: "pointSelection",
+        trigger: {
+          type: "hover",
+          priority: 2,
+          stopPropagation: true,
         },
-        priority: 2,
-        stopPropagation: true
+        target: {
+          layer: layerName,
+        },
+        feedback: {
+          redrawFunc: {
+            highlight: "#00ff1aff",
+          },
+          context: {
+            link: {
+              layers: Object.values(cellLayers),
+              matchMode: "datum",
+              defaultOpacity: 0.7,
+              baseOpacity: 0.08,
+              selectedOpacity: 0.95,
+              strokeWidth: 1,
+            },
+            scaleX: sx,
+            scaleY: sy,
+          },
+        },
       };
     })
     .filter(Boolean);
-  await compileInteractionsDSL(interactions.concat(pointSelectionInteractions, groupSelectionInteractions), {
-    layersByName: { xAxisLayer, yAxisLayer, ...cellLayers }
-  });
+  await compileDSL(
+    interactions.concat(pointSelectionInteractions),
+    {
+      layersByName: { xAxisLayer, yAxisLayer, ...cellLayers },
+    },
+    { execute: true }
+  );
 
   await Libra.createHistoryTrack();
 }

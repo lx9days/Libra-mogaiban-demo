@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileDSL } from "../../scripts/dsl-compiler";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -325,52 +326,102 @@ async function mountInteraction({ linkLayer, mainLayer }) {
         },
       },
     },
-    // {
-    //   name: "edgeLensExcentric",
-    //   instrument: "Lens",
-    //   trigger: {
-    //     type: "hover",
-    //     priority: 2,
-    //     stopPropagation: false,
-    //   },
-    //   target: {
-    //     layer: "mainLayer",
-    //   },
-    //   feedback: {
-    //     lens: {
-    //       excentricLabeling: {
-    //         renderSelection: false,
-    //         r: EXCENTRIC_RADIUS,
-    //         stroke: "#1d8f43",
-    //         strokeWidth: 2,
-    //         countLabelDistance: 18,
-    //         fontSize: 12,
-    //         countLabelWidth: 60,
-    //         maxLabelsNum: MAX_LABELS,
-    //         labelAccessor: (circleElem) => {
-    //           const datum = d3.select(circleElem).datum();
-    //           return datum ? `${datum.id} (${datum.degree})` : "";
-    //         },
-    //         colorAccessor: (circleElem) => {
-    //           const datum = d3.select(circleElem).datum();
-    //           return datum ? color(datum.group) : "#666";
-    //         },
-    //         count: {
-    //           op: "count",
-    //         },
-    //       },
-    //     },
-    //   },
-    // },
+
 
   ];
 
-  await compileInteractionsDSL(interactions, {
-    layersByName: {
-      mainLayer,
-      linkLayer,
+  const interactions2 = [
+    {
+      instrument: "pointSelection",
+      trigger: {
+        type: "hover",
+        priority: 1,
+        stopPropagation: false
+      },
+      target: {
+        layer: "nodeLayer"
+      },
+      feedback: {
+        redrawFunc: {
+          Highlight: {
+            stroke: "#ff0000",
+            "stroke-width": 2,
+            fill: "none"
+          },
+        },
+        context: {
+          LinkLayers: ["linkLayer"],
+          LinkMatchMode: "field",
+          LinkFields: ["id"],
+          LinkDefaultOpacity: 0.6,
+          LinkBaseOpacity: 0.08,
+          LinkSelectedOpacity: 0.95,
+        }
+      },
+
     },
-  });
+    {
+      name: "edgeLensHover",
+      instrument: "pointSelection",
+      trigger: {
+        type: "hover",
+        modifierKey: "shift",
+        priority: 1,
+        stopPropagation: false,
+      },
+      target: {
+        layer: "mainLayer",
+        pointerEvents: "viewport",
+      },
+      feedback: {
+
+      },
+      customFeedbackFlow: {
+        // remove: [{ find: "SelectionTransformer" }],
+        insert: [
+          {
+            find: "SelectionService",
+            flow: [
+              {
+                comp: "EdgeLensLayoutService",
+                sharedVar: {
+                  edges: links,
+                },
+                evaluate({ edges: currentEdges = [], offsetx, offsety, x, y, layer }) {
+                  const pointerX = Number.isFinite(offsetx) ? offsetx : x;
+                  const pointerY = Number.isFinite(offsety) ? offsety : y;
+                  if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
+                    return { edges: currentEdges, controlPoint: null };
+                  }
+
+                  const controlPoint = {
+                    x: pointerX - (layer?._offset?.x || 0),
+                    y: pointerY - (layer?._offset?.y || 0),
+                  };
+                  return { edges: currentEdges, controlPoint };
+                },
+              },
+              linkTransformer,
+            ],
+          },
+        ],
+      },
+    },
+
+
+  ];
+
+  const layersByName = {
+    mainLayer,
+    nodeLayer: mainLayer,
+    linkLayer,
+  };
+
+  await compileDSL(interactions2, { layersByName }, { execute: true });
+
+  // await compileInteractionsDSL([interactions[1]], {
+  //   layersByName,
+  // });
 
   const labelLayer = mainLayer.getLayerFromQueue("LabelLayer");
   const lensLayer = mainLayer.getLayerFromQueue("LensLayer");

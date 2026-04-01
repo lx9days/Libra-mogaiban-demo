@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 export default async function init() {
   const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
@@ -127,6 +127,7 @@ export default async function init() {
 
   const interactions = [
     {
+      name: "brushMain",
       instrument: "GroupSelection",
       trigger: {
         type: "brush",
@@ -135,10 +136,9 @@ export default async function init() {
       },
       target: {
         layer: "mainLayer",
-        name: "brushMain",
       },
       feedback: {
-        selection: {
+        redrawFunc: {
           highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
           // dim: { opacity: 0.1, selector: ".mark" },
           brushStyle: {
@@ -151,9 +151,8 @@ export default async function init() {
     },
 
   ];
-  await compileInteractionsDSL(interactions, {
+  await compileDSL(interactions, {
     layersByName: { mainLayer },
-    scales: { x, y, color },
-  });
+  }, { execute: true });
   await Libra.createHistoryTrack?.();
 }

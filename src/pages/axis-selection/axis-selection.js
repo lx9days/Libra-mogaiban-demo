@@ -1,7 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 // global constants
 const MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
@@ -192,38 +191,55 @@ function renderMainVisualization() {
 }
 
 async function mountInteraction(mainLayer, xAxisLayer, yAxisLayer) {
-  await compileInteractionsDSL(
+  await compileDSL(
     [
       {
-        Instrument: "axis selection",
-        Trigger: "brushx",
-        targetLayer: "xAxisLayer",
-        feedbackOptions: {
-          Highlight: "red",
-          LinkLayers: ["mainLayer"],
-          Scale: x,
-          AttrName: FIELD_X,
+        instrument: "axisSelection",
+        trigger: {
+          type: "brushx",
         },
-        SelectionMode: "overwrite",
-        BaseOpacity: 0.3,
+        target: {
+          layer: "xAxisLayer",
+        },
+        feedback: {
+          redrawFunc: {
+            highlight: "red",
+          },
+          context: {
+            link: {
+              layers: ["mainLayer"],
+            },
+            scale: x,
+            attrName: FIELD_X,
+          },
+        },
       },
       {
-        Instrument: "axis selection",
-        Trigger: "brushy",
-        targetLayer: "yAxisLayer",
-        feedbackOptions: {
-          Highlight: "red",
-          LinkLayers: ["mainLayer"],
-          Scale: y,
-          AttrName: FIELD_Y,
+        instrument: "axisSelection",
+        trigger: {
+          type: "brushy",
         },
-        SelectionMode: "overwrite",
-        BaseOpacity: 0.3,
+        target: {
+          layer: "yAxisLayer",
+        },
+        feedback: {
+          redrawFunc: {
+            highlight: "red",
+          },
+          context: {
+            link: {
+              layers: ["mainLayer"],
+            },
+            scale: y,
+            attrName: FIELD_Y,
+          },
+        },
       },
     ],
     {
       layersByName: { mainLayer, xAxisLayer, yAxisLayer },
-    }
+    },
+    { execute: true }
   );
   await Libra.createHistoryTrack();
 }
