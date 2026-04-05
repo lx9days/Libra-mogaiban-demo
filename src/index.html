@@ -3,25 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>webpack starterkit</title>
-  <meta name="description" content="A light foundation for your next frontend project based on webpack.">
-  <!-- Provide d3 globally via CDN for hover visualization -->
-  <!-- <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script> -->
-  
+  <title>Libra+</title>
+  <meta
+    name="description"
+    content="Libra+ compositional interaction demos for data visualization, including selection, navigation, rearrangement, and visual aids."
+  >
 </head>
 <body>
-  <div id="AppLayout" style="display:flex; gap:12px; align-items:flex-start; padding:12px; box-sizing:border-box;">
-    <div id="LibraPlayground" style="flex:1 1 50%; min-width:300px; border:1px solid #eee; padding:8px; box-sizing:border-box;"></div>
-    <div style="flex:1 1 25%; min-width:240px; box-sizing:border-box;">
-      <h3 style="margin:0 0 8px; font-family:system-ui; font-size:14px;">JSON</h3>
-      <div id="JsonPane" style="height:90vh; border:1px solid #eee; border-radius:6px; background:#fff; overflow:hidden;"></div>
-    </div>
-    <div style="flex:1 1 25%; min-width:240px; box-sizing:border-box;">
-      <h3 style="margin:0 0 8px; font-family:system-ui; font-size:14px;">JS</h3>
-      <div id="JsEditor" style="height:90vh; border:1px solid #eee; border-radius:6px; background:#fff;"></div>
-      <pre id="JsPane" style="display:none; background:#f6f8fa; padding:12px; border-radius:6px; overflow:auto; max-height:70vh; margin:0; box-sizing:border-box;"></pre>
-    </div>
-  </div>
+  <div id="AppLayout" class="app-layout">
+    <main class="playground-column">
+      <div id="LibraPlayground" class="playground-pane"></div>
+    </main>
 
+    <aside id="JsonColumn" class="editor-column">
+      <h3 class="pane-title">JSON</h3>
+      <div id="JsonPane" class="editor-pane"></div>
+    </aside>
+
+    <aside id="JsColumn" class="editor-column">
+      <h3 class="pane-title">JS</h3>
+      <div id="JsEditor" class="editor-pane editor-pane-script"></div>
+      <pre id="JsPane" class="editor-fallback"></pre>
+    </aside>
+  </div>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import '../styles/index.scss';
+import '../styles/index.css';
 import 'monaco-editor/min/vs/editor/editor.main.css';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import Libra from 'libra-vis';
@@ -19,6 +19,7 @@ if (
 const pagesJsContext = require.context('../pages', true, /\.js$/);
 const pagesJsonContext = require.context('../pages', true, /\.json$/);
 const modulesContext = require.context('./modules', false, /\.js$/);
+const SHOWCASE_PAGES = new Set(['home', 'gallery']);
 
 function nameFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -99,6 +100,40 @@ function findMatchingKey(keys, name, { fallbackTo } = {}) {
 let pageInit = null;
 let jsonEditor = null;
 let jsonChangeTimer = null;
+
+function clearEditors() {
+  if (jsonEditor) jsonEditor.setValue('');
+  const jsonPane = document.getElementById('JsonPane');
+  if (jsonPane) jsonPane.textContent = '';
+
+  if (jsEditor) jsEditor.setValue('');
+  const jsPane = document.getElementById('JsPane');
+  if (jsPane) jsPane.textContent = '';
+}
+
+function setPageChrome(name) {
+  const rawName = String(name || 'home');
+  const pageName = rawName.toLowerCase().replace(/[^\w-]+/g, '-');
+  const showcase = SHOWCASE_PAGES.has(rawName);
+  const appLayout = document.getElementById('AppLayout');
+  const jsonColumn = document.getElementById('JsonColumn');
+  const jsColumn = document.getElementById('JsColumn');
+
+  document.body.classList.toggle('is-showcase-page', showcase);
+  document.body.dataset.page = pageName;
+
+  if (appLayout) appLayout.classList.toggle('app-layout-showcase', showcase);
+  if (jsonColumn) jsonColumn.hidden = showcase;
+  if (jsColumn) jsColumn.hidden = showcase;
+
+  if (showcase) clearEditors();
+
+  document.title = showcase
+    ? rawName === 'gallery'
+      ? 'Libra+ Gallery'
+      : 'Libra+'
+    : `Libra+ Demo · ${rawName}`;
+}
 
 function ensureJsonMonaco() {
   const container = document.getElementById('JsonPane');
@@ -199,7 +234,11 @@ async function loadFromPages(name) {
     // Always show JSON pane if available
     // renderJson(data);
     // Show JS source in right pane (raw)
-    if (jsKey) await renderJsSourceRaw(jsKey);
+    if (!SHOWCASE_PAGES.has(name) && jsKey) {
+      await renderJsSourceRaw(jsKey);
+    } else {
+      clearEditors();
+    }
 
     if (typeof init === 'function') {
       cleanupCanvas();
@@ -232,8 +271,12 @@ async function loadFallbackModule(name) {
 
 async function bootstrap() {
   const name = nameFromUrl();
+  setPageChrome(name);
   const handled = await loadFromPages(name);
-  if (!handled) await loadFallbackModule(name);
+  if (!handled) {
+    setPageChrome('home');
+    await loadFallbackModule(name);
+  }
 }
 
 
