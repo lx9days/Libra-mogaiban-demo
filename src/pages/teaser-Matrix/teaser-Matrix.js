@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 80, right: 20, bottom: 20, left: 80 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
@@ -473,41 +473,50 @@ function loadData() {
 }
 
 async function mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, matrixData) {
-    const reorderContext = {
-        names,
-        scales: { x: scaleX, y: scaleY },
-        copyFrom: cellLayer,
-        offset: { x: 0, y: 0 },
-        autoRedraw: true,
-    };
-    const interactions = [
+    const interactionsInNewDsl = [
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
-            targetLayer: "xAxisLayer",
-            // Direction: "x",
-            feedbackOptions: {
-                contextRef: {
-                    ...reorderContext,
+            instrument: "reorder",
+            trigger: { type: "drag" },
+            target: { layer: "xAxisLayer" },
+            feedback: {
+                redrawFunc: "default",
+                service: {
+                    reorderDirection: "x"
+                },
+                feedforward: {
+                    sourceLayer: cellLayer,
+                    offset: { x: 0, y: 0 },
+                },
+                context: {
+                    names,
+                    scales: { x: scaleX, y: scaleY },
                 },
             },
         },
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
-            targetLayer: "yAxisLayer",
-            Direction: "y",
-            feedbackOptions: {
-                contextRef: {
-                    ...reorderContext,
+            instrument: "reorder",
+            trigger: { type: "drag" },
+            target: { layer: "yAxisLayer" },
+            feedback: {
+                redrawFunc: "default",
+                service: {
+                    reorderDirection: "y"
+                },
+                feedforward: {
+                    sourceLayer: cellLayer,
+                    offset: { x: 0, y: 0 },
+                },
+                context: {
+                    names,
+                    scales: { x: scaleX, y: scaleY },
                 },
             },
         },
     ];
 
-    await compileInteractionsDSL(interactions, {
-        layersByName: { xAxisLayer, yAxisLayer },
-    });
+    await compileDSL(interactionsInNewDsl, {
+        layersByName: { xAxisLayer, yAxisLayer, cellLayer },
+    }, { execute: true });
 
     await Libra.createHistoryTrack();
 }

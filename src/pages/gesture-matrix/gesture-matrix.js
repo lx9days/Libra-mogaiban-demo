@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 80, right: 20, bottom: 20, left: 80 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
@@ -34,7 +34,7 @@ export default async function init() {
 
     renderMatrix(cellLayer, xAxisLayer, yAxisLayer, matrixData, names, x, y, color);
 
-    await mountInteraction(cellLayer, names, x, y);
+    await mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, x, y);
 }
 
 function renderMatrix(cellLayer, xAxisLayer, yAxisLayer, matrixData, names, x, y, color) {
@@ -344,44 +344,52 @@ function loadData() {
     return { matrixData, names };
 }
 
-async function mountInteraction(cellLayer, names, scaleX, scaleY) {
-    const reorderContext = {
-        names,
-        scales: { x: scaleX, y: scaleY },
-        copyFrom: cellLayer,
-        offset: { x: 0, y: 0 },
-        autoRedraw: true,
-    };
+async function mountInteraction(cellLayer, xAxisLayer, yAxisLayer, names, scaleX, scaleY) {
     const interactions = [
         {
-            Instrument: "reordering",
-            Trigger: "drag",
-            targetLayer: "cellLayer",
-            syntheticEvent: "start-horizontally",
-            Direction: "x",
-            feedbackOptions: {
-                contextRef: {
-                    ...reorderContext,
+            instrument: "reorder",
+            trigger: { type: "drag", syntheticEvent: "start-horizontally" },
+            target: { layer: "cellLayer" },
+            feedback: {
+                redrawFunc: "default",
+                service: {
+                    reorderDirection: "x"
+                },
+                feedforward: {
+                    sourceLayer: cellLayer,
+                    offset: { x: 0, y: 0 },
+                },
+                context: {
+                    names,
+                    scales: { x: scaleX, y: scaleY },
                 },
             },
         },
         {
-            Instrument: "reordering",
-            Trigger: "drag",
-            targetLayer: "cellLayer",
-            syntheticEvent: "start-vertically",
-            Direction: "y",
-            feedbackOptions: {
-                contextRef: {
-                    ...reorderContext,
+            instrument: "reorder",
+            trigger: { type: "drag", syntheticEvent: "start-vertically" },
+            target: { layer: "cellLayer" },
+            feedback: {
+                redrawFunc: "default",
+                service: {
+                    reorderDirection: "y"
+                },
+                feedforward: {
+                    sourceLayer: cellLayer,
+                    offset: { x: 0, y: 0 },
+                },
+                context: {
+                    names,
+                    scales: { x: scaleX, y: scaleY },
                 },
             },
         },
     ];
 
-    await compileInteractionsDSL(interactions, {
-        layersByName: { cellLayer },
-    });
+    compileDSL(interactions, {
+        layersByName: { cellLayer, xAxisLayer, yAxisLayer },
+    }, { execute: true });
+    
     if (typeof Libra.createHistoryTrack === "function") {
         await Libra.createHistoryTrack();
     }

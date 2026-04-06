@@ -1,24 +1,20 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileDSL } from "../../scripts/dsl-compiler";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 10, right: 10, bottom: 50, left: 50 };
-const WIDTH = 400 - MARGIN.left - MARGIN.right;
-const HEIGHT = 400 - MARGIN.top - MARGIN.bottom;
+const WIDTH = 800 - MARGIN.left - MARGIN.right;
+const HEIGHT = 800 - MARGIN.top - MARGIN.bottom;
 const TICK_COUNT = 5;
 
 export default async function init() {
-  const g = typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
-  const fieldColor = g.FIELD_COLOR || "class";
-
   const container = document.getElementById("LibraPlayground");
   if (!container) return;
   container.innerHTML = "";
 
   const raw = await d3.csv("/public/data/bezdekIris.csv");
-  // Simplified to 2 fields for a 2x2 matrix
-  const fields = ["sepal_length", "sepal_width"];
+  const fields = ["sepal_length", "sepal_width", "petal_length", "petal_width"];
   const data = raw.map((d) => {
     const r = { ...d };
     for (const f of fields) r[f] = parseFloat(d[f]);
@@ -52,13 +48,13 @@ export default async function init() {
 
   const color = d3
     .scaleOrdinal()
-    .domain(Array.from(new Set(data.map((d) => d[fieldColor]))))
+    .domain(Array.from(new Set(data.map((d) => d.class))))
     .range(d3.schemeTableau10);
 
   const panZoomLinker = createPanZoomLinker();
-  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker, fieldColor);
+  const cellLayers = renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker);
   // Mount interaction
-  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers, panZoomLinker, fieldColor);
+  await mountInteraction(svg, xAxisLayer, yAxisLayer, fields, scaleX, scaleY, color, data, cellLayers, panZoomLinker);
 }
 
 function createPanZoomLinker() {
@@ -110,7 +106,7 @@ function createPanZoomLinker() {
   };
 }
 
-function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker, fieldColor) {
+function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, color, panZoomLinker) {
   // Clear layers
   d3.select(xAxisLayer.getGraphic()).selectAll("*").remove();
   d3.select(yAxisLayer.getGraphic()).selectAll("*").remove();
@@ -231,10 +227,8 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
             .attr("r", 3)
             .attr("cx", (d) => lx(d[xiField]))
             .attr("cy", (d) => ly(d[yiField]))
-            .attr("fill", (d) => color(d[fieldColor]))
-            .attr("fill-opacity", 0.2)
-            // .attr("stroke", (d) => color(d[fieldColor]))
-            ;
+            .attr("fill", (d) => color(d.class))
+            .attr("fill-opacity", 0.7);
         }
 
         const axesG = cell.append("g");
@@ -268,20 +262,24 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
       if (!attached) {
         const panZoomInteractions = [
           {
-            instrument: "pan",
-            trigger: { type: "pan", modifierKey: "ctrl" },
-            target: { layer: layerName, stopPropagation: true, priority: 3 }
+            Trigger: "pan",
+            targetLayer: layerName,
+            priority: 3,
+            modifierKey: "ctrl",
+            stopPropagation: true
           },
           {
-            instrument: "zoom",
-            trigger: { type: "zoom", modifierKey: "ctrl" },
-            target: { layer: layerName, stopPropagation: true, priority: 4 }
+            Trigger: "zoom",
+            targetLayer: layerName,
+            priority: 4,
+            modifierKey: "ctrl",
+            stopPropagation: true
           }
         ];
-        compileDSL(panZoomInteractions, {
+        compileInteractionsDSL(panZoomInteractions, {
           layersByName: { [layerName]: cellLayer },
           scales: { x: localX, y: localY }
-        }, { execute: true });
+        });
         const geometricTransformer = LibraManager.buildGeometricTransformer(cellLayer, {
           scaleX: localX,
           scaleY: localY,
@@ -328,10 +326,10 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 }
 
 
-async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers, panZoomLinker, fieldColor) {
+async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scaleY, color, data, cellLayers, panZoomLinker) {
 
   const redrawSPLOM = (newNames, newX, newY) => {
-    renderSPLOM(svg, xAxisLayer, yAxisLayer, data, newNames, newX, newY, color, panZoomLinker, fieldColor);
+    renderSPLOM(svg, xAxisLayer, yAxisLayer, data, newNames, newX, newY, color, panZoomLinker);
   };
 
   const cellWidth = scaleX.bandwidth();
@@ -353,43 +351,51 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
 
   const interactions = [
     {
-      instrument: "reorder",
-      trigger: { type: "drag" },
-      target: { layer: "xAxisLayer" },
-      feedback: {
-        redrawFunc: redrawSPLOM,
-        service: {
-          reorderDirection: "x"
-        },
-        feedforward: {
-          sourceLayer: Object.values(cellLayers),
-          offset: { x: MARGIN.left, y: MARGIN.top }
-        },
-        context: {
+      Instrument: "reordering",
+      Trigger: "Drag",
+      targetLayer: "xAxisLayer",
+      Direction: "x",
+      feedbackOptions: {
+        redrawRef: redrawSPLOM,
+        contextRef: {
           names,
-          scales: { x: scaleX, y: scaleY }
+          scales: { x: scaleX, y: scaleY },
+          copyFrom: Object.values(cellLayers),
+          offset: { x: MARGIN.left, y: MARGIN.top }
         }
       }
     },
     {
-      instrument: "reorder",
-      trigger: { type: "drag" },
-      target: { layer: "yAxisLayer" },
-      feedback: {
-        redrawFunc: redrawSPLOM,
-        service: {
-          reorderDirection: "y"
-        },
-        feedforward: {
-          sourceLayer: Object.values(cellLayers),
-          offset: { x: MARGIN.left, y: MARGIN.top }
-        },
-        context: {
+      Instrument: "reordering",
+      Trigger: "Drag",
+      targetLayer: "yAxisLayer",
+      Direction: "y",
+      feedbackOptions: {
+        redrawRef: redrawSPLOM,
+        contextRef: {
           names,
-          scales: { x: scaleX, y: scaleY }
+          scales: { x: scaleX, y: scaleY },
+          copyFrom: Object.values(cellLayers),
+          offset: { x: MARGIN.left, y: MARGIN.top }
         }
       }
     }
+  ];
+  const pointSelectionInteractions = [
+    // {
+    //   Instrument: "point selection",
+    //   Trigger: "hover",
+    //   targetLayer: Object.keys(cellLayers),
+    //   feedbackOptions: {
+    //     Highlight: "#ff0000",
+    //     Tooltip: {
+    //       fields: ["class"],
+    //       offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
+    //     }
+    //   },
+    //   priority: 0,
+    //   stopPropagation: true
+    // }
   ];
   const groupSelectionInteractions = Object.keys(cellLayers)
     .map((layerName) => {
@@ -402,33 +408,31 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       const sy = yScales[yiField];
       if (!sx || !sy) return null;
       return {
-        instrument: "groupSelection",
-        trigger: { type: "brush", remnantKey: "shift" },
-        target: { layer: layerName, stopPropagation: true, priority: 2 },
-        feedback: {
-          redrawFunc: {
-            highlight: { color: (d) => d ? color(d[fieldColor]) : "red" },
-          },
-          context: {
-            scaleX: sx,
-            scaleY: sy,
-            attrName: [xiField, yiField],
-            link: {
-              layers: Object.values(cellLayers),
-              matchMode: "field",
-              defaultOpacity: 0.7,
-              baseOpacity: 0.08,
-              selectedOpacity: 0.95,
-              strokeWidth: 1
-            }
-          }
-        }
+        Instrument: "group selection",
+        Trigger: "brush",
+        targetLayer: layerName,
+        feedbackOptions: {
+          Highlight: "#00ff1aff",
+          RemnantKey: "Shift",
+          ScaleX: sx,
+          ScaleY: sy,
+          AttrName: [xiField, yiField],
+
+          LinkLayers: Object.values(cellLayers),
+
+          LinkDefaultOpacity: 0.7,
+          LinkBaseOpacity: 0.08,
+          LinkSelectedOpacity: 0.95,
+          LinkStrokeWidth: 1
+        },
+        priority: 2,
+        stopPropagation: true
       };
     })
     .filter(Boolean);
-  await compileDSL(interactions.concat(groupSelectionInteractions), {
+  await compileInteractionsDSL(interactions.concat(pointSelectionInteractions, groupSelectionInteractions), {
     layersByName: { xAxisLayer, yAxisLayer, ...cellLayers }
-  }, { execute: true });
+  });
 
   await Libra.createHistoryTrack();
 }

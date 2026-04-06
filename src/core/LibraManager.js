@@ -121,7 +121,7 @@ export default class LibraManager {
             console.log('context:', context);
             console.log('buildOptions:', buildOptions);
             // eslint-disable-next-line no-debugger
-            debugger;
+            // debugger;
         }
 
         Libra.Interaction.build(buildOptions);
@@ -156,6 +156,53 @@ export default class LibraManager {
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
         if (context.Dim !== undefined) sharedVar.dim = context.Dim;
         if (context.dim !== undefined) sharedVar.dim = context.dim;
+        
+        if (context.remnantKey) sharedVar.remnantKey = context.remnantKey;
+        else if (context.RemnantKey) sharedVar.remnantKey = context.RemnantKey;
+        
+        if (context.scaleX) sharedVar.scaleX = context.scaleX;
+        if (context.scaleY) sharedVar.scaleY = context.scaleY;
+        if (context.attrName) sharedVar.attrName = context.attrName;
+        
+        const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
+            ? context.link
+            : {};
+        
+        if (link.layers !== undefined) sharedVar.linkLayers = link.layers;
+        else if (context.LinkLayers !== undefined) sharedVar.linkLayers = context.LinkLayers;
+        else if (context.linkLayers !== undefined) sharedVar.linkLayers = context.linkLayers;
+        
+        if (link.matchMode !== undefined) sharedVar.linkMatchMode = link.matchMode;
+        else if (context.LinkMatchMode !== undefined) sharedVar.linkMatchMode = context.LinkMatchMode;
+        else if (context.linkMatchMode !== undefined) sharedVar.linkMatchMode = context.linkMatchMode;
+        
+        if (link.fields !== undefined) sharedVar.linkFields = link.fields;
+        else if (link.field !== undefined) sharedVar.linkFields = link.field;
+        else if (context.LinkFields !== undefined) sharedVar.linkFields = context.LinkFields;
+        else if (context.linkFields !== undefined) sharedVar.linkFields = context.linkFields;
+        else if (context.LinkField !== undefined) sharedVar.linkFields = context.LinkField;
+        else if (context.linkField !== undefined) sharedVar.linkFields = context.linkField;
+        
+        if (link.defaultOpacity !== undefined) sharedVar.linkDefaultOpacity = link.defaultOpacity;
+        else if (context.LinkDefaultOpacity !== undefined) sharedVar.linkDefaultOpacity = context.LinkDefaultOpacity;
+        else if (context.linkDefaultOpacity !== undefined) sharedVar.linkDefaultOpacity = context.linkDefaultOpacity;
+        
+        if (link.baseOpacity !== undefined) sharedVar.linkBaseOpacity = link.baseOpacity;
+        else if (context.LinkBaseOpacity !== undefined) sharedVar.linkBaseOpacity = context.LinkBaseOpacity;
+        else if (context.linkBaseOpacity !== undefined) sharedVar.linkBaseOpacity = context.linkBaseOpacity;
+        
+        if (link.selectedOpacity !== undefined) sharedVar.linkSelectedOpacity = link.selectedOpacity;
+        else if (context.LinkSelectedOpacity !== undefined) sharedVar.linkSelectedOpacity = context.LinkSelectedOpacity;
+        else if (context.linkSelectedOpacity !== undefined) sharedVar.linkSelectedOpacity = context.linkSelectedOpacity;
+        
+        if (link.strokeColor !== undefined) sharedVar.linkStrokeColor = link.strokeColor;
+        else if (context.LinkStrokeColor !== undefined) sharedVar.linkStrokeColor = context.LinkStrokeColor;
+        else if (context.linkStrokeColor !== undefined) sharedVar.linkStrokeColor = context.linkStrokeColor;
+        
+        if (link.strokeWidth !== undefined) sharedVar.linkStrokeWidth = link.strokeWidth;
+        else if (context.LinkStrokeWidth !== undefined) sharedVar.linkStrokeWidth = context.LinkStrokeWidth;
+        else if (context.linkStrokeWidth !== undefined) sharedVar.linkStrokeWidth = context.linkStrokeWidth;
+
         if (context.brushStyle) sharedVar.brushStyle = context.brushStyle;
         if (context.BrushStyle) sharedVar.brushStyle = context.BrushStyle;
         if (context.Tooltip) {
@@ -180,6 +227,7 @@ export default class LibraManager {
             if (context.customFeedbackFlow.override) buildOptions.override = context.customFeedbackFlow.override;
         }
 
+        console.log("buildGroupSelectionInstrument buildOptions:", buildOptions);
         Libra.Interaction.build(buildOptions);
     }
 
@@ -1513,6 +1561,7 @@ export default class LibraManager {
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
 
+        console.log("buildReorderInstrument buildOptions:", buildOptions);
         Libra.Interaction.build(buildOptions);
     }
 

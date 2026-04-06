@@ -259,79 +259,10 @@ async function mountInteraction({ linkLayer, mainLayer }) {
     },
   });
 
-  const interactions = [
-    {
-      Instrument: "point selection",
-      Trigger: "hover",
-      targetLayer: "nodeLayer",
-      feedbackOptions: {
-        Highlight: {
-          stroke: "#ff0000",
-          "stroke-width": 2,
-          fill: "none"
-        },
-        LinkLayers: ["linkLayer"],
-        LinkMatchMode: "field",
-        LinkFields: ["id"],
-        LinkDefaultOpacity: 0.6,
-        LinkBaseOpacity: 0.08,
-        LinkSelectedOpacity: 0.95,
-      },
-      priority: 1,
-      stopPropagation: false
-    },
-    {
-      name: "edgeLensHover",
-      instrument: "pointSelection",
-      trigger: {
-        type: "hover",
-        modifierKey: "shift",
-        priority: 1,
-        stopPropagation: false,
-      },
-      target: {
-        layer: "mainLayer",
-        pointerEvents: "viewport",
-      },
-      feedback: {
-        flow: {
-          // remove: [{ find: "SelectionTransformer" }],
-          insert: [
-            {
-              find: "SelectionService",
-              flow: [
-                {
-                  comp: "EdgeLensLayoutService",
-                  sharedVar: {
-                    edges: links,
-                  },
-                  evaluate({ edges: currentEdges = [], offsetx, offsety, x, y, layer }) {
-                    const pointerX = Number.isFinite(offsetx) ? offsetx : x;
-                    const pointerY = Number.isFinite(offsety) ? offsety : y;
-                    if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
-                      return { edges: currentEdges, controlPoint: null };
-                    }
 
-                    const controlPoint = {
-                      x: pointerX - (layer?._offset?.x || 0),
-                      y: pointerY - (layer?._offset?.y || 0),
-                    };
-                    return { edges: currentEdges, controlPoint };
-                  },
-                },
-                linkTransformer,
-              ],
-            },
-          ],
-        },
-      },
-    },
-
-
-  ];
 
   const interactions2 = [
-    {
+{
       instrument: "pointSelection",
       trigger: {
         type: "hover",
@@ -407,7 +338,7 @@ async function mountInteraction({ linkLayer, mainLayer }) {
         ],
       },
     },
-
+    
 
   ];
 

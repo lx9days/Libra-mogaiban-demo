@@ -138,6 +138,9 @@ export function normalizeSpec(rawSpec = {}, specIndex = 0, context = {}) {
     modifierKey: pickFirstDefined(
       triggerDescriptor.modifierKey
     ),
+    remnantKey: pickFirstDefined(
+      triggerDescriptor.remnantKey
+    ),
     inherit: rule?.inherit || null,
     runtimeBuilder: rule?.runtimeBuilder || null,
     compiler: rule?.compiler || null,

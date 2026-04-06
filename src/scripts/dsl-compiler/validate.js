@@ -101,12 +101,12 @@ export function validateNormalizedSpec(spec, context = {}) {
     );
   } else {
     const feedbackKeys = Object.keys(rawFeedback);
-    if (feedbackKeys.length === 0) {
+    if (feedbackKeys.length === 0 && !rawSpec.customFeedbackFlow) {
       diagnostics.push(
         addDiagnostic(context, {
           level: "error",
           code: "dsl/empty-feedback",
-          message: `feedback 至少需要包含 ${feedbackDirectFields.join("、")} 中的一个属性`,
+          message: `feedback 至少需要包含 ${feedbackDirectFields.join("、")} 中的一个属性，或者提供 customFeedbackFlow`,
           specIndex: spec.specIndex,
           instrument: spec.instrument || null,
         })

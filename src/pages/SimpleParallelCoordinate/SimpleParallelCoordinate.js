@@ -2,7 +2,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 export default async function init() {
     const container = document.getElementById("LibraPlayground");
@@ -520,39 +520,23 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         const layerName = dim.replace(/\./g, "_");
         return [
             {
-                instrument: "zoom",
-                trigger: "zoom",
-                targetLayer: `axisLayer-${layerName}`,
-                feedbackOptions: {
-                    fixRange: true,
-                    scaleY: y[dim],
-                }
-            },
-            {
-                instrument: "pan",
-                trigger: "pan",
-                targetLayer: `axisLayer-${layerName}`,
-                modifierKey: "Alt",
-                feedbackOptions: {
-                    fixRange: true,
-                    scaleY: y[dim],
-                }
-            },
-            {
-                instrument: "axis selection",
-                trigger: "brushy",
-                targetLayer: `axisLayer-${layerName}`,
-                feedbackOptions: {
-                    highlight: "#ff0000",
-                    linkLayers: [linesLayer],
-                    scale: y[dim],
-                    attrName: dim,
-                    highlightAttrValues: {
-                        stroke: "#ff0000",
-                        "stroke-width": 2
+                instrument: "axisSelection",
+                trigger: { type: "brushy" },
+                target: { layer: `axisLayer-${layerName}` },
+                feedback: {
+                    redrawFunc: {
+                        highlightAttrValues: {
+                            stroke: "#ff0000",
+                            "stroke-width": 2
+                        },
+                        baseOpacity: 1
                     },
-                    selectionMode: "intersection",
-                    baseOpacity: 1
+                    service: { selectionMode: "intersection" },
+                    context: {
+                        link: { layers: [linesLayer] },
+                        scale: y[dim],
+                        attrName: dim
+                    }
                 }
             }
         ];
@@ -560,17 +544,19 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
 
     const interactions = [
         {
-            instrument: "reordering",
-            trigger: "drag",
-            targetLayer: "headersLayer",
-            feedbackOptions: {
-                direction: "x",
-                redrawRef: redrawParallel,
-                contextRef: {
+            instrument: "reorder",
+            trigger: { type: "drag" },
+            target: { layer: "headersLayer" },
+            feedback: {
+                redrawFunc: redrawParallel,
+                service: { reorderDirection: "x" },
+                feedforward: {
+                    sourceLayer: Object.values(axisLayers),
+                    // offset: { x: MARGIN.left + AXIS_AREA_OFFSET_X, y: 0 }
+                },
+                context: {
                     names: dimensions,
-                    scales: { x },
-                    copyFrom: Object.values(axisLayers),
-                    offset: { x: MARGIN.left + AXIS_AREA_OFFSET_X, y: 0 }
+                    scales: { x }
                 }
             }
         },
@@ -583,24 +569,9 @@ async function mountInteraction(linesLayer, axisLayers, headersLayer, parallelDa
         layersByName[`axisLayer-${layerName}`] = axisLayers[dim];
     });
 
-    await compileInteractionsDSL(interactions, {
+    await compileDSL(interactions, {
         layersByName
-    });
-
-    Object.keys(axisLayers).forEach(dim => {
-        const axisLayer = axisLayers[dim];
-        if (!axisLayer) return;
-
-        LibraManager.buildGeometricTransformer(axisLayer, {
-            scaleY: y[dim],
-            redraw: (sX, sY) => {
-                if (sY) {
-                    y[dim] = sY;
-                    redrawParallel(x.domain(), x);
-                }
-            }
-        });
-    });
+    }, { execute: true });
 
     await Libra.createHistoryTrack();
 }

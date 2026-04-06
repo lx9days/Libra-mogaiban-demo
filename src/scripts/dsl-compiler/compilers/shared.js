@@ -106,6 +106,7 @@ export function createBaseBuildContext(spec, context = {}) {
   };
 
   if (spec.modifierKey !== undefined) buildContext.modifierKey = spec.modifierKey;
+  if (spec.remnantKey !== undefined) buildContext.remnantKey = spec.remnantKey;
   if (spec.priority !== undefined) buildContext.priority = spec.priority;
   if (spec.stopPropagation !== undefined) buildContext.stopPropagation = spec.stopPropagation;
 

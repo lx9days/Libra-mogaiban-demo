@@ -27,6 +27,8 @@ export function compileDSL(specList = [], rawContext = {}, options = {}) {
     const diagnostics = validateNormalizedSpec(spec, context);
     if (!hasBlockingDiagnostics(diagnostics)) {
       validSpecs.push(spec);
+    } else {
+      console.error("compileDSL validation failed for spec:", spec, diagnostics);
     }
   });
 
@@ -43,6 +45,9 @@ export function compileDSL(specList = [], rawContext = {}, options = {}) {
   });
 
   context.compilePlans = compilePlans;
+
+  console.log("compileDSL validSpecs:", validSpecs);
+  console.log("compileDSL compilePlans:", compilePlans);
 
   let executions = [];
   if (options.execute === true) {

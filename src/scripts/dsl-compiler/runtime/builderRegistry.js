@@ -47,6 +47,12 @@ export function createRuntimeBuilderRegistry(extraBuilders = {}) {
     "axis-selection": createLayerBuilder((layer, buildContext) =>
       LibraManager.buildAxisSelectionInstrument(layer, buildContext)
     ),
+    "pan": createLayerBuilder((layer, buildContext) =>
+      LibraManager.buildPanInstrument(layer, buildContext)
+    ),
+    "zoom": createLayerBuilder((layer, buildContext) =>
+      LibraManager.buildGeometricZoomInstrument(layer, buildContext)
+    ),
     "view-pan": createLayerBuilder((layer, buildContext) =>
       LibraManager.buildViewTransformPanInstrument(layer, buildContext)
     ),

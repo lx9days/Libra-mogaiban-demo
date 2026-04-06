@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 10, right: 10, bottom: 50, left: 50 };
 const WIDTH = 800 - MARGIN.left - MARGIN.right;
@@ -228,7 +228,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
             .attr("cx", (d) => lx(d[xiField]))
             .attr("cy", (d) => ly(d[yiField]))
             .attr("fill", (d) => color(d.class))
-            .attr("fill-opacity", 0.7);
+            .attr("fill-opacity", 0.3);
         }
 
         const axesG = cell.append("g");
@@ -245,6 +245,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 
       cellLayer.__drawCell = drawCell;
       cellLayer.__panZoomOnRedraw = (sX, sY) => {
+        console.log(`panZoomOnRedraw triggered for layer ${layerName}`, { sX: sX?.domain(), sY: sY?.domain() });
         const currentDrawCell = cellLayer.__drawCell;
         if (typeof currentDrawCell === "function") currentDrawCell(sX, sY);
         if (panZoomLinker) {
@@ -262,24 +263,25 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
       if (!attached) {
         const panZoomInteractions = [
           {
-            Trigger: "pan",
-            targetLayer: layerName,
-            priority: 3,
-            modifierKey: "ctrl",
-            stopPropagation: true
+            instrument: "pan",
+            trigger: { type: "pan", priority: 3, modifierKey: "ctrl", stopPropagation: true },
+            target: { layer: layerName },
+            feedback: {
+              context: { scaleX: localX, scaleY: localY, fixRange: true }
+            }
           },
           {
-            Trigger: "zoom",
-            targetLayer: layerName,
-            priority: 4,
-            modifierKey: "ctrl",
-            stopPropagation: true
+            instrument: "zoom",
+            trigger: { type: "zoom", priority: 4, modifierKey: "ctrl", stopPropagation: true },
+            target: { layer: layerName },
+            feedback: {
+              context: { scaleX: localX, scaleY: localY, fixRange: true }
+            }
           }
         ];
-        compileInteractionsDSL(panZoomInteractions, {
-          layersByName: { [layerName]: cellLayer },
-          scales: { x: localX, y: localY }
-        });
+        compileDSL(panZoomInteractions, {
+          layersByName: { [layerName]: cellLayer }
+        }, { execute: true });
         const geometricTransformer = LibraManager.buildGeometricTransformer(cellLayer, {
           scaleX: localX,
           scaleY: localY,
@@ -351,50 +353,58 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
 
   const interactions = [
     {
-      Instrument: "reordering",
-      Trigger: "Drag",
-      targetLayer: "xAxisLayer",
-      Direction: "x",
-      feedbackOptions: {
-        redrawRef: redrawSPLOM,
-        contextRef: {
-          names,
-          scales: { x: scaleX, y: scaleY },
-          copyFrom: Object.values(cellLayers),
+      instrument: "reorder",
+      trigger: { type: "drag" },
+      target: { layer: "xAxisLayer" },
+      feedback: {
+        redrawFunc: redrawSPLOM,
+        service: {
+          reorderDirection: "x"
+        },
+        feedforward: {
+          sourceLayer: Object.values(cellLayers),
           offset: { x: MARGIN.left, y: MARGIN.top }
+        },
+        context: {
+          names,
+          scales: { x: scaleX, y: scaleY }
         }
       }
     },
     {
-      Instrument: "reordering",
-      Trigger: "Drag",
-      targetLayer: "yAxisLayer",
-      Direction: "y",
-      feedbackOptions: {
-        redrawRef: redrawSPLOM,
-        contextRef: {
-          names,
-          scales: { x: scaleX, y: scaleY },
-          copyFrom: Object.values(cellLayers),
+      instrument: "reorder",
+      trigger: { type: "drag" },
+      target: { layer: "yAxisLayer" },
+      feedback: {
+        redrawFunc: redrawSPLOM,
+        service: {
+          reorderDirection: "y"
+        },
+        feedforward: {
+          sourceLayer: Object.values(cellLayers),
           offset: { x: MARGIN.left, y: MARGIN.top }
+        },
+        context: {
+          names,
+          scales: { x: scaleX, y: scaleY }
         }
       }
     }
   ];
   const pointSelectionInteractions = [
     // {
-    //   Instrument: "point selection",
-    //   Trigger: "hover",
-    //   targetLayer: Object.keys(cellLayers),
-    //   feedbackOptions: {
-    //     Highlight: "#ff0000",
-    //     Tooltip: {
-    //       fields: ["class"],
-    //       offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
+    //   instrument: "pointSelection",
+    //   trigger: { type: "hover" },
+    //   target: { layer: Object.keys(cellLayers), stopPropagation: true, priority: 0 },
+    //   feedback: {
+    //     redrawFunc: {
+    //       highlight: "#ff0000",
+    //       tooltip: {
+    //         fields: ["class"],
+    //         offset: { x: -20 - MARGIN.left, y: -MARGIN.top }
+    //       }
     //     }
-    //   },
-    //   priority: 0,
-    //   stopPropagation: true
+    //   }
     // }
   ];
   const groupSelectionInteractions = Object.keys(cellLayers)
@@ -408,31 +418,33 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       const sy = yScales[yiField];
       if (!sx || !sy) return null;
       return {
-        Instrument: "group selection",
-        Trigger: "brush",
-        targetLayer: layerName,
-        feedbackOptions: {
-          Highlight: "#00ff1aff",
-          RemnantKey: "Shift",
-          ScaleX: sx,
-          ScaleY: sy,
-          AttrName: [xiField, yiField],
-
-          LinkLayers: Object.values(cellLayers),
-
-          LinkDefaultOpacity: 0.7,
-          LinkBaseOpacity: 0.08,
-          LinkSelectedOpacity: 0.95,
-          LinkStrokeWidth: 1
-        },
-        priority: 2,
-        stopPropagation: true
+        instrument: "groupSelection",
+        trigger: { type: "brush", remnantKey: "shift" },
+        target: { layer: layerName, stopPropagation: true, priority: 2 },
+        feedback: {
+          redrawFunc: {
+            highlight: { color: (d) => d ? color(d["class"]) : "#00ff1aff" },
+          },
+          context: {
+            scaleX: sx,
+            scaleY: sy,
+            attrName: [xiField, yiField],
+            link: {
+              layers: Object.values(cellLayers),
+              matchMode: "field",
+              defaultOpacity: 0.7,
+              baseOpacity: 0.08,
+              selectedOpacity: 0.95,
+              strokeWidth: 1
+            }
+          }
+        }
       };
     })
     .filter(Boolean);
-  await compileInteractionsDSL(interactions.concat(pointSelectionInteractions, groupSelectionInteractions), {
+  await compileDSL(interactions.concat(pointSelectionInteractions, groupSelectionInteractions), {
     layersByName: { xAxisLayer, yAxisLayer, ...cellLayers }
-  });
+  }, { execute: true });
 
   await Libra.createHistoryTrack();
 }
