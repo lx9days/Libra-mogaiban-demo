@@ -1,6 +1,5 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import { compileDSL } from "../../scripts/dsl-compiler";
 
 // global constants
 const START_YEAR = 1980;
@@ -27,7 +26,7 @@ function renderStaticVisualization() {
   if (container) {
     container.innerHTML = "";
   }
-
+  
   // append the svg object to the body of the page
   const svg = d3
     .select("#LibraPlayground")
@@ -378,103 +377,80 @@ async function mountInteraction(layer) {
       },
     ],
   };
-  const interactions = [
-    {
-      instrument: "pointSelection",
-      trigger: {
-        type: "hover",
-      },
-      target: {
-        layer: "mainLayer",
-      },
-      feedback: {},
-      customFeedbackFlow: {
-        remove: [{ find: "SelectionTransformer" }],
-        insert: [useTraceTransformerFlow, useCountryFlow],
-      },
+
+  Libra.Interaction.build({
+    inherit: "HoverInstrument",
+    layers: [layer],
+    sharedVar: {
+      data: data,
     },
-    {
-      instrument: "move",
-      trigger: { type: "drag" },
-      target: { layer: "mainLayer" },
-      feedback: {},
-      customFeedbackFlow: {
-        remove: [{ find: "SelectionTransformer" }],
-        insert: [
-          useTraceTransformerFlow,
-          useCountryFlow,
+    remove: [{ find: "SelectionTransformer" }],
+    insert: [useTraceTransformerFlow, useCountryFlow],
+  }).on(
+    "click",
+    Libra.Command.initialize("RecordInterpolatedYear", {
+      async execute() {},
+    })
+  );
+
+  Libra.Interaction.build({
+    inherit: "DragInstrument",
+    layers: [layer],
+    remove: [{ find: "SelectionTransformer" }],
+    insert: [
+      useTraceTransformerFlow,
+      useCountryFlow,
+      {
+        find: "SelectionService",
+        flow: [
           {
-            find: "SelectionService",
-            flow: [
-              {
-                comp: "NearestPointService",
-                sharedVar: { layer: layer.getLayerFromQueue("transientLayer") },
-                evaluate(options) {
-                  const { layer, offsetx, offsety } = options;
-                  const point = [offsetx, offsety];
-                  if (layer && offsetx && offsety) {
-                    const year = d3
-                      .select(layer.getGraphic())
-                      .select(".trace")
-                      .selectAll("text")
-                      .data();
-                    const trace = d3
-                      .select(layer.getGraphic())
-                      .select("path")
-                      .attr("d");
-                    if (!trace) return null; // Add null check for trace
-                    const poly = trace
-                      .slice(1)
-                      .split("L")
-                      .map((pStr) => pStr.split(",").map((num) => parseFloat(num)));
-                    return {
-                      data: year,
-                      interpolatedNum: interpolateNNPointFromPoly(
-                        [point[0] - layer._offset.x, point[1] - layer._offset.y],
-                        poly
-                      ),
-                    };
-                  }
-                  return null;
-                },
-              },
-              {
-                comp: "InterpolationService",
-                sharedVar: {
-                  data: data,
-                  field: "year",
-                  hubId: "main-vis-hub",
-                  sourceId: "interpolation-result"
-                },
-              },
-              {
-                comp: "MainTransformer",
-              },
-            ],
+            comp: "NearestPointService",
+            sharedVar: { layer: layer.getLayerFromQueue("transientLayer") },
+            evaluate(options) {
+              const { layer, offsetx, offsety } = options;
+              const point = [offsetx, offsety];
+              if (layer && offsetx && offsety) {
+                const year = d3
+                  .select(layer.getGraphic())
+                  .select(".trace")
+                  .selectAll("text")
+                  .data();
+                const trace = d3
+                  .select(layer.getGraphic())
+                  .select("path")
+                  .attr("d");
+                if (!trace) return null; // Add null check for trace
+                const poly = trace
+                  .slice(1)
+                  .split("L")
+                  .map((pStr) => pStr.split(",").map((num) => parseFloat(num)));
+                return {
+                  data: year,
+                  interpolatedNum: interpolateNNPointFromPoly(
+                    [point[0] - layer._offset.x, point[1] - layer._offset.y],
+                    poly
+                  ),
+                };
+              }
+              return null;
+            },
+          },
+          {
+            comp: "InterpolationService",
+            sharedVar: {
+              data: data,
+              field: "year",
+              hubId: "main-vis-hub",
+              sourceId: "interpolation-result"
+            },
+          },
+          {
+            comp: "MainTransformer",
           },
         ],
-      }
-    }
-  ];
-  
-  const layersByName = {
-    mainLayer: layer,
-  };
-
-  const compiled = await compileDSL(interactions, { layersByName }, { execute: true });
-
-  if (compiled.executions && compiled.executions.length > 0) {
-    const hoverExecution = compiled.executions[0];
-    if (hoverExecution && hoverExecution.on) {
-      hoverExecution.on(
-        "click",
-        Libra.Command.initialize("RecordInterpolatedYear", {
-          async execute() { },
-        })
-      );
-    }
-  }
-
+      },
+    ],
+  });
   if (Libra.createHistoryTrack) {
     await Libra.createHistoryTrack();
   }

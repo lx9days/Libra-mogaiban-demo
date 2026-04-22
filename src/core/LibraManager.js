@@ -114,17 +114,7 @@ export default class LibraManager {
             if (context.customFeedbackFlow.override) buildOptions.override = context.customFeedbackFlow.override;
         }
 
-        // 添加断点，方便检查 buildAPI 的输入参数
-        if (context.customFeedbackFlow) {
-            console.log('--- breakpoint before buildAPI ---');
-            console.log('layer:', layer);
-            console.log('context:', context);
-            console.log('buildOptions:', buildOptions);
-            // eslint-disable-next-line no-debugger
-            // debugger;
-        }
-
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
     static buildGroupSelectionInstrument(layer, context) {
         if (!this.checkInput(layer, context)) return;
@@ -227,8 +217,7 @@ export default class LibraManager {
             if (context.customFeedbackFlow.override) buildOptions.override = context.customFeedbackFlow.override;
         }
 
-        console.log("buildGroupSelectionInstrument buildOptions:", buildOptions);
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
 
     static __ensureViewTransformState(context = {}) {
@@ -594,7 +583,7 @@ export default class LibraManager {
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
 
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
 
     static buildAxisSelectionInstrument(layer, context) {
@@ -1041,7 +1030,7 @@ export default class LibraManager {
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
 
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
 
     static getOrCreateLayer(svg, className, width, height, x = 0, y = 0) {
@@ -1110,16 +1099,16 @@ export default class LibraManager {
 
                     let pickX = startx;
                     if (targetColumn) {
-                        pickX = scaleX(targetColumn);
+                        pickX = startx + (scaleX(targetColumn) - startOffsetX);
                     }
 
                     const pickingOptions = {
                         baseOn: 0,
                         type: 3,
                         x: pickX,
-                        y: 0,
+                        y: -10000,
                         width: bandwidth,
-                        height: 2000
+                        height: 20000
                     };
 
                     let rectSelection = [];
@@ -1158,15 +1147,15 @@ export default class LibraManager {
 
                     let pickY = starty;
                     if (targetRow) {
-                        pickY = scaleY(targetRow);
+                        pickY = starty + (scaleY(targetRow) - startOffsetY);
                     }
 
                     const pickingOptions = {
                         baseOn: 0,
                         type: 3,
-                        x: 0,
+                        x: -10000,
                         y: pickY,
-                        width: 2000,
+                        width: 20000,
                         height: bandwidth
                     };
 
@@ -1383,7 +1372,7 @@ export default class LibraManager {
                                     containerOffset.y = combinedMatrix.f;
                                 }
                             } catch (e) {
-                                console.warn("Matrix calculation failed", e);
+                                // Ignore transient matrix calculation failures during layout fallback.
                             }
 
                             // 可选：添加一些样式区别，例如半透明
@@ -1561,7 +1550,6 @@ export default class LibraManager {
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
 
-        console.log("buildReorderInstrument buildOptions:", buildOptions);
         Libra.Interaction.build(buildOptions);
     }
 
@@ -1595,14 +1583,17 @@ export default class LibraManager {
         if (trigger !== 'zoom') return;
 
         const sharedVar = {};
+        const isSemanticZoom = context.semantic === true;
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
+        if (context.semantic !== undefined) sharedVar.semantic = context.semantic;
+        if (context.scaleLevels !== undefined) sharedVar.scaleLevels = context.scaleLevels;
         if (context.fixRange !== undefined) sharedVar.fixRange = context.fixRange;
         if (context.scaleX) sharedVar.scaleX = context.scaleX;
         if (context.scaleY) sharedVar.scaleY = context.scaleY;
 
         const buildOptions = {
-            inherit: "GeometricZoomInstrument",
+            inherit: isSemanticZoom ? "SemanticZoomInstrument" : "GeometricZoomInstrument",
             layers: [layer],
             sharedVar: sharedVar,
         };
@@ -1676,7 +1667,6 @@ export default class LibraManager {
     static buildExcentricLabelingInstrument(layer, context = {}) {
         if (!layer) return;
         const { stateKey, state } = LibraManager.__ensureExcentricLensState(layer, context);
-
         if (!LibraManager.__excentricLabelingInstrumentRegistered) {
             Libra.Interaction.build({
                 inherit: "HoverInstrument",
@@ -1728,6 +1718,16 @@ export default class LibraManager {
                                         event && event.changedTouches && event.changedTouches[0]
                                             ? event.changedTouches[0]
                                             : event;
+                                            
+                                    console.log("[lens-pick] VERIFY LAYER in evaluate:", {
+                                        passedLayerName: layer?.name,
+                                        passedLayerIsMainLayer: layer?.name === "mainLayer",
+                                        hasParent: !!layer?._parent,
+                                        parentLayerName: layer?._parent?.name,
+                                        isSelectionLayer: layer?.name === "selectionLayer",
+                                        isLabelLayer: layer?.name === "labelLayer"
+                                    });
+                                            
                                     if (lensState && pointerEvent) {
                                         if (
                                             Number.isFinite(pointerEvent.clientX) &&
@@ -1759,16 +1759,66 @@ export default class LibraManager {
                                     const [layerX, layerY] = d3.pointer(event, layer.getGraphic());
                                     const lensRadius =
                                         lensState && Number.isFinite(lensState.r) ? lensState.r : r;
-                                    const rootBBox = layer.getContainerGraphic().getBoundingClientRect();
-                                    const layerBBox =
-                                        layer.getGraphic().transform.baseVal.consolidate()?.matrix ?? {
-                                            a: 0,
-                                            b: 0,
-                                            c: 0,
-                                            d: 0,
-                                            e: 0,
-                                            f: 0,
+                                    
+                                    // CRITICAL FIX: The layer passed in here might be the LabelLayer or SelectionLayer
+                                    // which doesn't have the original data transform, or might even be missing 'name' if not properly initialized.
+                                    // We MUST use the target layer (the host layer) to calculate inverse CTM correctly, 
+                                    // because the screen elements (objs) belong to the target layer.
+                                    let hostLayer = layer;
+                                    if (layer && layer._parent) {
+                                        hostLayer = layer._parent;
+                                    }
+                                    
+                                    const layerGraphic = hostLayer.getGraphic();
+                                    const svgRoot =
+                                        typeof layerGraphic?.ownerSVGElement?.createSVGPoint === "function"
+                                            ? layerGraphic.ownerSVGElement
+                                            : null;
+                                    const layerScreenMatrix =
+                                        typeof layerGraphic?.getScreenCTM === "function"
+                                            ? layerGraphic.getScreenCTM()
+                                            : null;
+                                            
+                                    console.log("[lens-pick] layer info:", {
+                                        originalLayerName: layer.name,
+                                        hostLayerName: hostLayer.name,
+                                        graphicNodeName: layerGraphic?.nodeName,
+                                        hasScreenCTM: !!layerScreenMatrix,
+                                        ctm: layerScreenMatrix ? {
+                                            a: layerScreenMatrix.a,
+                                            b: layerScreenMatrix.b,
+                                            c: layerScreenMatrix.c,
+                                            d: layerScreenMatrix.d,
+                                            e: layerScreenMatrix.e,
+                                            f: layerScreenMatrix.f
+                                        } : null
+                                    });
+
+                                    const layerInverseMatrix =
+                                        layerScreenMatrix && typeof layerScreenMatrix.inverse === "function"
+                                            ? layerScreenMatrix.inverse()
+                                            : null;
+
+                                    function projectScreenPointToLayer(screenX, screenY) {
+                                        if (svgRoot && layerInverseMatrix) {
+                                            const point = svgRoot.createSVGPoint();
+                                            point.x = screenX;
+                                            point.y = screenY;
+                                            const transformed = point.matrixTransform(layerInverseMatrix);
+                                            return {
+                                                x: transformed.x,
+                                                y: transformed.y,
+                                            };
+                                        }
+                                        const [fallbackX, fallbackY] = d3.pointer(
+                                            { clientX: screenX, clientY: screenY },
+                                            layerGraphic
+                                        );
+                                        return {
+                                            x: fallbackX,
+                                            y: fallbackY,
                                         };
+                                    }
 
                                     function getElementsInRadius(objs, center, radius) {
                                         const radiusSquare = radius * radius;
@@ -1782,10 +1832,12 @@ export default class LibraManager {
                                                 return;
                                             }
                                             const bbox = screenElem.getBoundingClientRect();
-                                            const x =
-                                                bbox.x + (bbox.width >> 1) - rootBBox.x - layerBBox.e;
-                                            const y =
-                                                bbox.y + (bbox.height >> 1) - rootBBox.y - layerBBox.f;
+                                            const projected = projectScreenPointToLayer(
+                                                bbox.x + bbox.width / 2,
+                                                bbox.y + bbox.height / 2
+                                            );
+                                            const x = projected.x;
+                                            const y = projected.y;
                                             const dx = x - center.x;
                                             const dy = y - center.y;
                                             if (dx * dx + dy * dy > radiusSquare) return;
@@ -1812,10 +1864,12 @@ export default class LibraManager {
                                                 return;
                                             }
                                             const bbox = screenElem.getBoundingClientRect();
-                                            const x =
-                                                bbox.x + (bbox.width >> 1) - rootBBox.x - layerBBox.e;
-                                            const y =
-                                                bbox.y + (bbox.height >> 1) - rootBBox.y - layerBBox.f;
+                                            const projected = projectScreenPointToLayer(
+                                                bbox.x + bbox.width / 2,
+                                                bbox.y + bbox.height / 2
+                                            );
+                                            const x = projected.x;
+                                            const y = projected.y;
                                             const dx = x - center.x;
                                             const dy = y - center.y;
                                             if (dx * dx + dy * dy > radiusSquare) return;
@@ -1824,6 +1878,16 @@ export default class LibraManager {
                                                 return;
                                             }
                                             const color = colorAccessorInner(screenElem);
+                                            
+                                            console.log("[lens-pick] getRawInfos element coords:", {
+                                                labelName,
+                                                bboxCenter: {
+                                                    x: bbox.x + bbox.width / 2,
+                                                    y: bbox.y + bbox.height / 2
+                                                },
+                                                projected: { x, y }
+                                            });
+
                                             rawInfos.push({
                                                 x,
                                                 y,
@@ -1837,48 +1901,64 @@ export default class LibraManager {
                                     }
 
                                     function computeSizeOfLabels(rawInfos, root) {
-                                        const tempInfoAttr = "labelText";
-                                        const tempClass = "temp" + String(new Date().getMilliseconds());
-                                        const tempMountPoint = root.append("svg:g").attr("class", tempClass);
-                                        rawInfos.forEach(
-                                            (rawInfo) =>
-                                                (rawInfo[tempInfoAttr] = tempMountPoint
-                                                    .append("text")
-                                                    .attr("opacity", "0")
-                                                    .attr("x", -Number.MAX_SAFE_INTEGER)
-                                                    .attr("y", -Number.MAX_SAFE_INTEGER)
-                                                    .text(rawInfo.labelName)
-                                                    .node())
-                                        );
-                                        root.node().appendChild(tempMountPoint.node());
+                                        const canvas =
+                                            computeSizeOfLabels._canvas ||
+                                            (computeSizeOfLabels._canvas = document.createElement("canvas"));
+                                        const ctx = canvas.getContext("2d");
+                                        const fontSize = 12;
+                                        const rootStyle =
+                                            typeof window !== "undefined" && root?.node
+                                                ? window.getComputedStyle(root.node())
+                                                : null;
+                                        const fontFamily =
+                                            rootStyle?.fontFamily && rootStyle.fontFamily !== "none"
+                                                ? rootStyle.fontFamily
+                                                : "sans-serif";
+
+                                        if (ctx) {
+                                            ctx.font = `${fontSize}px ${fontFamily}`;
+                                        }
+
                                         rawInfos.forEach((rawInfo) => {
-                                            const labelBBox = rawInfo[tempInfoAttr].getBBox();
-                                            rawInfo.labelWidth = labelBBox.width;
+                                            const measuredWidth =
+                                                ctx && typeof rawInfo.labelName === "string"
+                                                    ? ctx.measureText(rawInfo.labelName).width
+                                                    : 0;
+                                            rawInfo.labelWidth = Math.max(Math.ceil(measuredWidth), 1);
                                             rawInfo.labelHeight = 21;
                                         });
-                                        root.select("." + tempClass).remove();
-                                        rawInfos.forEach((rawInfo) => delete rawInfo[tempInfoAttr]);
                                     }
 
                                     const sourceObjects = (() => {
+                                        // Re-pick with the current dynamic radius so zoom updates
+                                        // immediately affect label/filter scope.
                                         if (
                                             pointerEvent &&
                                             typeof layer?.picking === "function" &&
                                             Number.isFinite(pointerEvent.clientX) &&
                                             Number.isFinite(pointerEvent.clientY)
                                         ) {
-                                            return (
+                                            const repicked =
                                                 layer.picking({
                                                     baseOn: 0,
                                                     type: 2,
                                                     x: pointerEvent.clientX,
                                                     y: pointerEvent.clientY,
                                                     r: lensRadius,
-                                                }) || []
-                                            );
+                                                }) || [];
+                                            if (Array.isArray(repicked) && repicked.length > 0) {
+                                                return repicked;
+                                            }
                                         }
                                         return Array.isArray(circles) ? circles : [];
                                     })();
+                                    console.log("[lens-pick]", {
+                                        // center: {
+                                            x: layerX,
+                                            y: layerY,
+                                        // },
+                                        radius: lensRadius,
+                                    });
                                     const elementsInRadius = getElementsInRadius(
                                         sourceObjects,
                                         { x: layerX, y: layerY },
@@ -2049,7 +2129,9 @@ export default class LibraManager {
                                         { x: layerX, y: layerY },
                                         lensRadius
                                     );
-                                    if (!rawInfos.length) return [];
+                                    if (!rawInfos.length) {
+                                        return [];
+                                    }
                                     computeSizeOfLabels(rawInfos, d3.select(layer.getGraphic()));
 
                                     const compute = excentricLabeling()
@@ -2057,6 +2139,12 @@ export default class LibraManager {
                                         .horizontallyCoherent(true)
                                         .maxLabelsNum(maxLabelsNum);
                                     const result = compute(rawInfos, layerX, layerY);
+                                    
+                                    console.log("[lens-pick] computed layout lines:", result.map(r => ({
+                                        labelName: r.rawInfo.labelName,
+                                        startPoint: r.controlPoints[0]
+                                    })));
+                                    
                                     return result;
                                 },
                             },
@@ -2115,6 +2203,19 @@ export default class LibraManager {
 
                                     const result = transformer.getSharedVar("result");
                                     const root = d3.select(layer.getGraphic());
+                                    
+                                    // Debug DOM layout differences
+                                    const mainLayer = layer.getLayerFromQueue("mainLayer");
+                                    if (mainLayer && mainLayer.getGraphic() && layer.getGraphic()) {
+                                        const mainRect = mainLayer.getGraphic().getBoundingClientRect();
+                                        const labelRect = layer.getGraphic().getBoundingClientRect();
+                                        console.log("[lens-pick] RENDER OFFSET CHECK:", {
+                                            mainRect: { x: mainRect.x, y: mainRect.y, w: mainRect.width, h: mainRect.height },
+                                            labelRect: { x: labelRect.x, y: labelRect.y, w: labelRect.width, h: labelRect.height },
+                                            diff: { dx: labelRect.x - mainRect.x, dy: labelRect.y - mainRect.y }
+                                        });
+                                    }
+                                    
                                     root.selectAll("*").remove();
                                     if (result && result.length > 0) {
                                         renderLines(root, result);
@@ -2261,6 +2362,8 @@ export default class LibraManager {
         if (context.syntheticEvent !== undefined) sharedVar.syntheticEvent = context.syntheticEvent;
         if (Number.isFinite(context.gestureMoveDelay)) sharedVar.gestureMoveDelay = context.gestureMoveDelay;
         sharedVar.lensState = state;
+        const compareSource = context.__lensCompareSource || "unknown";
+        state.compareSource = compareSource;
         if (typeof sharedVar.syntheticEvent === "string") state.syntheticEvent = String(sharedVar.syntheticEvent).toLowerCase();
         if (Number.isFinite(sharedVar.gestureMoveDelay)) state.moveDelay = Number(sharedVar.gestureMoveDelay);
 
@@ -2377,7 +2480,9 @@ export default class LibraManager {
 
     static __resolveBrushContext(context = {}) {
         const brushEntry = context?.brushEntry ?? context?.targetInstrument ?? null;
-        const brushInstrument = brushEntry?.instrument ?? context?.brushInstrument ?? null;
+        let brushInstrument = brushEntry?.instance ?? brushEntry?.instrument ?? context?.brushInstrument ?? null;
+        if (Array.isArray(brushInstrument) && brushInstrument.length > 0) brushInstrument = brushInstrument[0];
+        
         const hostLayer =
             brushEntry?.hostLayer ??
             brushEntry?.layer ??
@@ -2392,7 +2497,9 @@ export default class LibraManager {
     }
 
     static __getBrushRect(context = {}) {
-        const { service } = LibraManager.__resolveBrushContext(context);
+        let { service } = LibraManager.__resolveBrushContext(context);
+        if (!service) return null;
+        if (Array.isArray(service) && service.length > 0) service = service[0];
         if (!service) return null;
 
         let x = Number(service.getSharedVar("offsetx"));
@@ -2434,8 +2541,8 @@ export default class LibraManager {
 
     static __clampBrushRect(rect, hostLayer) {
         if (!rect || !hostLayer) return rect;
-        const layerWidth = Number(hostLayer._width) || 0;
-        const layerHeight = Number(hostLayer._height) || 0;
+        const layerWidth = Number(hostLayer._width) || Number(hostLayer.options?.width) || hostLayer.getGraphic()?.getBoundingClientRect()?.width || 0;
+        const layerHeight = Number(hostLayer._height) || Number(hostLayer.options?.height) || hostLayer.getGraphic()?.getBoundingClientRect()?.height || 0;
         const width = Math.max(1, Math.min(rect.width, layerWidth || rect.width));
         const height = Math.max(1, Math.min(rect.height, layerHeight || rect.height));
         const maxX = Math.max(0, (layerWidth || width) - width);
@@ -2449,8 +2556,10 @@ export default class LibraManager {
     }
 
     static async __applyBrushRect(context = {}, nextRect) {
-        const { service, hostLayer, brushInstrument } = LibraManager.__resolveBrushContext(context);
+        let { service, hostLayer, brushInstrument } = LibraManager.__resolveBrushContext(context);
         if (!service || !hostLayer || !nextRect) return;
+        if (Array.isArray(service) && service.length > 0) service = service[0];
+        if (!service) return;
 
         const rect = LibraManager.__clampBrushRect(nextRect, hostLayer);
         const bbox = hostLayer.getGraphic()?.getBoundingClientRect?.() ?? { left: 0, top: 0 };
@@ -2476,6 +2585,10 @@ export default class LibraManager {
 
         if (brushInstrument?.setSharedVar) {
             brushInstrument.setSharedVar("selectionHistory", []);
+        }
+
+        if (hostLayer && typeof hostLayer.postUpdate === "function") {
+            hostLayer.postUpdate();
         }
     }
 
@@ -2580,7 +2693,7 @@ export default class LibraManager {
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
 
     static buildBrushZoomInstrument(layer, context = {}) {
@@ -2607,9 +2720,9 @@ export default class LibraManager {
                 action: "wheel",
                 events: ["wheel", "mousewheel"],
                 transition: [["start", "running"], ["running", "running"]],
-                sideEffect: async ({ event, layer: activeLayer, instrument }) => {
+                sideEffect: async ({ event, layer: activeLayer }) => {
                     const inputEvent = event?.changedTouches?.[0] ?? event;
-                    if (!LibraManager.__checkModifier(inputEvent, instrument.getSharedVar("modifierKey"))) {
+                    if (!LibraManager.__checkModifier(inputEvent, context.modifierKey)) {
                         return;
                     }
                     if (inputEvent && typeof inputEvent.preventDefault === "function") {
@@ -2617,7 +2730,7 @@ export default class LibraManager {
                     }
                     if (!LibraManager.__brushLayerHit(activeLayer, inputEvent)) return;
 
-                    const brushContext = { brushEntry: instrument.getSharedVar("brushEntry") };
+                    const brushContext = { brushEntry: context.brushEntry };
                     const { hostLayer } = LibraManager.__resolveBrushContext(brushContext);
                     const rect = LibraManager.__getBrushRect(brushContext);
                     if (!hostLayer || !rect) return;
@@ -2631,8 +2744,10 @@ export default class LibraManager {
                     if (!rawDelta) return;
 
                     const factor = rawDelta < 0 ? 1 + scaleStep : Math.max(0.1, 1 - scaleStep);
-                    const maxWidth = Number.isFinite(context.maxWidth) ? context.maxWidth : hostLayer._width ?? rect.width;
-                    const maxHeight = Number.isFinite(context.maxHeight) ? context.maxHeight : hostLayer._height ?? rect.height;
+                    const layerW = Number(hostLayer._width) || Number(hostLayer.options?.width) || hostLayer.getGraphic()?.getBoundingClientRect()?.width || rect.width;
+                    const layerH = Number(hostLayer._height) || Number(hostLayer.options?.height) || hostLayer.getGraphic()?.getBoundingClientRect()?.height || rect.height;
+                    const maxWidth = Number.isFinite(context.maxWidth) ? context.maxWidth : layerW;
+                    const maxHeight = Number.isFinite(context.maxHeight) ? context.maxHeight : layerH;
 
                     const nextWidth = Math.max(minWidth, Math.min(maxWidth, rect.width * factor));
                     const nextHeight = Math.max(minHeight, Math.min(maxHeight, rect.height * factor));
@@ -2673,7 +2788,7 @@ export default class LibraManager {
         if (context.priority !== undefined) buildOptions.priority = context.priority;
         if (context.Priority !== undefined) buildOptions.priority = context.Priority;
         if (context.stopPropagation !== undefined) buildOptions.stopPropagation = context.stopPropagation;
-        Libra.Interaction.build(buildOptions);
+        return Libra.Interaction.build(buildOptions);
     }
 
     static buildGeometricTransformer(layer, context) {

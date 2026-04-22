@@ -1,33 +1,24 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
-const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
-const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
-const DEFAULT_HEIGHT = 380 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
+export default async function init() {
+  const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
+  const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
+  const DEFAULT_HEIGHT = 340 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
 
-export async function setupIrisScatter(options = {}) {
-  const {
-    fieldX = "sepal_length",
-    fieldY = "petal_length",
-    fieldColor = "class",
-    margin = DEFAULT_MARGIN,
-    width = DEFAULT_WIDTH,
-    height = DEFAULT_HEIGHT,
-    pointRadius = 5,
-    pointFill = () => "white",
-    pointStroke = (d, { color }) => color(d[fieldColor]),
-    pointFillOpacity = 1,
-    pointStrokeWidth = 1,
-  } = options;
+  const g = typeof window !== "undefined" ? window : (typeof self !== "undefined" ? self : {});
+  const fieldX = g.FIELD_X || "Horsepower";
+  const fieldY = g.FIELD_Y || "Miles_per_Gallon";
+  const fieldColor = g.FIELD_COLOR || "Origin";
 
-  const raw = await d3.csv("./public/data/bezdekIris.csv");
-  const data = raw
-    .map((d) => ({
-      ...d,
-      [fieldX]: Number(d[fieldX]),
-      [fieldY]: Number(d[fieldY]),
-    }))
-    .filter((d) => Number.isFinite(d[fieldX]) && Number.isFinite(d[fieldY]));
+  const margin = DEFAULT_MARGIN;
+  const width = DEFAULT_WIDTH;
+  const height = DEFAULT_HEIGHT;
+
+  const url = "https://raw.githubusercontent.com/vega/vega/main/docs/data/cars.json";
+  const rawData = await d3.json(url);
+  const data = rawData.filter((d) => !!(d?.[fieldX] && d?.[fieldY]));
 
   const container = document.getElementById("LibraPlayground");
   if (container) container.innerHTML = "";
@@ -39,20 +30,18 @@ export async function setupIrisScatter(options = {}) {
     .attr("height", height + margin.top + margin.bottom)
     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`);
 
-  const root = svg
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+  const root = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
   const x = d3
     .scaleLinear()
-    .domain(d3.extent(data, (d) => d[fieldX]))
+    .domain([0, d3.max(data, (d) => d[fieldX])])
     .range([0, width])
     .nice()
     .clamp(true);
 
   const y = d3
     .scaleLinear()
-    .domain(d3.extent(data, (d) => d[fieldY]))
+    .domain([0, d3.max(data, (d) => d[fieldY])])
     .range([height, 0])
     .nice()
     .clamp(true);
@@ -84,7 +73,7 @@ export async function setupIrisScatter(options = {}) {
     .attr("font-size", "12px")
     .attr("font-weight", "bold")
     .attr("writing-mode", "tb")
-    .style("transform", `translate(${-margin.left / 2}px,${height / 2}px) rotate(180deg)`)
+    .style("transform", `translate(${-margin.left / 2 + 10}px,${height / 2}px) rotate(180deg)`)
     .text(fieldY);
 
   const legendDomain = Array.from(new Set(data.map((d) => d[fieldColor])));
@@ -96,15 +85,9 @@ export async function setupIrisScatter(options = {}) {
     .attr("font-size", "12px")
     .attr("font-weight", "bold")
     .attr("x", width + margin.right / 2)
-    .attr("y", -margin.top / 2)
+    .attr("y", -margin.top / 2 + 10)
     .text(fieldColor);
-
-  const legendItem = legend
-    .append("g")
-    .selectAll("g")
-    .data(legendDomain)
-    .join("g");
-
+  const legendItem = legend.append("g").selectAll("g").data(legendDomain).join("g");
   legendItem
     .append("circle")
     .attr("fill-opacity", 0)
@@ -113,7 +96,6 @@ export async function setupIrisScatter(options = {}) {
     .attr("cx", width + 10)
     .attr("cy", (_, i) => i * 20)
     .attr("r", 5);
-
   legendItem
     .append("text")
     .attr("font-size", "12px")
@@ -128,36 +110,49 @@ export async function setupIrisScatter(options = {}) {
     offset: { x: margin.left, y: margin.top },
     container: svg.node(),
   });
-
   const layerGraphic = d3.select(mainLayer.getGraphic());
-  const renderContext = { x, y, color, fieldX, fieldY, fieldColor, width, height, margin };
 
   layerGraphic
     .selectAll("circle")
     .data(data)
     .join("circle")
     .attr("class", "mark")
-    .attr("fill", (d) => pointFill(d, renderContext))
-    .attr("fill-opacity", pointFillOpacity)
-    .attr("stroke-width", pointStrokeWidth)
-    .attr("stroke", (d) => pointStroke(d, renderContext))
+    .attr("fill", "white")
+    .attr("fill-opacity", 1)
+    .attr("stroke-width", 1)
+    .attr("stroke", (d) => color(d[fieldColor]))
     .attr("cx", (d) => x(d[fieldX]))
     .attr("cy", (d) => y(d[fieldY]))
-    .attr("r", pointRadius);
+    .attr("r", 4);
 
-  return {
-    data,
-    x,
-    y,
-    color,
-    margin,
-    width,
-    height,
-    fieldX,
-    fieldY,
-    fieldColor,
-    svg,
-    mainLayer,
+  const interactions = [
+    {
+      name: "brushMain",
+      instrument: "GroupSelection",
+      trigger: {
+        type: "brush",
+        priority: 1,
+        stopPropagation: true,
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        redrawFunc: {
+          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
+          // dim: { opacity: 0.1, selector: ".mark" },
+          brushStyle: {
+            fill: "#5c5c5cff",
+            opacity: 0.3,
+            stroke: "none",
+          },
+        },
+      },
+    },
+
+  ];
+  await compileDSL(interactions, {
     layersByName: { mainLayer },
-  };
+  }, { execute: true });
+  await Libra.createHistoryTrack?.();
 }

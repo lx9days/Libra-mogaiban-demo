@@ -6,10 +6,47 @@ function ensureArray(value) {
   return [value];
 }
 
-function resolveNamedLayer(layersByName = {}, layerName) {
+function resolveNamedLayer(layersByName = {}, layerName, sourceLayerName = null) {
   if (!layerName || typeof layerName !== "string") return null;
   const direct = layersByName[layerName];
   if (direct) return direct;
+
+  // If a sourceLayer is explicitly provided, we ONLY search its children
+  if (sourceLayerName && typeof sourceLayerName === "string") {
+    const specificParent = layersByName[sourceLayerName];
+    if (specificParent && typeof specificParent.getLayerFromQueue === "function") {
+      const isKnownQueueLayer = ["transientLayer", "selectionLayer", "lensLayer", "LensLayer"].includes(layerName);
+      if (isKnownQueueLayer) {
+        const childLayer = specificParent.getLayerFromQueue(layerName);
+        if (childLayer) return childLayer;
+      } else {
+        const existingChild = specificParent._children?.find?.(child => child._name === layerName);
+        if (existingChild) return existingChild;
+      }
+    }
+    // If a specific source layer was asked for but we couldn't resolve the child from it, fail fast
+    return null;
+  }
+
+  // Try to find the layer as a child queue layer of any registered main layer
+  for (const parentLayer of Object.values(layersByName)) {
+    if (typeof parentLayer?.getLayerFromQueue === "function") {
+      // transientLayer, selectionLayer, lensLayer 等是特殊的队列图层，应该被允许动态创建
+      const isKnownQueueLayer = ["transientLayer", "selectionLayer", "lensLayer", "LensLayer"].includes(layerName);
+      
+      // 出于性能考虑，我们不希望用户瞎写一个 layerName 就触发底层所有图层的 getLayerFromQueue
+      // 但对于已知名字的队列图层，我们通过 getLayerFromQueue 去获取（如果不存在，底层会自动创建）
+      if (isKnownQueueLayer) {
+         const childLayer = parentLayer.getLayerFromQueue(layerName);
+         if (childLayer) return childLayer;
+      } else {
+         // 对于未知的名字，我们只检查它是否已经被挂载过，避免错误地意外生成新图层
+         const existingChild = parentLayer._children?.find?.(child => child._name === layerName);
+         if (existingChild) return existingChild;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -70,11 +107,24 @@ export function resolveTargetLayers(spec, context = {}) {
   const targetLayers = ensureArray(targetDescriptor.layer ?? targetDescriptor.layers ?? spec.targetLayer);
   const fallbackLayer = context.layersByName.mainLayer || context.layersByName.layer || null;
 
+  const pushLayer = (layer) => {
+    if (!layer) return;
+    if (targetDescriptor.pointerEvents) {
+      if (typeof layer.getGraphic === "function") {
+        const graphic = layer.getGraphic();
+        if (graphic && typeof graphic.style === "object") {
+          graphic.style.pointerEvents = targetDescriptor.pointerEvents;
+        }
+      }
+    }
+    layers.push(layer);
+  };
+
   targetLayers.forEach((targetLayer) => {
     if (typeof targetLayer === "string") {
-      const resolved = resolveNamedLayer(context.layersByName, targetLayer);
-      if (Array.isArray(resolved)) layers.push(...resolved);
-      else if (resolved) layers.push(resolved);
+      const resolved = resolveNamedLayer(context.layersByName, targetLayer, targetDescriptor.sourceLayer);
+      if (Array.isArray(resolved)) resolved.forEach(pushLayer);
+      else if (resolved) pushLayer(resolved);
       else {
         addDiagnostic(context, {
           level: "warning",
@@ -87,12 +137,12 @@ export function resolveTargetLayers(spec, context = {}) {
       return;
     }
 
-    if (targetLayer) layers.push(targetLayer);
+    if (targetLayer) pushLayer(targetLayer);
   });
 
   if (layers.length === 0 && fallbackLayer) {
-    if (Array.isArray(fallbackLayer)) layers.push(...fallbackLayer);
-    else layers.push(fallbackLayer);
+    if (Array.isArray(fallbackLayer)) fallbackLayer.forEach(pushLayer);
+    else pushLayer(fallbackLayer);
   }
 
   return layers;
@@ -105,8 +155,13 @@ export function createBaseBuildContext(spec, context = {}) {
     ...feedbackOptions,
   };
 
+  if (spec.name) {
+    buildContext.name = spec.name;
+    buildContext.instrumentName = spec.name;
+  }
   if (spec.modifierKey !== undefined) buildContext.modifierKey = spec.modifierKey;
   if (spec.remnantKey !== undefined) buildContext.remnantKey = spec.remnantKey;
+  if (spec.syntheticEvent !== undefined) buildContext.syntheticEvent = spec.syntheticEvent;
   if (spec.priority !== undefined) buildContext.priority = spec.priority;
   if (spec.stopPropagation !== undefined) buildContext.stopPropagation = spec.stopPropagation;
 
@@ -166,15 +221,14 @@ export function createPlan(spec, context, runtimeBuilderId, extra = {}) {
     metadata: extra.metadata || {},
   };
 
-  if (spec.name) {
-    registerInstrument(context, spec.name, {
-      instrument: spec.instrument,
-      family: spec.family,
-      targetInstrument: spec.targetInstrument || null,
-      layers,
-      planId: plan.planId,
-    });
-  }
+  const registryKey = spec.name || `__anonymous_instrument_${spec.specIndex}`;
+  registerInstrument(context, registryKey, {
+    instrument: spec.instrument,
+    family: spec.family,
+    targetInstrument: spec.targetInstrument || null,
+    layers,
+    planId: plan.planId,
+  });
 
   return plan;
 }

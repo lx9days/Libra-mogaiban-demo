@@ -615,7 +615,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
   const list = Array.isArray(specList) ? specList : [];
   const atomic = { instruments: new Set(), triggers: new Map() };
   const load = d3
-    .csv("/public/atomic.csv")
+    .csv("./public/atomic.csv")
     .then((rows) => {
       rows.forEach((r) => {
         const name = String(r["Instruments"] || "").trim().toLowerCase();
@@ -656,6 +656,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
     ensureLoaded(() => {
     const instrumentRegistry = new Map();
     let autoLensBindingIndex = 0;
+    let anonymousInstrumentIndex = 0;
     for (const rawSpec of list) {
       const spec = { ...rawSpec, ...normalizeDslSpec(rawSpec) };
       const instrumentRaw =
@@ -681,9 +682,9 @@ export function compileInteractionsDSL(specList = [], ctx) {
         spec?.["Instrument Name"] ??
         spec?.instrumentName;
       const instrumentName =
-        typeof instrumentNameRaw === "string"
+        typeof instrumentNameRaw === "string" && instrumentNameRaw.trim() !== ""
           ? stripInlineComment(instrumentNameRaw)
-          : "";
+          : `__anonymous_instrument_${++anonymousInstrumentIndex}`;
       const targetInstrumentRaw =
         spec?.["Target Instrument"] ??
         spec?.targetInstrument ??
@@ -1056,8 +1057,14 @@ export function compileInteractionsDSL(specList = [], ctx) {
           if (priority !== undefined) buildContext.priority = priority;
           if (stopPropagation !== undefined)
             buildContext.stopPropagation = stopPropagation;
+          buildContext.__lensCompareSource = "old-compiler";
 
           for (const layer of layers) {
+            console.log("[lens-compare][old-compiler] buildContext", {
+              instrumentName,
+              layerName: layer?._name || layer?.name || "unknown",
+              buildContext,
+            });
             const stateKey = LibraManager.buildExcentricLabelingInstrument(layer, buildContext);
             const registryName = instrumentName || buildContext.bindingKey;
             if (registryName) {

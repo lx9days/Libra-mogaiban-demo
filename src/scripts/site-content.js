@@ -1,6 +1,34 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'user']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'user']);
+
+export const NEW_DSL_PAGES = new Set([
+  'DimpVis',
+  'Dust&Magnet',
+  'pan&zoom',
+  'group-selection-lens',
+  'group-selection',
+  'edge-lens',
+  'lens-treemap',
+  'lens-zoom',
+  'semantic-geomap',
+  'point-selection',
+  'point-selection-link',
+  'teaser-Matrix',
+  'gesture-matrix',
+  'SimpleParallelCoordinate',
+  'ParallelCoordinate',
+  'teaser-SimpleSPLOM',
+  'SPLOM',
+  'categorical-beeswarm',
+  'SimpleCategoricalPlots',
+  'helper-line',
+  'helper-line-intersection',
+  'axis-selection',
+  'brush-zoom',
+  'brush-zoom1'
+]);
+
 const FEATURED_ORDER = [
   'edge-lens',
   'DimpVis',
@@ -133,6 +161,17 @@ const PAGE_META = {
     tone: 'gold',
     featured: true,
   },
+  'helper-line-intersection': {
+    title: 'Helper Line Intersection',
+    category: 'Visual Aid',
+    triggers: ['Hover'],
+    themes: ['Guidance', 'Compose'],
+    description:
+      'An advanced helper line that displays intersections and values across multiple stacked areas during hover.',
+    preview: './public/showcase/previews/helper-line.gif',
+    tone: 'navy',
+    featured: false,
+  },
   'lens-hover': {
     title: 'Lens Hover',
     category: 'Visual Aid',
@@ -192,6 +231,16 @@ const PAGE_META = {
       'Extends brushing with zoom-aware feedback so transient regions can be resized and reused during analysis.',
     preview: './public/showcase/previews/brush-link.gif',
     tone: 'gold',
+  },
+  'brush-zoom1': {
+    title: 'Brush Zoom 1',
+    category: 'Composite',
+    triggers: ['Brush', 'Zoom'],
+    themes: ['Compose', 'Conflict'],
+    description:
+      'Extends brushing with zoom-aware feedback (updated interaction queue handling for transient layers).',
+    preview: './public/showcase/previews/brush-link.gif',
+    tone: 'navy',
   },
   'categorical-axis': {
     title: 'Categorical Axis Reorder',
@@ -303,11 +352,12 @@ const PAGE_META = {
     title: 'Axis Selection',
     category: 'Selection',
     triggers: ['Brush'],
-    themes: ['Reuse', 'Linked Views'],
+    themes: ['Compose', 'Linked Views'],
     description:
-      'A selection instrument applied at the axis level to demonstrate scope-specific targets.',
+      'A brushing selection interaction along axes that highlights points corresponding to the selected range.',
     preview: './public/showcase/previews/brush-link.gif',
     tone: 'gold',
+    featured: false,
   },
   'pan&zoom': {
     title: 'Pan & Zoom',
@@ -530,6 +580,7 @@ export function getShowcaseCatalog() {
         preview: meta.preview || '',
         tone: meta.tone || 'gold',
         featured: meta.featured || FEATURED_ORDER.includes(id),
+        isNewDsl: NEW_DSL_PAGES.has(id),
       };
     })
     .sort((left, right) => {

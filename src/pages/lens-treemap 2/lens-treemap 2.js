@@ -1,6 +1,5 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import { compileDSL } from "../../scripts/dsl-compiler";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -187,48 +186,34 @@ function renderMainVisualization(
 }
 
 async function mountInteraction(layer, transformer) {
+  Libra.Interaction.build({
+    inherit: "PanInstrument",
+    layers: [layer],
+    sharedVar: {
+      fixRange: true,
+      scaleX: x,
+      scaleY: y,
+    },
+  });
+
+  Libra.Interaction.build({
+    inherit: "SemanticZoomInstrument",
+    layers: [layer],
+    sharedVar: {
+      scaleLevels: {
+        0: { data: data_detail_level1 },
+        3: { data: data_detail_level2 },
+        6: { data: data_detail_level3 },
+      },
+      fixRange: true,
+      scaleX: x,
+      scaleY: y,
+    },
+  });
+  
   const interactions = [
     {
-      instrument: "pan",
-      trigger: {
-        type: "pan",
-      },
-      target: {
-        layer: "mainLayer",
-      },
-      feedback: {
-        context: {
-          fixRange: true,
-          scaleX: x,
-          scaleY: y,
-        }
-      }
-    },
-    {
-      instrument: "zoom",
-      trigger: {
-        type: "zoom",
-      },
-      target: {
-        layer: "mainLayer",
-      },
-      feedback: {
-        context: {
-          semantic:true,
-          scaleLevels: {
-            0: { data: data_detail_level1 },
-            3: { data: data_detail_level2 },
-            6: { data: data_detail_level3 },
-          },
-          fixRange: true,
-          scaleX: x,
-          scaleY: y,
-        }
-      }
-    },
-    {
-      name: "lensMain",
-      instrument: "lens",
+      instrument: "Lens",
       trigger: {
         type: "hover",
         modifierKey:"shift",
@@ -237,22 +222,18 @@ async function mountInteraction(layer, transformer) {
       },
       target: {
         layer: "mainLayer",
+        name: "lensMain",
       },
       feedback: {
-        service: {
-          lens: {
+        lens: {
+          excentricLabeling: {
             renderSelection: true,
             r: 60,
             stroke: "#1d8f43",
             strokeWidth: 4,
+            countLabelDistance: 18,
             fontSize: 20,
             countLabelWidth: 56,
-            count: {
-              op: "count",
-            },
-          },
-          excentricLabeling: {
-            countLabelDistance: 18,
             maxLabelsNum: 12,
             labelAccessor: (elem) => {
               const d = d3.select(elem).datum();
@@ -262,19 +243,19 @@ async function mountInteraction(layer, transformer) {
               const d = d3.select(elem).datum();
               return color(d?.groupId) || "#ffffffff";
             },
-          }
+            count: {
+              op: "count",
+            },
+          },
         },
       },
     }
   ];
 
-  await compileDSL(interactions, {
+  await compileInteractionsDSL(interactions, {
     layersByName: {
       mainLayer: layer,
     },
-  }, { execute: true });
-  
-  if (Libra.createHistoryTrack) {
-    await Libra.createHistoryTrack();
-  }
+  });
+  await Libra.createHistoryTrack?.();
 }

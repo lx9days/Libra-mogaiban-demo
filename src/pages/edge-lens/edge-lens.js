@@ -25,7 +25,7 @@ const edgeLine = d3
 async function loadData() {
   let graph = null;
   try {
-    graph = await d3.json("/public/data/miserables.json");
+    graph = await d3.json("./public/data/miserables.json");
   } catch (error) {
     graph = await d3.json("/data/miserables.json");
   }

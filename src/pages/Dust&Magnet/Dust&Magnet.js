@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 // global constants
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -287,8 +288,13 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
     ];
 
     const interactions = [
+        // {
+        //     Name: "lensMain",
+    ];
+    
+    const newDSLinteractions = [
         {
-            instrument: "Move",
+            instrument: "move",
             trigger: {
                 type: "drag",
                 priority: 3,
@@ -298,15 +304,14 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 layer: "magnetLayer",
                 pointerEvents: "visiblePainted",
             },
-            feedback: {
-                flow: {
-                    insert: commonInsertFlows,
-                    remove: [{ find: "SelectionTransformer" }],
-                },
+            feedback: {},
+            customFeedbackFlow: {
+                insert: commonInsertFlows,
+                remove: [{ find: "SelectionTransformer" }],
             },
         },
         {
-            instrument: "point selection",
+            instrument: "pointSelection",
             trigger: {
                 type: "click",
                 priority: 1,
@@ -315,12 +320,13 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             target: {
                 layer: "bgLayer",
             },
-            feedback: {
-                flow: { insert: commonInsertFlows },
+            feedback: {},
+            customFeedbackFlow: { 
+                insert: commonInsertFlows 
             },
         },
         {
-            instrument: "point selection",
+            instrument: "pointSelection",
             trigger: {
                 type: "click",
                 priority: 2,
@@ -331,13 +337,13 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 pointerEvents: "visiblePainted",
             },
             feedback: {
-                selection: {
+                redrawFunc: {
                     highlight: "greenyellow",
                 },
             },
         },
         {
-            instrument: "GroupSelection",
+            instrument: "groupSelection",
             trigger: {
                 type: "brush",
                 modifierKey: "Shift",
@@ -346,16 +352,18 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             },
             target: {
                 layer: "dustLayer",
-                name: "dustBrush",
             },
             feedback: {
-                selection: {
-                    highlight: "red",
+                redrawFunc: {
+                    highlight: {
+                        color: "red",
+                    },
                 },
             },
         },
         {
-            instrument: "Lens",
+            name: "dustLens",
+            instrument: "lens",
             trigger: {
                 type: "hover",
                 priority: 5,
@@ -364,15 +372,16 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             },
             target: {
                 layer: "dustLayer",
-                name: "dustLens",
             },
             feedback: {
-                lens: {
-                    excentricLabeling: {
+                service: {
+                    lens: {
                         renderSelection: false,
                         r: 54,
                         stroke: "#1d8f43",
                         strokeWidth: 2,
+                    },
+                    excentricLabeling: {
                         countLabelDistance: 18,
                         fontSize: 12,
                         countLabelWidth: 180,
@@ -394,35 +403,8 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 },
             },
         },
-        // {
-        //     Name: "lensMain",
-        //     Instrument: "Lens",
-        //     Trigger: "hover",
-        //     targetLayer: "dustLayer",
-        //     syntheticEvent: "idle",
-        //     feedbackOptions: {
-        //         ExcentricLabeling: {
-        //             renderSelection: false,
-        //             r: 20,
-        //             stroke: "green",
-        //             strokeWidth: 2,
-        //             countLabelDistance: 20,
-        //             fontSize: 12,
-        //             countLabelWidth: 40,
-        //             maxLabelsNum: 10,
-        //             labelAccessor: (circleElem) => d3.select(circleElem).datum()["Name"],
-        //             colorAccessor: (circleElem) => "black",
-        //             count: {
-        //                 field: "Horsepower",
-        //                 op: "sum",
-        //                 formatter: (sum, { count }) => `${count}`,
-        //             },
-        //         },
-        //     },
-        //     stopPropagation: true,
-        // }, 
         {
-            instrument: "Zoom",
+            instrument: "zoom",
             trigger: {
                 type: "zoom",
             },
@@ -430,8 +412,8 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 layer: "dustLayer",
             },
             feedback: {
-                service: {
-                    updateLens: {
+                lens: {
+                    zoom: {
                         step: 3,
                         minR: 12,
                         maxR: 96,
@@ -441,9 +423,13 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
         },
     ];
 
-    await compileInteractionsDSL(interactions, {
+    // await compileInteractionsDSL(interactions, {
+    //     layersByName: { bgLayer, dustLayer, magnetLayer },
+    // });
+
+    await compileDSL(newDSLinteractions, {
         layersByName: { bgLayer, dustLayer, magnetLayer },
-    });
+    }, { execute: true });
 
     const labelLayer = dustLayer.getLayerFromQueue("LabelLayer");
     const lensLayer = dustLayer.getLayerFromQueue("LensLayer");

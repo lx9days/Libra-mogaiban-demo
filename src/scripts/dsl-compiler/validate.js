@@ -94,7 +94,7 @@ export function validateNormalizedSpec(spec, context = {}) {
       addDiagnostic(context, {
         level: "error",
         code: "dsl/invalid-feedback-shape",
-        message: "新版 DSL 的 feedback 必须是对象，并且只包含 redrawFunc、service、feedforward、context 四个直接属性",
+        message: "新版 DSL 的 feedback 必须是对象，并且只包含 redrawFunc、service、feedforward、context 这些直接属性",
         specIndex: spec.specIndex,
         instrument: spec.instrument || null,
       })

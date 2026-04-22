@@ -11,7 +11,7 @@ let radius = null;
 
 async function loadData() {
   try {
-    data = await d3.json("/public/data/miserables.json");
+    data = await d3.json("./public/data/miserables.json");
   } catch (e) {
     data = await d3.json("/data/miserables.json");
   }

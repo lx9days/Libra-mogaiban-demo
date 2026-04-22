@@ -1,7 +1,7 @@
 import { createPlan } from "./shared";
 
 const builderByInstrument = {
-  "brush-move": "brush-move",
+  "move": "move",
   "brush-zoom": "brush-zoom",
 };
 
@@ -12,7 +12,18 @@ export const transformCompiler = {
     return spec.family === "transform" || Object.prototype.hasOwnProperty.call(builderByInstrument, spec.instrument);
   },
   compile(spec, context) {
-    const runtimeBuilderId = builderByInstrument[spec.instrument] || spec.runtimeBuilder || "generic-interaction";
+    let runtimeBuilderId = builderByInstrument[spec.instrument] || spec.runtimeBuilder || "generic-interaction";
+    
+    if (spec.instrument === "move") {
+      const updateBrush = spec.feedback?.context?.updateBrush;
+      if (updateBrush === "translate") {
+        runtimeBuilderId = "brush-move";
+      } else {
+        // placeholder for other move instrument implementations
+        runtimeBuilderId = "generic-interaction";
+      }
+    }
+
     return [
       createPlan(spec, context, runtimeBuilderId, {
         compilerId: this.id,

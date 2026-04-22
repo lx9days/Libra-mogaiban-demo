@@ -128,7 +128,7 @@ function renderHeading(container) {
 async function loadData() {
   let rawData = null;
   try {
-    rawData = await d3.csv("/public/data/bls-metro-unemployment.csv");
+    rawData = await d3.csv("./public/data/bls-metro-unemployment.csv");
   } catch (error) {
     rawData = await d3.csv("/data/bls-metro-unemployment.csv");
   }

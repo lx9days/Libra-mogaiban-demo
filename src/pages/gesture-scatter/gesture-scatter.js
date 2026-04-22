@@ -20,7 +20,7 @@ async function loadData() {
     // Ensure the path is correct. Assuming 'public' folder is served at '/public' or root.
     // Based on webpack config, it is likely copied to '/public'.
     try {
-        data = (await d3.json("/public/data/cars.json")).filter(
+        data = (await d3.json("./public/data/cars.json")).filter(
             (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
         );
     } catch (e) {

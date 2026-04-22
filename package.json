@@ -5,6 +5,8 @@
   "scripts": {
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
+    "predeploy:remote": "npm run build",
+    "deploy:remote": "gh-pages -d build -b main -r https://github.com/libra-plus/libra-plus.github.io.git",
     "lint": "npm run lint:styles && npm run lint:scripts",
     "lint:styles": "stylelint \"src/**/*.{css,scss,sass,less}\"",
     "lint:scripts": "eslint src",

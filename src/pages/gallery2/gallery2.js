@@ -110,7 +110,7 @@ export default function initGalleryPage() {
   const container = document.getElementById('LibraPlayground');
   if (!container) return;
 
-  const demos = getShowcaseCatalog().filter(demo => demo.isNewDsl);
+  const demos = getShowcaseCatalog().filter(demo => !demo.isNewDsl);
   const categoryOptions = ['All', ...uniqueOptions(demos, 'category', CATEGORY_ORDER)];
   const triggerOptions = ['All', ...uniqueOptions(demos, 'triggers', TRIGGER_ORDER)];
   const themeOptions = ['All', ...uniqueOptions(demos, 'themes', THEME_ORDER)];
@@ -126,11 +126,11 @@ export default function initGalleryPage() {
       <header class="showcase-topbar">
         <a class="showcase-brand" href="?page=home">
           <strong>Libra+</strong>
-          <span>Gallery</span>
+          <span>Legacy Gallery</span>
         </a>
         <nav class="showcase-nav" aria-label="Primary">
           <a href="?page=home">Home</a>
-          <a href="?page=gallery" aria-current="page">Gallery</a>
+          <a href="?page=gallery">Gallery</a>
         </nav>
       </header>
 

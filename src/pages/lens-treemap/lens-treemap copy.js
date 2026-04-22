@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import { compileDSL } from "../../scripts/dsl-compiler";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import LibraManager from "../../core/LibraManager";
 
 const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
@@ -18,7 +18,7 @@ let color = null;
 
 async function loadData() {
   try {
-    data = await d3.json("/public/data/flare-2.json");
+    data = await d3.json("./public/data/flare-2.json");
   } catch (e) {
     data = await d3.json("./data/flare-2.json");
   }
@@ -205,7 +205,7 @@ async function mountInteraction(layer, transformer) {
       }
     },
     {
-      instrument: "zoom",
+      instrument: "semanticZoom",
       trigger: {
         type: "zoom",
       },
@@ -214,7 +214,6 @@ async function mountInteraction(layer, transformer) {
       },
       feedback: {
         context: {
-          semantic:true,
           scaleLevels: {
             0: { data: data_detail_level1 },
             3: { data: data_detail_level2 },

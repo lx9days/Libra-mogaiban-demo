@@ -60,6 +60,23 @@ function flattenLensService(service) {
   };
 }
 
+function flattenLensFeedback(lensBranch) {
+  if (!isPlainObject(lensBranch)) return {};
+
+  const lensBase = { ...lensBranch };
+  delete lensBase.excentricLabeling;
+  delete lensBase.zoom;
+
+  const excentricLabeling = isPlainObject(lensBranch.excentricLabeling)
+    ? lensBranch.excentricLabeling
+    : {};
+
+  return {
+    ...lensBase,
+    ...excentricLabeling,
+  };
+}
+
 export function normalizeSpec(rawSpec = {}, specIndex = 0, context = {}) {
   const triggerDescriptor = isPlainObject(rawSpec.trigger) ? rawSpec.trigger : {};
   const targetDescriptor = isPlainObject(rawSpec.target) ? rawSpec.target : {};
@@ -140,6 +157,9 @@ export function normalizeSpec(rawSpec = {}, specIndex = 0, context = {}) {
     ),
     remnantKey: pickFirstDefined(
       triggerDescriptor.remnantKey
+    ),
+    syntheticEvent: pickFirstDefined(
+      triggerDescriptor.syntheticEvent
     ),
     inherit: rule?.inherit || null,
     runtimeBuilder: rule?.runtimeBuilder || null,

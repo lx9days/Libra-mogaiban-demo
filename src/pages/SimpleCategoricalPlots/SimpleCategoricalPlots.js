@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 40, right: 120, bottom: 50, left: 140 };
 const WIDTH = 700 - MARGIN.left - MARGIN.right;
@@ -71,7 +71,14 @@ export default async function init() {
         0,
         HEIGHT + MARGIN.top
     );
-    const yAxisLayer = LibraManager.getOrCreateLayer(svg, "yAxisLayer", MARGIN.left, HEIGHT + MARGIN.top + MARGIN.bottom);
+    const yAxisLayer = LibraManager.getOrCreateLayer(
+        svg, 
+        "yAxisLayer", 
+        MARGIN.left, 
+        HEIGHT,
+        MARGIN.left - 50,
+        MARGIN.top
+    );
 
     renderGridLines(gridLayer, topics, yScale);
     renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, xScale, yScale, rScale, colorScale);
@@ -139,7 +146,7 @@ function renderLegend(svg, colorScale, xPos) {
 }
 
 async function loadData() {
-    const rawData = await d3.csv("/public/data/bls-metro-unemployment.csv");
+    const rawData = await d3.csv("./public/data/bls-metro-unemployment.csv");
     const parseDate = d3.timeParse("%Y-%m-%d");
     
     // Process raw data
@@ -230,7 +237,6 @@ function renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, topics, 
     yAxisG.selectAll("*").remove();
     yAxisG
         .append("g")
-        .attr("transform", `translate(${MARGIN.left - 50}, ${MARGIN.top})`)
         .call(d3.axisLeft(yScale).tickSize(0))
         .call((g) => g.select(".domain").remove())
         .selectAll("text")
@@ -273,34 +279,44 @@ async function mountInteraction(plotLayer, gridLayer, xAxisLayer, yAxisLayer, da
 
     const interactions = [
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
-            targetLayer: "yAxisLayer",
-            Direction: "y",
-            feedbackOptions: {
-                redrawRef: redraw,
-                contextRef: {
+            instrument: "reordering",
+            trigger: "drag",
+            target: {
+                layer: "yAxisLayer",
+            },
+            feedback: {
+                service: {
+                    direction: "y",
+                },
+                redrawFunc: redraw,
+                feedforward: {
+                    sourceLayer: "plotLayer",
+                    offset: { x: -(MARGIN.left - 50), y: -MARGIN.top },
+                },
+                context: {
                     names: topics,
                     scales: { x: reorderScaleX, y: yScale },
-                    copyFrom: plotLayer,
-                    offset: { x: 0, y: 0 },
                 },
             },
         },
         {
-            Instrument: "group selection",
-            Trigger: "brush",
-            targetLayer: "plotLayer",
-            feedbackOptions: {
-                Highlight: { color: (d) => (d ? colorScale(d.unemployment) : "#00ff1aff") },
-                BaseOpacity: 0.1,
+            instrument: "groupSelection",
+            trigger: "brush",
+            target: {
+                layer: "plotLayer",
+            },
+            feedback: {
+                redrawFunc: {
+                    highlight: { color: (d) => (d ? colorScale(d.unemployment) : "#00ff1aff") },
+                    baseOpacity: 0.1,
+                },
             },
         },
     ];
 
-    await compileInteractionsDSL(interactions, {
+    await compileDSL(interactions, {
         layersByName: { yAxisLayer, plotLayer },
-    });
+    }, { execute: true });
 
     await Libra.createHistoryTrack();
 }

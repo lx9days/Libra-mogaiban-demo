@@ -16,7 +16,7 @@ export default async function init() {
   if (!container) return;
   container.innerHTML = "";
 
-  const raw = await d3.csv("/public/data/bezdekIris.csv");
+  const raw = await d3.csv("./public/data/bezdekIris.csv");
   // Simplified to 2 fields for a 2x2 matrix
   const fields = ["sepal_length", "sepal_width"];
   const data = raw.map((d) => {

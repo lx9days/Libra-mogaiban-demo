@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
-import { compileDSL } from "../../scripts/dsl-compiler";
+import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
 
 const MARGIN = { top: 30, right: 40, bottom: 40, left: 90 };
 const WIDTH = 500 - MARGIN.left - MARGIN.right;
@@ -187,46 +187,39 @@ async function mountInteraction(mainLayer, yAxisLayer) {
 
   const interactions = [
     {
-      instrument: "reordering",
-      trigger: "drag",
-      target: {
-        layer: "yAxisLayer",
-      },
-      feedback: {
-        service: {
-          direction: "y",
-        },
-        redrawFunc: redraw,
-        feedforward: {
-          sourceLayer: "mainLayer",
-          offset: { x: -MARGIN.left, y: -MARGIN.top },
-        },
-        context: {
+      Instrument: "reordering",
+      Trigger: "Drag",
+      targetLayer: "yAxisLayer",
+      Direction: "y",
+      feedbackOptions: {
+        redrawRef: redraw,
+        contextRef: {
           names: categories,
-          scales: { x: reorderScaleX, y: y },
+          scales: { x: reorderScaleX, y },
+          copyFrom: mainLayer,
+          offset: { x: 0, y: 0 },
         },
       },
     },
     {
-      instrument: "groupSelection",
-      trigger: "brush",
-      target: {
-        layer: "mainLayer",
-      },
-      feedback: {
-        redrawFunc: {
-          highlight: {
-            color: (d) => color(d.category),
-          },
-
+      Instrument: "group selection",
+      Trigger: "Brush",
+      targetLayer: "mainLayer",
+      feedbackOptions: {
+        Highlight: {
+          color: (d) => color(d.category),
+        },
+        Tooltip: {
+          prefix: "Penguin",
+          fields: ["category", "value"],
         },
       },
     },
   ];
 
-  await compileDSL(interactions, {
+  await compileInteractionsDSL(interactions, {
     layersByName: { yAxisLayer, mainLayer },
-  }, { execute: true });
+  });
   if (typeof Libra.createHistoryTrack === "function") {
     await Libra.createHistoryTrack();
   }

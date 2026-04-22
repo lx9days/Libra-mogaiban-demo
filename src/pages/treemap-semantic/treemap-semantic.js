@@ -111,7 +111,7 @@ export default async function init() {
 async function loadData() {
   let data = null;
   try {
-    data = await d3.json("/public/data/flare-2.json");
+    data = await d3.json("./public/data/flare-2.json");
   } catch (error) {
     data = await d3.json("/data/flare-2.json");
   }

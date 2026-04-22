@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import Libra from "libra-vis";
 import LibraManager from "../../core/LibraManager";
-import { compileInteractionsDSL } from "../../scripts/modules/interactionCompiler";
+import { compileDSL } from "../../scripts/dsl-compiler";
 
 const MARGIN = { top: 40, right: 120, bottom: 50, left: 240 };
 const WIDTH = 1100 - MARGIN.left - MARGIN.right;
@@ -116,7 +116,7 @@ function renderLegend(svg, colorScale, xPos) {
 }
 
 async function loadData() {
-    const rawData = await d3.csv("/public/data/bls-metro-unemployment.csv");
+    const rawData = await d3.csv("./public/data/bls-metro-unemployment.csv");
     const parseDate = d3.timeParse("%Y-%m-%d");
     
     // Process raw data
@@ -215,34 +215,43 @@ async function mountInteraction(plotLayer, xAxisLayer, yAxisLayer, data, topics,
 
     const interactions = [
         {
-            Instrument: "reordering",
-            Trigger: "Drag",
-            targetLayer: "yAxisLayer",
-            Direction: "y",
-            feedbackOptions: {
-                redrawRef: redraw,
-                contextRef: {
+            instrument: "reordering",
+            trigger: "drag",
+            target: {
+                layer: "yAxisLayer",
+            },
+            feedback: {
+                service: {
+                    direction: "y",
+                },
+                redrawFunc: redraw,
+                context: {
                     names: topics,
-                    scales: { x: reorderScaleX, y: yScale },
-                    copyFrom: plotLayer,
+                    scaleX: reorderScaleX,
+                    scaleY: yScale,
+                    copyFrom: "plotLayer",
                     offset: { x: 0, y: 0 },
                 },
             },
         },
         {
-            Instrument: "group selection",
-            Trigger: "brush",
-            targetLayer: "plotLayer",
-            feedbackOptions: {
-                Highlight: {color:(d) => d?colorScale(d.unemployment):"none"},
-                BaseOpacity: 1,
+            instrument: "groupSelection",
+            trigger: "brush",
+            target: {
+                layer: "plotLayer",
+            },
+            feedback: {
+                redrawFunc: {
+                    highlight: {color: (d) => d ? colorScale(d.unemployment) : "none"},
+                    baseOpacity: 1,
+                }
             },
         },
     ];
 
-    await compileInteractionsDSL(interactions, {
+    await compileDSL(interactions, {
         layersByName: { yAxisLayer, plotLayer },
-    });
+    }, { execute: true });
 
     await Libra.createHistoryTrack();
 }
