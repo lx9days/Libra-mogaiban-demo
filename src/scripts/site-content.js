@@ -26,7 +26,8 @@ export const NEW_DSL_PAGES = new Set([
   'helper-line-intersection',
   'axis-selection',
   'brush-zoom',
-  'brush-zoom1'
+  'brush-zoom1',
+  'brush-move'
 ]);
 
 const FEATURED_ORDER = [

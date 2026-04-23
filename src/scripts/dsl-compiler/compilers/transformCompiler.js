@@ -19,8 +19,8 @@ export const transformCompiler = {
       if (updateBrush === "translate") {
         runtimeBuilderId = "brush-move";
       } else {
-        // placeholder for other move instrument implementations
-        runtimeBuilderId = "generic-interaction";
+        // fallback
+        runtimeBuilderId = "brush-move";
       }
     }
 

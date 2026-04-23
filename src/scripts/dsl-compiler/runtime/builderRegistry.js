@@ -340,9 +340,16 @@ export function createRuntimeBuilderRegistry(extraBuilders = {}) {
       return LibraManager.buildExcentricLabelingZoomInstrument(layer, nextBuildContext);
     }),
     reorder: createLayerBuilder((layer, buildContext) => LibraManager.buildReorderInstrument(layer, buildContext)),
-    "brush-move": createLayerBuilder((layer, buildContext) =>
-      LibraManager.buildBrushMoveInstrument(layer, buildContext)
-    ),
+    "brush-move": createLayerBuilder((layer, buildContext, plan, runtimeContext) => {
+      const targetBrush = resolveTargetBrush(plan, layer, runtimeContext);
+      if (!targetBrush) return null;
+
+      const nextBuildContext = {
+        ...buildContext,
+        brushEntry: targetBrush,
+      };
+      return LibraManager.buildBrushMoveInstrument(layer, nextBuildContext);
+    }),
     "brush-zoom": createLayerBuilder((layer, buildContext, plan, runtimeContext) => {
       const targetBrush = resolveTargetBrush(plan, layer, runtimeContext);
       if (!targetBrush) return null;
