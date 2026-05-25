@@ -423,7 +423,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
         target: { layer: layerName, stopPropagation: true, priority: 2 },
         feedback: {
           redrawFunc: {
-            highlight: { color: (d) => d ? color(d["class"]) : "#00ff1aff" },
+            highlight: { color: (d) => d ? color(d["class"]) : "#ccc" },
           },
           context: {
             scaleX: sx,
@@ -432,7 +432,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
             link: {
               layers: Object.values(cellLayers),
               matchMode: "field",
-              defaultOpacity: 0.7,
+              defaultOpacity: 0.3,
               baseOpacity: 0.08,
               selectedOpacity: 0.95,
               strokeWidth: 1
@@ -442,7 +442,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       };
     })
     .filter(Boolean);
-  await compileDSL(interactions.concat(pointSelectionInteractions, groupSelectionInteractions), {
+  await compileDSL(interactions.concat(groupSelectionInteractions), {
     layersByName: { xAxisLayer, yAxisLayer, ...cellLayers }
   }, { execute: true });
 

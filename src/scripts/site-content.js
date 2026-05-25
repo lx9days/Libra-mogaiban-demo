@@ -1,6 +1,6 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'user']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'user', 'ParallelCoordinate', 'brush-zoom1']);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
@@ -83,7 +83,7 @@ const PAGE_META = {
     themes: ['Compose', 'Linked Views'],
     description:
       'A coordinated direct-manipulation view in which dragging one trajectory propagates interpolated updates across the full scatterplot state.',
-    preview: './public/showcase/previews/dimpvis.gif',
+    preview: './public/showcase/previews/DimpVis.gif',
     tone: 'navy',
     featured: true,
   },
@@ -126,7 +126,7 @@ const PAGE_META = {
     themes: ['Semantic Zoom', 'Map', 'Compose'],
     description:
       'A map navigation demo that pairs panning with semantic zoom so additional structure appears as scale changes.',
-    preview: './public/showcase/previews/geomap-semantic.gif',
+    preview: './public/showcase/previews/semantic-geomap.gif',
     tone: 'navy',
     featured: true,
   },
@@ -578,7 +578,7 @@ export function getShowcaseCatalog() {
         triggers,
         themes,
         description: meta.description || fallbackDescription(id, category, triggers),
-        preview: meta.preview || '',
+        preview: `./public/showcase/previews/${id}.gif`,
         tone: meta.tone || 'gold',
         featured: meta.featured || FEATURED_ORDER.includes(id),
         isNewDsl: NEW_DSL_PAGES.has(id),

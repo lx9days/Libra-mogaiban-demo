@@ -382,7 +382,7 @@ async function mountInteraction(layer) {
     inherit: "HoverInstrument",
     layers: [layer],
     sharedVar: {
-      data: data,
+      data,
     },
     remove: [{ find: "SelectionTransformer" }],
     insert: [useTraceTransformerFlow, useCountryFlow],

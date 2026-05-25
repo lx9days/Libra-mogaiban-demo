@@ -15,12 +15,12 @@ export const transformCompiler = {
     let runtimeBuilderId = builderByInstrument[spec.instrument] || spec.runtimeBuilder || "generic-interaction";
     
     if (spec.instrument === "move") {
-      const updateBrush = spec.feedback?.context?.updateBrush;
+      const updateBrush = spec.feedbackContext?.updateBrush || spec.feedback?.context?.updateBrush || spec.feedbackService?.updateBrush || spec.feedback?.service?.updateBrush;
       if (updateBrush === "translate") {
         runtimeBuilderId = "brush-move";
       } else {
         // fallback
-        runtimeBuilderId = "brush-move";
+        runtimeBuilderId = "generic-interaction";
       }
     }
 

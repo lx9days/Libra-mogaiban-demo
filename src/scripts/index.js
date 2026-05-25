@@ -412,7 +412,7 @@ function extractDSL(sourceCode) {
   const dsls = [];
   const ranges = [];
   
-  const callRegex = /compileInteractionsDSL\s*\(\s*/g;
+  const callRegex = /compile(?:Interactions)?DSL\s*\(\s*/g;
   let match;
   
   while ((match = callRegex.exec(sourceCode)) !== null) {

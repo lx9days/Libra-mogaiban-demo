@@ -159,6 +159,9 @@ export function createBaseBuildContext(spec, context = {}) {
     buildContext.name = spec.name;
     buildContext.instrumentName = spec.name;
   }
+  if (spec.instrument !== undefined) buildContext.dslInstrumentName = spec.instrument;
+  
+  // Copy top-level modifierKey/remnantKey from spec if provided
   if (spec.modifierKey !== undefined) buildContext.modifierKey = spec.modifierKey;
   if (spec.remnantKey !== undefined) buildContext.remnantKey = spec.remnantKey;
   if (spec.syntheticEvent !== undefined) buildContext.syntheticEvent = spec.syntheticEvent;

@@ -415,7 +415,7 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
             attrName: [xiField, yiField],
             link: {
               layers: Object.values(cellLayers),
-              matchMode: "field",
+              matchMode: "datum",
               defaultOpacity: 0.7,
               baseOpacity: 0.08,
               selectedOpacity: 0.95,

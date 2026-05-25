@@ -275,6 +275,7 @@ async function mountInteraction(plotLayer, gridLayer, xAxisLayer, yAxisLayer, da
         const yNew = newY || yScale;
         renderGridLines(gridLayer, newTopics, yNew);
         renderCategoricalPlot(plotLayer, xAxisLayer, yAxisLayer, data, newTopics, xScale, yNew, rScale, colorScale);
+        plotLayer.postUpdate();
     };
 
     const interactions = [

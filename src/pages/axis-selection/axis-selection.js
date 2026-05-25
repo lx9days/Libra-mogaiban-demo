@@ -19,7 +19,7 @@ let y = null;
 let color = null;
 
 async function loadData() {
-  data = (await d3.json("./data/cars.json")).filter(
+  data = (await d3.json("./public/data/cars.json")).filter(
     (d) => !!(d["Horsepower"] && d["Miles_per_Gallon"])
   );
 }

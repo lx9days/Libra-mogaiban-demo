@@ -128,6 +128,7 @@ function renderMainVisualization(
         const scaleY = transformer.getSharedVar("scaleY");
         const data = transformer.getSharedVar("data");
         renderMainVisualization(scaleX, scaleY, data);
+        mainLayer.postUpdate();
       },
     });
 

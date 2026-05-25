@@ -183,6 +183,7 @@ async function mountInteraction(mainLayer, yAxisLayer) {
     }
     renderYAxis(yAxisLayer);
     updateBeeswarm(mainLayer);
+    mainLayer.postUpdate();
   };
 
   const interactions = [

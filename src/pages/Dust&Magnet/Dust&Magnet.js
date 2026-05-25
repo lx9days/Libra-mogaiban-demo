@@ -297,7 +297,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "move",
             trigger: {
                 type: "drag",
-                priority: 3,
+                priority: 4,
                 stopPropagation: true,
             },
             target: {
@@ -314,7 +314,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "pointSelection",
             trigger: {
                 type: "click",
-                priority: 1,
+                priority: 3,
                 stopPropagation: true,
             },
             target: {
@@ -347,7 +347,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             trigger: {
                 type: "brush",
                 modifierKey: "Shift",
-                priority: 4,
+                priority: 5,
                 stopPropagation: true,
             },
             target: {
@@ -366,7 +366,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "lens",
             trigger: {
                 type: "hover",
-                priority: 5,
+                priority: 1,
                 stopPropagation: true,
                 syntheticEvent:"idle"
             },
