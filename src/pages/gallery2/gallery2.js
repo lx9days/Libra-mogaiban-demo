@@ -131,6 +131,7 @@ export default function initGalleryPage() {
         <nav class="showcase-nav" aria-label="Primary">
           <a href="?page=home">Home</a>
           <a href="?page=gallery">Gallery</a>
+          <a href="?page=tutorial">DSL Tutorial</a>
         </nav>
       </header>
 

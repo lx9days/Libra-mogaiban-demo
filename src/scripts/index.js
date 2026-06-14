@@ -19,7 +19,7 @@ if (
 const pagesJsContext = require.context('../pages', true, /\.js$/);
 const pagesJsonContext = require.context('../pages', true, /\.json$/);
 const modulesContext = require.context('./modules', false, /\.js$/);
-const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2']);
+const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial']);
 
 function nameFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -131,6 +131,8 @@ function setPageChrome(name) {
   document.title = showcase
     ? rawName === 'gallery' || rawName === 'gallery2'
       ? 'Libra+ Gallery'
+      : rawName === 'tutorial'
+        ? 'Libra+ DSL Tutorial'
       : 'Libra+'
     : `Libra+ Demo · ${rawName}`;
 }

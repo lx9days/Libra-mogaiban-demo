@@ -99,6 +99,7 @@ export default function initHomePage() {
         <nav class="showcase-nav" aria-label="Primary">
           <a href="?page=home">Home</a>
           <a href="?page=gallery">Gallery</a>
+          <a href="?page=tutorial">DSL Tutorial</a>
           <a href="https://github.com/lx9days/Libra-mogaiban.git" target="_blank" rel="noopener noreferrer">Libra+ Core Repo</a>
           <a href="https://github.com/lx9days/Libra-mogaiban-demo" target="_blank" rel="noopener noreferrer">Gallery & Compiler Demo Repo</a>
         </nav>
@@ -116,6 +117,7 @@ export default function initHomePage() {
           </p>
           <div class="hero-actions">
             <a class="showcase-button" href="?page=gallery">View the Gallery</a>
+            <a class="showcase-button showcase-button-ghost" href="?page=tutorial">Read DSL Tutorial</a>
             <a class="showcase-button showcase-button-ghost" href="https://github.com/lx9days/Libra-mogaiban.git" target="_blank" rel="noopener noreferrer">Libra+ Core Repo</a>
             <a class="showcase-button showcase-button-ghost" href="https://github.com/lx9days/Libra-mogaiban-demo" target="_blank" rel="noopener noreferrer">Gallery & Compiler Demo Repo</a>
           </div>

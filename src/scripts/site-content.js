@@ -1,6 +1,6 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'user', 'ParallelCoordinate', 'brush-zoom1']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'user', 'ParallelCoordinate', 'brush-zoom1']);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
