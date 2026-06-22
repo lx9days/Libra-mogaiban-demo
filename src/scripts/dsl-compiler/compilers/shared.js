@@ -158,6 +158,7 @@ export function createBaseBuildContext(spec, context = {}) {
   if (spec.name) {
     buildContext.name = spec.name;
     buildContext.instrumentName = spec.name;
+    buildContext.dslInstanceName = spec.name;
   }
   if (spec.instrument !== undefined) buildContext.dslInstrumentName = spec.instrument;
   

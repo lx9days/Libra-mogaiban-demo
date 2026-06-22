@@ -15,60 +15,60 @@ function escapeHtml(value) {
 const CORE_FIELDS = [
   {
     name: 'instrument',
-    title: 'Interaction Type',
-    description: 'Declares which interaction type should be instantiated, such as point-selection, group-selection, pan, zoom, reorder, or lens.',
+    title: '交互类型',
+    description: '用于声明待实例化的交互类型，例如 point-selection、group-selection、pan、zoom、reorder、lens。',
   },
   {
     name: 'trigger',
-    title: 'Trigger Specification',
-    description: 'The recommended form is an object with at least a type field, such as { type: "hover" } or { type: "brush" }.',
+    title: '触发方式',
+    description: '建议采用对象形式书写，并至少包含 type 字段，例如 { type: "hover" } 或 { type: "brush" }。',
   },
   {
     name: 'target',
-    title: 'Target Layer',
-    description: 'The recommended form is { layer: "mainLayer" }. In the current validator and compiler flow, target.layer is the primary mechanism for resolving the target layer.',
+    title: '作用目标',
+    description: '建议写成 { layer: "mainLayer" }。当前校验与编译流程主要依赖 target.layer 解析目标图层。',
   },
   {
     name: 'feedback',
-    title: 'Feedback Structure',
-    description: 'Must be an object. Its first-level fields should be limited to redrawFunc, service, feedforward, and context.',
+    title: '反馈配置',
+    description: '必须为对象；其第一层子字段仅允许 redrawFunc、service、feedforward、context。',
   },
 ];
 
 const WRITING_STEPS = [
-  'Begin with an interaction array, where each item corresponds to an independent interaction rule.',
-  'It is recommended to declare instrument, trigger, target, and feedback explicitly in every rule.',
-  'If you need priority, modifier keys, or propagation control, place priority, modifierKey, and stopPropagation inside trigger.',
-  'If runtime context is required, place it under feedback.context; instrument-specific service parameters should be placed under feedback.service.',
+  '首先定义一个交互数组，其中每一项对应一条独立的交互规则。',
+  '建议在每条规则中显式声明 instrument、trigger、target、feedback 四个顶层字段。',
+  '若需配置优先级、组合键或事件传播控制，应将 priority、modifierKey、stopPropagation 写入 trigger。',
+  '若需提供运行时上下文，优先置于 feedback.context；若需配置专项服务参数，则置于 feedback.service。',
 ];
 
 const TIPS = [
-  'In the new DSL, the top level should contain only instrument, trigger, target, feedback, and the optional fields name and customFeedbackFlow.',
-  'feedback should not be empty; at least one of redrawFunc, service, feedforward, or context should be provided.',
-  'To remain consistent with the current normalize/validate process, lower-case kebab-case names such as point-selection and group-selection are recommended.',
-  'When an interaction depends on layer resolution, prefer target: { layer: "..." } over plain string shorthand.',
+  '新版 DSL 的顶层字段仅允许 instrument、trigger、target、feedback，以及可选的 name、customFeedbackFlow。',
+  'feedback 不应为空；至少应提供 redrawFunc、service、feedforward、context 中的一项。',
+  '为保持与当前 normalize/validate 过程的一致性，建议统一采用小写连字符命名，例如 point-selection、group-selection。',
+  '若交互依赖图层解析，建议优先采用 target: { layer: "..." }，而非纯字符串写法。',
 ];
 
 const ADVANCED_FIELDS = [
   {
     label: 'name',
-    description: 'Provides a readable identifier for debugging, logging, and distinguishing multiple interaction instances.',
+    description: '为规则提供可读标识，以便调试、记录与区分多个实例。',
   },
   {
     label: 'trigger.priority',
-    description: 'When multiple interactions compete for the same event, larger values receive higher priority.',
+    description: '当多个交互竞争同一事件时，数值越大者优先执行。',
   },
   {
     label: 'trigger.modifierKey',
-    description: 'Adds a modifier-key constraint such as ctrl, shift, or alt.',
+    description: '用于为交互附加组合键约束，例如 ctrl、shift、alt。',
   },
   {
     label: 'trigger.stopPropagation',
-    description: 'Stops the event from propagating to lower-priority interactions after a match.',
+    description: '命中后阻止事件继续传播至优先级更低的交互。',
   },
   {
     label: 'customFeedbackFlow',
-    description: 'Inserts, removes, or overrides the system default feedback flow.',
+    description: '用于插入、移除或覆盖系统默认的反馈流程。',
   },
 ];
 
@@ -192,31 +192,31 @@ const FEEDBACK_LINES = [
 const TTF_VIDEO_SRC = encodeURI('./public/showcase/video/无配音.mp4');
 
 const TTF_MODEL_POINTS = [
-  'Trigger defines when the interaction starts, such as hover, brush, drag, or zoom.',
-  'Target narrows the interaction to the intended Libra layer so the system knows which marks can be hit.',
-  'Feedback describes what changes after the trigger fires, including highlight, linked updates, service parameters, and runtime context.',
+  'Trigger 用于定义交互在何时被触发，例如 hover、brush、drag、zoom。',
+  'Target 用于限定交互命中的 Libra 图层，让系统明确哪些标记会参与命中测试。',
+  'Feedback 用于描述触发后的变化结果，包括高亮、联动更新、服务参数以及运行时上下文。',
 ];
 
 const FEEDBACK_TOP_LEVEL_FIELDS = [
   {
     name: 'redrawFunc',
-    title: 'Visual Redraw',
-    description: 'Declares highlight, dimming, and redraw logic. For selection-oriented interactions, highlight and dim are the most common fields; reorder may also provide a redraw function directly.',
+    title: '视觉重绘',
+    description: '用于声明高亮、弱化与重绘逻辑。对 selection 类交互而言，highlight 与 dim 最为常见；reorder 亦可直接提供 redraw 函数。',
   },
   {
     name: 'service',
-    title: 'Runtime Service Parameters',
-    description: 'Configures instrument-specific runtime service parameters, such as lens radius and styling, reorder direction, or helper-line orientation and intersection strategy.',
+    title: '运行时服务参数',
+    description: '用于配置特定 instrument 的运行时服务参数，例如 lens 的半径与样式、reorder 的方向、helper-line 的朝向与交点显示策略。',
   },
   {
     name: 'feedforward',
-    title: 'Feedforward and Drag Copies',
-    description: 'Commonly used by reorder to declare which layer should be copied during dragging and how the copied layer should be offset.',
+    title: '预告和拖拽副本',
+    description: '常用于 reorder，用于声明拖拽过程中应从哪些图层复制图形，以及副本层的偏移方式。',
   },
   {
     name: 'context',
-    title: 'Scales and Linking Context',
-    description: 'Provides runtime context such as scaleX, scaleY, fixRange, semantic, link, dimension, names, scales, and data.',
+    title: '比例尺与联动上下文',
+    description: '用于提供 scaleX、scaleY、fixRange、semantic、link、dimension、names、scales、data 等运行时上下文信息。',
   },
 ];
 
@@ -225,55 +225,55 @@ const FEEDBACK_INSTRUMENT_ROWS = [
     instrument: 'point-selection',
     branches: 'redrawFunc + context',
     fields: 'highlight, dim, link.layers, link.field/link.fields, scaleX, scaleY, Tooltip',
-    note: 'The most common use is hover/click highlighting. For linked selection, place the linked layers and matching field configuration inside context.link.',
+    note: '最常见的用法是 hover/click 高亮；若需构造 linked selection，可将联动图层与匹配字段置于 context.link。',
   },
   {
     instrument: 'group-selection',
     branches: 'redrawFunc + context',
     fields: 'highlight, dim, brushStyle, attrName, scaleX, scaleY, link.*, Tooltip',
-    note: 'Commonly used for brush selection. brushStyle controls the selection rectangle style, and attrName can help the system interpret the selection by dimension.',
+    note: '通常用于 brush 选区；brushStyle 用于控制选框样式，attrName 可辅助系统按维度解释选区。',
   },
   {
     instrument: 'axis-selection',
     branches: 'redrawFunc + context',
     fields: 'highlight, axisDirection, dimension/attrName, scale, linkLayers/linkTo, Tooltip',
-    note: 'Axis-oriented brushing depends most strongly on dimension and scale. If the trigger is already explicit as brushx/brushy, axisDirection can usually be omitted.',
+    note: '轴向刷选最依赖 dimension 与 scale；若 trigger 已明确写为 brushx/brushy，axisDirection 通常可以省略。',
   },
   {
     instrument: 'pan',
     branches: 'context',
     fields: 'scaleX, scaleY, fixRange',
-    note: 'In the new DSL, pan mainly consumes scales and range constraints. Without scaleX/scaleY, visible view translation usually will not occur.',
+    note: '新版 pan 主要消费比例尺与范围约束；若未提供 scaleX/scaleY，通常不会产生可见的视图平移效果。',
   },
   {
     instrument: 'zoom',
     branches: 'context',
     fields: 'scaleX, scaleY, fixRange, semantic, scaleLevels, updateLens, updateBrush, zoom.targetLensName, zoom.targetBrushName',
-    note: 'Conventional zoom usually configures scaleX, scaleY, and fixRange. For semantic zoom, add semantic and scaleLevels.',
+    note: '常规缩放通常配置 scaleX/scaleY/fixRange；若需语义缩放，则进一步补充 semantic 与 scaleLevels。',
   },
   {
     instrument: 'move',
-    branches: 'context or service',
+    branches: 'context 或 service',
     fields: 'updateBrush: "translate"',
-    note: 'In the current implementation, the most common use of move is to translate an existing brush; the system enters brush-move mode according to updateBrush.',
+    note: '在当前实现中，move 最常见的用途是平移既有 brush；系统会依据 updateBrush 进入 brush-move 模式。',
   },
   {
     instrument: 'lens',
     branches: 'service.lens',
     fields: 'r, stroke, strokeWidth, renderSelection, fontSize, countLabelWidth, countLabelDistance, maxLabelsNum, labelAccessor, colorAccessor, count, countAccessor, countFormatter, filter',
-    note: 'These fields are forwarded directly to the excentric-labeling runtime. To remain compatible with older naming, they may also be written under service.excentricLabeling.',
+    note: '上述字段将直接传递至 excentric labeling 运行时；若需兼容既有命名，也可写入 service.excentricLabeling。',
   },
   {
     instrument: 'reorder',
     branches: 'redrawFunc + service + feedforward + context',
     fields: 'redrawFunc, reorderDirection, sourceLayer, offset, names, scales.x, scales.y',
-    note: 'reorder has the most comprehensive dependence on feedback. Direction, copy generation, and redraw functions usually need to be coordinated.',
+    note: 'reorder 对 feedback 的依赖最为完整；方向、副本生成与重绘函数通常需要协同配置。',
   },
   {
     instrument: 'helper-line',
     branches: 'service + context',
     fields: 'orientation, showIntersection, scales.x, scales.y, data',
-    note: 'Basic helper lines primarily rely on orientation. When showIntersection = true, data and the relevant scales are usually also required.',
+    note: '基础辅助线主要依赖 orientation；若 showIntersection = true，通常还需同时提供 data 及相关 scales。',
   },
 ];
 
@@ -460,25 +460,25 @@ const PLAYGROUND_DEFAULT_ENABLED = new Set(['point-selection']);
 
 const PLAYGROUND_CARD_META = {
   'point-selection': {
-    hint: 'This example helps observe local highlight behavior triggered by hover / click and works well as an initial reference.',
+    hint: '该示例便于观察 hover / click 所触发的局部高亮机制，适合作为初始参照。',
   },
   'group-selection': {
-    hint: 'This example is suitable for studying the scope and feedback behavior of brush selection in a scatter plot.',
+    hint: '该示例适合考察 brush 选区在散点图中的作用范围与反馈表现。',
   },
   'axis-selection': {
-    hint: 'This example targets the x-axis by default, making it easier to observe how axis brushing affects point selection in the main view.',
+    hint: '该示例默认作用于 x 轴，便于观察 axis brush 如何影响主图中的点选择结果。',
   },
   pan: {
-    hint: 'Hold Ctrl and drag on the canvas to verify whether pan works under the current scale configuration.',
+    hint: '按住 Ctrl 并拖动画布，可检验平移交互是否在当前比例尺配置下生效。',
   },
   lens: {
-    hint: 'Move the pointer near points to observe the local focus effect of lens / excentric labeling.',
+    hint: '将指针移动至点附近，可观察 lens / excentric labeling 的局部聚焦效果。',
   },
   zoom: {
-    hint: 'Hold Ctrl while zooming to verify the more stable zoom trigger configuration in the current runtime.',
+    hint: '按住 Ctrl 并执行缩放操作，可检验当前 runtime 下较稳定的 zoom trigger 配置。',
   },
   'helper-line': {
-    hint: 'This example is used to observe how helper lines and intersections are generated, while illustrating how service and context are configured together.',
+    hint: '该示例用于观察辅助线与交点的生成过程，并展示 service 与 context 的联合配置方式。',
   },
 };
 
@@ -565,7 +565,7 @@ function logTutorialBrushLayers(scene, stage) {
       ? mainLayer.getLayerFromQueue('transientLayer')
       : null;
   const svgRect = svg?.node?.()?.getBoundingClientRect?.();
-  reportScatterBrushDebug('A', 'tutorial.js:logTutorialBrushLayers', `layer snapshot ${stage}`, {
+  reportScatterBrushDebug('A', 'tutorial-zh.js:logTutorialBrushLayers', `layer snapshot ${stage}`, {
     stage,
     svgRect: svgRect
       ? {
@@ -602,7 +602,7 @@ function installTutorialBrushDebug(scene) {
       typeof mainLayer?.getLayerFromQueue === 'function'
         ? mainLayer.getLayerFromQueue('transientLayer')
         : null;
-    reportScatterBrushDebug('B', 'tutorial.js:installTutorialBrushDebug', `pointer snapshot ${stage}`, {
+    reportScatterBrushDebug('B', 'tutorial-zh.js:installTutorialBrushDebug', `pointer snapshot ${stage}`, {
       stage,
       client: { x: event.clientX, y: event.clientY },
       pointerInMain: d3.pointer(event, mainLayer.getGraphic()),
@@ -874,7 +874,7 @@ function parsePlaygroundSpec(source, scope = {}) {
 
 function formatPlaygroundDiagnostics(diagnostics = []) {
   if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
-    return 'No compile-time or runtime diagnostics are currently reported.';
+    return '当前未产生编译期或运行期诊断信息。';
   }
 
   return diagnostics
@@ -1158,13 +1158,13 @@ function bindInstrumentPlayground(container) {
         const parsed = parsePlaygroundSpec(state.examples[id].source, scope);
         interactions.push(parsed);
       } catch (error) {
-        parseErrors.push(`[ERROR] ${id} parse failed: ${error.message}`);
+        parseErrors.push(`[ERROR] ${id} 解析失败: ${error.message}`);
       }
     });
 
     if (parseErrors.length > 0) {
       if (summaryNode) {
-        summaryNode.textContent = 'Code parsing failed. The scatter plot has been reset, and compileDSL was not executed this time.';
+        summaryNode.textContent = '代码解析未通过，散点图已重置，本次未执行 compileDSL。';
       }
       if (diagnosticsNode) {
         diagnosticsNode.textContent = parseErrors.join('\n');
@@ -1174,10 +1174,10 @@ function bindInstrumentPlayground(container) {
 
     if (interactions.length === 0) {
       if (summaryNode) {
-        summaryNode.textContent = 'No instrument is currently enabled, so only the base scatter plot is retained.';
+        summaryNode.textContent = '当前未启用任何 instrument，因此仅保留基础散点图。';
       }
       if (diagnosticsNode) {
-        diagnosticsNode.textContent = 'No compile-time or runtime diagnostics are currently reported.';
+        diagnosticsNode.textContent = '当前未产生编译期或运行期诊断信息。';
       }
       return;
     }
@@ -1190,7 +1190,7 @@ function bindInstrumentPlayground(container) {
     logTutorialBrushLayers(scene, 'after-compile');
 
     if (summaryNode) {
-      summaryNode.textContent = `Recompiled ${interactions.length} instrument(s): ${enabledIds.join(', ')}.`;
+      summaryNode.textContent = `已重新编译 ${interactions.length} 个 instrument：${enabledIds.join(', ')}。`;
     }
     if (diagnosticsNode) {
       diagnosticsNode.textContent = formatPlaygroundDiagnostics(result?.diagnostics || []);
@@ -1436,11 +1436,11 @@ function bindTargetPlayground(container) {
     );
 
     if (unresolved) {
-      statusNode.textContent = 'The current target.layer does not resolve to any Libra layer, so the hover interaction will not hit any target object.';
+      statusNode.textContent = '当前 target.layer 未解析到任何 Libra 图层，因此 hover 交互不会命中目标对象。';
       return;
     }
 
-    statusNode.textContent = `point-selection has been recompiled against real Libra layers. The current target layer is ${state.targetLayer}. Move the pointer into the figure to verify hit testing.`;
+    statusNode.textContent = `已基于真实 Libra 图层重新编译 point-selection；当前目标图层为 ${state.targetLayer}。可将指针移入图中以验证命中结果。`;
   }
 
   function updateTargetLayer(nextLayer) {
@@ -1488,21 +1488,21 @@ export default function initTutorialPage() {
       <section class="tutorial-hero">
         <div class="tutorial-hero-copy">
           <span class="eyebrow">Field-Oriented View</span>
-          <h1 class="hero-title">Understanding the Libra+ DSL Through instrument, trigger, target, feedback, and context</h1>
+          <h1 class="hero-title">围绕 instrument、trigger、target、feedback、context 理解新版 DSL</h1>
           <p>
-            This tutorial is organized around the actual constraints enforced by the current compiler and validator, and is intended to provide
-            a concise and consistent reference framework for authoring the new DSL. A useful starting point is to focus on the four top-level fields: <code>instrument</code>, 
-            <code>trigger</code>, <code>target</code>, and <code>feedback</code>.
+            本教程依据当前编译器与校验器的实际约束进行整理，旨在为新版 DSL 的书写提供一份
+            简明而一致的参考框架。理解时可优先关注四个顶层字段：<code>instrument</code>、
+            <code>trigger</code>、<code>target</code>、<code>feedback</code>。
           </p>
           <div class="hero-actions">
-            <a class="showcase-button" href="?page=gallery">Open Gallery</a>
-            <a class="showcase-button showcase-button-ghost" href="?page=home">Back to Home</a>
+            <a class="showcase-button" href="?page=gallery">查看示例页面</a>
+            <a class="showcase-button showcase-button-ghost" href="?page=home">返回首页</a>
           </div>
         </div>
 
         <aside class="tutorial-code-shell">
           <div class="spec-card-header">
-            <strong>Minimal Structural Example</strong>
+            <strong>最小结构示例</strong>
             <span class="spec-chip">Recommended</span>
           </div>
           <pre class="tutorial-code">${escapeHtml(EXAMPLE_LINES.join('\n'))}</pre>
@@ -1522,7 +1522,7 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Core Fields</span>
-        <h2 class="section-title">instrument, trigger, target, feedback: responsibilities of the four top-level fields</h2>
+        <h2 class="section-title">instrument、trigger、target、feedback：四个顶层字段的职责划分</h2>
         <div class="tutorial-grid">
           ${CORE_FIELDS.map((field) => renderFieldCard(field)).join('')}
         </div>
@@ -1531,10 +1531,10 @@ export default function initTutorialPage() {
       <section class="story-section tutorial-story">
         <div class="story-copy tutorial-copy">
           <span class="eyebrow">TTF Model</span>
-          <h2 class="section-title">TTF model: see how trigger, target, and feedback work together</h2>
+          <h2 class="section-title">TTF 模型：理解 trigger、target 与 feedback 如何协同工作</h2>
           <p class="section-text">
-            The clip below walks through the TTF model in sequence and can be used as a quick bridge between the field definitions above and the interactive examples below.
-            It is most useful when read together with the DSL examples on this page: first identify the trigger, then verify the target layer, and finally inspect how feedback is rendered.
+            下方视频按照 TTF 模型的顺序讲解交互组织方式，可作为上文字段定义与下文交互示例之间的过渡参考。
+            建议结合本页 DSL 配置一起观看：先识别 trigger，再确认 target 指向的 layer，最后观察 feedback 如何呈现到视图中。
           </p>
           <ul class="tutorial-list">
             ${renderSimpleList(TTF_MODEL_POINTS)}
@@ -1542,18 +1542,18 @@ export default function initTutorialPage() {
         </div>
         <div class="story-media">
           <video class="tutorial-story-video" controls preload="metadata" playsinline src="${escapeHtml(TTF_VIDEO_SRC)}">
-            Your browser does not support the video tag.
+            当前浏览器不支持 video 标签。
           </video>
         </div>
       </section>
 
       <section class="featured-panel">
         <span class="eyebrow">Target Field</span>
-        <h2 class="section-title">target: observe layer resolution by modifying target.layer</h2>
+        <h2 class="section-title">target：通过修改 target.layer 观察目标图层的解析结果</h2>
         <p class="gallery-subtitle">
-          The diagram below is deliberately decomposed into three independent layers: the axes correspond to <code>axisLayer</code>, the circle corresponds to
-          <code>circleLayer</code>, and the square corresponds to <code>squareLayer</code>. After modifying
-          <code>target.layer</code> in the configuration area, move the pointer to observe that the hover interaction only hits the specified target layer.
+          下方示意图被刻意拆分为三个独立 layer：坐标轴对应 <code>axisLayer</code>，圆形对应
+          <code>circleLayer</code>，方形对应 <code>squareLayer</code>。修改右下方的
+          <code>target.layer</code> 后，可通过指针移动观察 hover 交互仅命中被指定的目标 layer。
         </p>
 
         <div class="tutorial-target-layout">
@@ -1563,15 +1563,15 @@ export default function initTutorialPage() {
             <div class="tutorial-layer-list">
               <div class="tutorial-layer-item" data-layer-item="axisLayer">
                 <strong>axisLayer</strong>
-                <span>Axis lines and ticks</span>
+                <span>轴线与刻度</span>
               </div>
               <div class="tutorial-layer-item" data-layer-item="circleLayer">
                 <strong>circleLayer</strong>
-                <span>Circle mark</span>
+                <span>圆形标记</span>
               </div>
               <div class="tutorial-layer-item" data-layer-item="squareLayer">
                 <strong>squareLayer</strong>
-                <span>Square mark</span>
+                <span>方形标记</span>
               </div>
             </div>
           </div>
@@ -1580,11 +1580,11 @@ export default function initTutorialPage() {
         <div class="tutorial-target-config">
           <div class="tutorial-target-editor">
             <div class="tutorial-target-head">
-              <strong>Interaction Configuration</strong>
+              <strong>交互配置区</strong>
               <span class="tutorial-target-badge">point-selection · hover</span>
             </div>
 
-            <label class="tutorial-target-label" for="TutorialTargetInput">Edit target.layer</label>
+            <label class="tutorial-target-label" for="TutorialTargetInput">修改 target.layer</label>
             <input
               id="TutorialTargetInput"
               class="tutorial-target-input"
@@ -1598,7 +1598,7 @@ export default function initTutorialPage() {
             </div>
 
             <p class="tutorial-target-help">
-              Current target layer:
+              当前目标图层：
               <code id="TutorialTargetActive">circleLayer</code>
             </p>
             <p id="TutorialTargetStatus" class="tutorial-target-status"></p>
@@ -1611,7 +1611,7 @@ export default function initTutorialPage() {
 
         <div class="tutorial-target-code">
           <div class="spec-card-header">
-            <strong>Libra Layer Construction Code</strong>
+            <strong>Libra 建层代码</strong>
             <span class="spec-chip">Libra</span>
           </div>
           <pre class="tutorial-code tutorial-code-compact">${escapeHtml(TARGET_VIS_LINES.join('\n'))}</pre>
@@ -1620,19 +1620,19 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Instrument Field</span>
-        <h2 class="section-title">instrument: the nine recommended forms covered by this tutorial</h2>
+        <h2 class="section-title">instrument：当前教程所覆盖的 9 类推荐写法</h2>
         <p class="gallery-subtitle">
-          The table below retains only the forms that are currently supported by concrete new-DSL examples in this tutorial. The canonical names in the first column are recommended;
-          subsequent aliases are primarily maintained for compatibility with existing examples or historical spellings.
+          下表仅保留当前教程中已有新版 DSL 示例支撑的写法。建议优先采用第一列中的规范名称；
+          后续 alias 主要用于兼容既有示例或历史拼写。
         </p>
         <div class="tutorial-table-shell">
           <table class="tutorial-table">
             <thead>
               <tr>
-                <th>Canonical Form</th>
-                <th>Family</th>
-                <th>Available Trigger</th>
-                <th>Compatible Alias</th>
+                <th>规范写法</th>
+                <th>分类</th>
+                <th>可用 trigger</th>
+                <th>兼容 alias</th>
               </tr>
             </thead>
             <tbody>
@@ -1645,11 +1645,11 @@ export default function initTutorialPage() {
       <section class="story-section tutorial-story">
         <div class="story-copy tutorial-copy">
           <span class="eyebrow">Feedback Field</span>
-          <h2 class="section-title">feedback: how feedback structure and context are organized</h2>
+          <h2 class="section-title">feedback：反馈结构与 context 上下文的组织方式</h2>
           <p class="section-text">
-            The current validator explicitly checks the first-level fields under <code>feedback</code>, so it is recommended to organize them strictly according to the following structure.
-            This section first introduces the four top-level branches, then summarizes the subordinate fields commonly used by each instrument in the current compiler and runtime.
-            The fields listed here are frequent and actually consumed by the system; they do not imply that every configuration must provide all of them.
+            当前校验器会显式检查 <code>feedback</code> 的第一层子字段，因此建议严格按照下述结构组织。
+            本节先给出四个顶层分支，再概述各类 instrument 在当前编译器与运行时中常见的下属字段。
+            表中所列为高频且被实际读取的写法，并不意味着每次配置都需要全部给出。
           </p>
           <ul class="tutorial-list">
             ${renderSimpleList(TIPS)}
@@ -1662,7 +1662,7 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Feedback Branches</span>
-        <h2 class="section-title">feedback: the four first-level branches</h2>
+        <h2 class="section-title">feedback：四个第一层分支字段</h2>
         <div class="tutorial-grid">
           ${FEEDBACK_TOP_LEVEL_FIELDS.map((field) => renderFieldCard(field)).join('')}
         </div>
@@ -1670,21 +1670,21 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Context Field</span>
-        <h2 class="section-title">context: common runtime fields and configuration locations for different instruments</h2>
+        <h2 class="section-title">context：不同 instrument 常见的上下文字段与配置位置</h2>
         <p class="gallery-subtitle">
-          Field paths in the table follow the recommended style. In particular:
-          visual fields such as <code>highlight</code> and <code>dim</code> are usually placed under <code>redrawFunc</code>,
-          while scales, linking metadata, and dimension information are usually placed under <code>context</code>. Instrument-specific parameters for lens / reorder / helper-line
-          are more often placed under <code>service</code> or <code>feedforward</code>.
+          表中的字段路径均按推荐写法描述。需特别注意：
+          <code>highlight</code>、<code>dim</code> 一类视觉字段通常放在 <code>redrawFunc</code>，
+          比例尺、联动与维度信息通常放在 <code>context</code>，而 lens / reorder / helper-line
+          一类 instrument 的专属参数则多置于 <code>service</code> 或 <code>feedforward</code>。
         </p>
         <div class="tutorial-table-shell">
           <table class="tutorial-table">
             <thead>
               <tr>
                 <th>instrument</th>
-                <th>Common Top-Level Branches</th>
-                <th>Common Subordinate Fields</th>
-                <th>When It Is Typically Written</th>
+                <th>常用顶层分支</th>
+                <th>常见下属字段</th>
+                <th>什么时候会写</th>
               </tr>
             </thead>
             <tbody>
@@ -1696,11 +1696,11 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Trigger And Context</span>
-        <h2 class="section-title">trigger / context: validate trigger behavior and context configuration in a real scatter plot</h2>
+        <h2 class="section-title">trigger / context：在真实散点图中验证交互触发与上下文配置</h2>
         <p class="gallery-subtitle">
-          The playground below compiles seven instruments suitable for scatter plots directly onto the same real Libra scatter plot.
-          Users may choose whether to enable each example, edit the corresponding DSL object directly, and then execute “Recompile Configuration”.
-          Because <code>reorder</code> and <code>move</code> are not well explained through this non-data-driven scatter plot, more suitable gallery examples are linked separately.
+          下方 playground 会将 7 类适用于散点图的 instrument 直接编译到同一张真实 Libra 散点图上。
+          使用者可选择是否启用某一示例，并直接修改相应 DSL 对象代码，随后执行“重新编译配置”。
+          由于 <code>reorder</code> 与 <code>move</code> 并不适合通过该非数据驱动散点图进行说明，因此另附更契合的 gallery 示例链接。
         </p>
 
         <div class="tutorial-playground-shell">
@@ -1711,8 +1711,8 @@ export default function initTutorialPage() {
                 <span class="tutorial-target-badge">Libra + compileDSL</span>
               </div>
               <div class="tutorial-playground-actions">
-                <button id="TutorialPlaygroundApply" class="tutorial-action-button" type="button">Recompile Configuration</button>
-                <button id="TutorialPlaygroundReset" class="tutorial-action-button tutorial-action-button-ghost" type="button">Restore Defaults</button>
+                <button id="TutorialPlaygroundApply" class="tutorial-action-button" type="button">重新编译配置</button>
+                <button id="TutorialPlaygroundReset" class="tutorial-action-button tutorial-action-button-ghost" type="button">恢复初始配置</button>
               </div>
             </div>
 
@@ -1740,11 +1740,11 @@ export default function initTutorialPage() {
                   <span class="tutorial-target-badge">gallery</span>
                 </div>
                 <p class="tutorial-editor-hint">
-                  <code>reorder</code> is better suited to categorical axes or matrix scenarios and is not ideal for explanation through the current scatter plot. Refer instead to
-                  <strong>${REORDER_GALLERY_LABEL}</strong> in the gallery for a more appropriate example.
+                  <code>reorder</code> 更适用于类别轴或矩阵情形，不宜通过当前散点图示例展开说明。可前往 gallery 中的
+                  <strong>${REORDER_GALLERY_LABEL}</strong> 参照相应实例。
                 </p>
                 <a class="showcase-button showcase-button-ghost" href="?page=${REORDER_GALLERY_PAGE}">
-                  Open ${REORDER_GALLERY_LABEL}
+                  查看 ${REORDER_GALLERY_LABEL}
                 </a>
               </article>
 
@@ -1754,11 +1754,11 @@ export default function initTutorialPage() {
                   <span class="tutorial-target-badge">gallery</span>
                 </div>
                 <p class="tutorial-editor-hint">
-                  In the current non-data-driven scatter plot, <code>move</code> offers limited explanatory value. Refer instead to
-                  <strong>${MOVE_GALLERY_LABEL}</strong> in the gallery for a more suitable real example.
+                  在当前非数据驱动散点图中，<code>move</code> 的说明价值有限。可前往 gallery 中的
+                  <strong>${MOVE_GALLERY_LABEL}</strong> 参照更契合的真实示例。
                 </p>
                 <a class="showcase-button showcase-button-ghost" href="?page=${encodeURIComponent(MOVE_GALLERY_PAGE)}">
-                  Open ${MOVE_GALLERY_LABEL}
+                  查看 ${MOVE_GALLERY_LABEL}
                 </a>
               </article>
             </div>
@@ -1768,7 +1768,7 @@ export default function initTutorialPage() {
 
       <section class="featured-panel">
         <span class="eyebrow">Trigger Extensions</span>
-        <h2 class="section-title">trigger and top-level extensions: finer-grained control parameters</h2>
+        <h2 class="section-title">trigger 与顶层扩展字段：更细粒度的控制参数</h2>
         <ul class="tutorial-detail-list">
           ${renderAdvancedList(ADVANCED_FIELDS)}
         </ul>
@@ -1776,19 +1776,19 @@ export default function initTutorialPage() {
 
       <section class="tutorial-callout">
         <span class="eyebrow">Field-Level Notes</span>
-        <h2 class="section-title">common writing issues viewed from field-level constraints</h2>
+        <h2 class="section-title">从字段约束角度理解 DSL 书写中的常见问题</h2>
         <div class="tutorial-note-grid">
           <article class="tutorial-note">
-            <strong>1. Keep top-level fields restrained</strong>
-            <p>The new DSL imposes relatively strong constraints on top-level fields, so additional fields are often judged as errors by the validator.</p>
+            <strong>1. 顶层字段应保持克制</strong>
+            <p>新版 DSL 对顶层字段约束较强，额外字段通常会被校验器直接判定为错误。</p>
           </article>
           <article class="tutorial-note">
-            <strong>2. Place priority inside trigger</strong>
-            <p>To control interaction precedence, place <code>priority</code>, <code>modifierKey</code>, and <code>stopPropagation</code> together inside <code>trigger</code>.</p>
+            <strong>2. priority 应写入 trigger</strong>
+            <p>若需控制交互竞争顺序，应将 <code>priority</code>、<code>modifierKey</code>、<code>stopPropagation</code> 统一写入 <code>trigger</code>。</p>
           </article>
           <article class="tutorial-note">
-            <strong>3. Prefer the layer form for target</strong>
-            <p>Most interactions depend on layer resolution, so <code>target: { layer: "..." }</code> is the recommended uniform form.</p>
+            <strong>3. target 优先采用 layer 写法</strong>
+            <p>多数交互依赖图层解析，因此建议统一采用 <code>target: { layer: "..." }</code> 的形式。</p>
           </article>
         </div>
       </section>

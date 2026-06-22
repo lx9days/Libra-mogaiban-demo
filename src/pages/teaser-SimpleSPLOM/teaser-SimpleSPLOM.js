@@ -168,14 +168,7 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
       );
       cellLayers[layerName] = cellLayer;
       const cell = d3.select(cellLayer.getGraphic());
-      cell.selectAll("*").remove();
-
-      // Draw frame
-      cell.append("rect")
-        .attr("width", cellWidth)
-        .attr("height", cellHeight)
-        .attr("fill", "none")
-        .attr("stroke", "#ddd");
+      cell.selectAll(":not(.ig-layer-background)").remove();
 
       // Draw points
       const localX = xScales[xiField];
@@ -189,13 +182,15 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
         clipPath.selectAll("rect")
           .data([null])
           .join("rect")
+          .attr("class", "ignore")
           .attr("x", -cellClipPadding)
           .attr("y", -cellClipPadding)
           .attr("width", cellWidth + cellClipPadding * 2)
           .attr("height", cellHeight + cellClipPadding * 2);
 
-        cell.selectAll("*").remove();
+        cell.selectAll(":not(.ig-layer-background)").remove();
         cell.append("rect")
+          .attr("class", "frame ignore")
           .attr("width", cellWidth)
           .attr("height", cellHeight)
           .attr("fill", "none")

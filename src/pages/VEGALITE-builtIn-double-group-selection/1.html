@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vega-Lite 单图层双框选 (持久残留版)</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head>
+<body>
+  <div id="vis"></div>
+  <script type="text/javascript">
+    var spec = {
+      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+      "data": { "url": "https://vega.github.io/editor/data/cars.json" },
+      "width": 600,
+      "height": 400,
+      "params": [
+        {
+          "name": "brush1",
+          "select": {
+            "type": "interval",
+            "on": "[mousedown[!event.shiftKey], window:mouseup] > window:mousemove",
+            "translate": "[mousedown[!event.shiftKey], window:mouseup] > window:mousemove",
+            // 修复：改为双击清空，避免与拖拽结束的 mouseup 冲突
+            "clear": "dblclick[!event.shiftKey]" 
+          }
+        },
+        {
+          "name": "brush2",
+          "select": {
+            "type": "interval",
+            "on": "[mousedown[event.shiftKey], window:mouseup] > window:mousemove",
+            "translate": "[mousedown[event.shiftKey], window:mouseup] > window:mousemove",
+            "clear": "dblclick[event.shiftKey]",
+            "mark": {"stroke": "red", "fill": "red", "fillOpacity": 0.1}
+          }
+        }
+      ],
+      "mark": "point",
+      "encoding": {
+        "x": { "field": "Horsepower", "type": "quantitative" },
+        "y": { "field": "Miles_per_Gallon", "type": "quantitative" },
+        "color": {
+          "condition": {
+            "test": {"or": [{"param": "brush1"}, {"param": "brush2"}]},
+            "field": "Cylinders", "type": "ordinal"
+          },
+          "value": "lightgrey"
+        }
+      }
+    };
+    vegaEmbed('#vis', spec);
+  </script>
+</body>
+</html>

@@ -1100,6 +1100,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
               feedbackOptions?.ModifierKey;
             if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
             if (spec?.instrument) buildContext.dslInstrumentName = spec.instrument;
+            if (instrumentName) buildContext.dslInstanceName = instrumentName;
             const priority =
               spec?.priority !== undefined ? spec.priority : spec?.Priority;
             const stopPropagation =
@@ -1164,6 +1165,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
                 feedbackOptions?.ModifierKey;
               if (modifierKeyRaw !== undefined) buildContext.modifierKey = modifierKeyRaw;
               if (spec?.instrument) buildContext.dslInstrumentName = spec.instrument;
+              if (instrumentName) buildContext.dslInstanceName = instrumentName;
               const priority =
                 spec?.priority !== undefined ? spec.priority : spec?.Priority;
               const stopPropagation =
@@ -1406,6 +1408,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
             zoomContext.modifierKey = null;
           }
           if (spec?.instrument) zoomContext.dslInstrumentName = spec.instrument;
+          if (instrumentName) zoomContext.dslInstanceName = instrumentName;
           const priority =
             spec?.priority !== undefined ? spec.priority : spec?.Priority;
           const stopPropagation =
@@ -1534,6 +1537,7 @@ export function compileInteractionsDSL(specList = [], ctx) {
 
       const sharedVar = { ...sharedVarDefaults };
       if (spec?.instrument) sharedVar.dslInstrumentName = spec.instrument;
+      if (instrumentName) sharedVar.dslInstanceName = instrumentName;
       if (typeof highlight === "string") {
         sharedVar.highlightColor = highlight;
       } else if (highlight && typeof highlight === "object") {

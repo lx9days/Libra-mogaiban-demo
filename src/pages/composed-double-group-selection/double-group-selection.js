@@ -139,10 +139,32 @@ export default async function init() {
       },
       feedback: {
         redrawFunc: {
-          highlight: { color: (d) => "red" },
-          // dim: { opacity: 0.1, selector: ".mark" },
+          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
           brushStyle: {
             fill: "#5c5c5cff",
+            opacity: 0.3,
+            stroke: "none",
+          },
+        },
+      },
+    },
+    {
+      name: "brushMain2",
+      instrument: "GroupSelection",
+      trigger: {
+        type: "brush",
+        priority: 2,
+        modifierKey:"ctrl",
+        stopPropagation: true,
+      },
+      target: {
+        layer: "mainLayer",
+      },
+      feedback: {
+        redrawFunc: {
+          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
+          brushStyle: {
+            fill: "#ff6b6b",
             opacity: 0.3,
             stroke: "none",
           },

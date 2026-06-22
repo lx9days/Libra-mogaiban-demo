@@ -475,6 +475,13 @@ a {
   object-fit: contain;
 }
 
+.story-media video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0f1c31;
+}
+
 .story-copy {
   padding: 8px 4px;
 }
@@ -512,6 +519,22 @@ a {
 
 .gallery-hero {
   margin-bottom: 18px;
+}
+
+.compose-hero code {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgb(16 35 63 / 6%);
+  font-family: SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+.compose-panel {
+  margin-top: 0;
+}
+
+.compose-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 420px));
 }
 
 .gallery-subtitle {
@@ -838,6 +861,9 @@ a {
 }
 
 .tutorial-target-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   border-radius: 18px;
   border: 1px solid rgb(16 35 63 / 8%);
@@ -853,7 +879,9 @@ a {
 
 .tutorial-target-svg {
   display: block;
-  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
 }
 
@@ -1361,6 +1389,235 @@ a {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.showcase-page--user-study .hero-title {
+  max-width: 10ch;
+  font-size: clamp(42px, 5.4vw, 64px);
+  line-height: 1.02;
+}
+
+.showcase-page--user-study {
+  max-width: none;
+  height: 100vh;
+  padding: 8px;
+  display: block;
+  overflow: hidden;
+}
+
+.user-study-workbench {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+.user-study-workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.58fr) minmax(360px, 0.86fr) minmax(500px, 1.16fr);
+  gap: 8px;
+  align-items: stretch;
+  height: 100%;
+}
+
+.user-study-template-column,
+.user-study-preview-column,
+.user-study-side-column {
+  min-width: 0;
+  min-height: 0;
+}
+
+.user-study-template-column {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.user-study-template-column-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  margin-bottom: 8px;
+  padding: 2px 4px;
+}
+
+.user-study-template-column-head strong {
+  font-size: 18px;
+}
+
+.user-study-template-column-head span {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.user-study-template-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.user-study-template-tab {
+  padding: 8px 12px;
+  border: 1px solid rgb(16 35 63 / 10%);
+  background: #fbfbf8;
+  color: #516074;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.user-study-template-tab.is-active {
+  background: #10233f;
+  color: #fff;
+  border-color: #10233f;
+}
+
+.user-study-template-list {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.user-study-library-card {
+  align-content: start;
+  height: 100%;
+}
+
+.user-study-library-card:not(.is-active) {
+  display: none;
+}
+
+.user-study-template-stage {
+  display: grid;
+  gap: 12px;
+}
+
+.user-study-template-mount {
+  min-height: 220px;
+}
+
+.user-study-template-code {
+  min-height: 0;
+  max-height: none;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #fbfbf8;
+  border: 1px solid rgb(16 35 63 / 8%);
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.user-study-preview-column {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.user-study-side-column {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+
+.user-study-composer-card {
+  display: grid;
+  min-height: 0;
+  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+}
+
+.user-study-preview-panel,
+.user-study-editor-panel,
+.user-study-static-panel {
+  min-height: 0;
+  height: 100%;
+  border-radius: 0;
+}
+
+.user-study-preview-panel {
+  display: grid;
+  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.user-study-preview-panel .tutorial-target-stage {
+  min-height: 0;
+  height: 100%;
+}
+
+.user-study-editor-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.user-study-static-panel {
+  display: grid;
+  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.user-study-static-code {
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgb(16 35 63 / 8%);
+  overflow: hidden;
+}
+
+.user-study-editor {
+  min-height: 0;
+  height: 100%;
+  border: 1px solid rgb(16 35 63 / 8%);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.user-study-monaco {
+  min-height: 0;
+  height: 100%;
+  background: #ffffff;
+}
+
+.user-study-monaco .monaco-editor,
+.user-study-monaco .overflow-guard {
+  border-radius: 10px;
+}
+
+.user-study-monaco-highlight {
+  background: rgb(255 214 10 / 14%);
+  border-left: 3px solid #f0a400;
+}
+
+.user-study-monaco-glyph {
+  background: #f0a400;
+  width: 4px !important;
+  margin-left: 3px;
+}
+
+.user-study-preview-status {
+  gap: 10px;
+}
+
+.showcase-page--user-study .tutorial-playground-status {
+  gap: 12px;
+}
+
+.showcase-page--user-study .tutorial-playground-status .tutorial-code {
+  min-height: 66px;
+  max-height: 140px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fbfbf8;
+  border: 1px solid rgb(16 35 63 / 8%);
+}
+
 .dsl-highlight {
   background-color: rgb(255 255 0 / 20%);
   border-left: 3px solid orange;
@@ -1405,11 +1662,36 @@ a {
   .tutorial-note-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .user-study-workbench-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-study-template-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .user-study-compose-column {
+    grid-template-columns: minmax(0, 1fr);
+    grid-column: auto;
+  }
+
+  .user-study-preview-column {
+    grid-template-rows: minmax(0, 1fr) minmax(240px, auto);
+  }
 }
 
 @media (max-width: 760px) {
   .showcase-page {
     padding: 22px 16px 56px;
+  }
+
+  .showcase-page--user-study {
+    height: auto;
+    min-height: 100vh;
+    padding: 8px;
+    overflow: visible;
   }
 
   .showcase-topbar,
@@ -1450,6 +1732,16 @@ a {
   .tutorial-playground-stage,
   .tutorial-editor-card {
     padding: 18px;
+  }
+
+  .user-study-editor {
+    min-height: 420px;
+    height: auto;
+    resize: vertical;
+  }
+
+  .user-study-template-editor {
+    min-height: 220px;
   }
 
 

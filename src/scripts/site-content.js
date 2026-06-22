@@ -1,6 +1,6 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'user', 'ParallelCoordinate', 'brush-zoom1']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1']);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
@@ -8,6 +8,8 @@ export const NEW_DSL_PAGES = new Set([
   'pan&zoom',
   'group-selection-lens',
   'group-selection',
+  'builtIn-double-group-selection',
+  'composed-double-group-selection',
   'edge-lens',
   'lens-treemap',
   'lens-zoom',
@@ -108,6 +110,24 @@ const PAGE_META = {
     preview: './public/showcase/previews/brush-link.gif',
     tone: 'gold',
     featured: true,
+  },
+  'builtIn-double-group-selection': {
+    title: 'Built-in Double Group Selection',
+    category: 'Selection',
+    triggers: ['Brush'],
+    themes: ['Reuse', 'Conflict'],
+    description:
+      'A built-in remnant-key brushing example that accumulates multiple selections within one group selection instrument.',
+    tone: 'ink',
+  },
+  'composed-double-group-selection': {
+    title: 'Composed Double Group Selection',
+    category: 'Composite',
+    triggers: ['Brush'],
+    themes: ['Compose', 'Conflict'],
+    description:
+      'A composed double-brush example that stacks two group selection instruments on the same layer to compare composition with built-in remnant behavior.',
+    tone: 'navy',
   },
   'group-selection-lens': {
     title: 'Group Selection + Lens',
@@ -480,6 +500,7 @@ function pageIdFromKey(key) {
 
   const [folder, file] = parts;
   if (file === folder || file === 'index' || file === '1') return folder;
+  if (parts.length === 2 && folder.includes(file)) return folder;
   return null;
 }
 

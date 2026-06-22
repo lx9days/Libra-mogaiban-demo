@@ -131,6 +131,7 @@ export default async function init() {
       instrument: "GroupSelection",
       trigger: {
         type: "brush",
+        remnantKey: "shift",
         priority: 1,
         stopPropagation: true,
       },
@@ -139,7 +140,7 @@ export default async function init() {
       },
       feedback: {
         redrawFunc: {
-          highlight: { color: (d) => "red" },
+          highlight: { color: (d) => color(d[g.FIELD_COLOR || fieldColor]) },
           // dim: { opacity: 0.1, selector: ".mark" },
           brushStyle: {
             fill: "#5c5c5cff",

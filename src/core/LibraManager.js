@@ -45,6 +45,7 @@ export default class LibraManager {
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
         else if (typeof highlight === "string") sharedVar.highlightColor = highlight;
         else if (highlight && typeof highlight === "object") {
@@ -129,6 +130,7 @@ export default class LibraManager {
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
         else if (typeof highlight === "string") sharedVar.highlightColor = highlight;
         else if (highlight && typeof highlight === "object") {
@@ -351,6 +353,7 @@ export default class LibraManager {
         const sharedVar = {
             modifierKey: context.modifierKey,
             dslInstrumentName: context.dslInstrumentName,
+            dslInstanceName: context.dslInstanceName,
             viewState: LibraManager.__ensureViewTransformState(context),
             viewTransformContext: context,
         };
@@ -424,6 +427,7 @@ export default class LibraManager {
         const sharedVar = {
             modifierKey: context.modifierKey,
             dslInstrumentName: context.dslInstrumentName,
+            dslInstanceName: context.dslInstanceName,
             viewState: LibraManager.__ensureViewTransformState(context),
             viewTransformContext: context,
         };
@@ -572,6 +576,7 @@ export default class LibraManager {
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.HighlightColor) sharedVar.highlightColor = context.HighlightColor;
         if (context.highlightAttrValues) sharedVar.highlightAttrValues = context.highlightAttrValues;
         if (context.brushStyle) sharedVar.brushStyle = context.brushStyle;
@@ -1549,7 +1554,8 @@ export default class LibraManager {
                 offset: context.offset || { x: 0, y: 0 },
                 syntheticEvent: syntheticEvent,
                 gestureMoveDelay: gestureMoveDelay,
-                dslInstrumentName: context.dslInstrumentName
+                dslInstrumentName: context.dslInstrumentName,
+                dslInstanceName: context.dslInstanceName
             },
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -1568,6 +1574,7 @@ export default class LibraManager {
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.fixRange !== undefined) sharedVar.fixRange = context.fixRange;
         if (context.scaleX) sharedVar.scaleX = context.scaleX;
         if (context.scaleY) sharedVar.scaleY = context.scaleY;
@@ -1594,6 +1601,7 @@ export default class LibraManager {
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.semantic !== undefined) sharedVar.semantic = context.semantic;
         if (context.scaleLevels !== undefined) sharedVar.scaleLevels = context.scaleLevels;
         if (context.fixRange !== undefined) sharedVar.fixRange = context.fixRange;
@@ -2359,6 +2367,7 @@ export default class LibraManager {
         if (context.filter !== undefined) sharedVar.filter = context.filter;
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.renderSelection !== undefined) sharedVar.renderSelection = context.renderSelection;
         if (context.r !== undefined) sharedVar.r = context.r;
         if (context.stroke !== undefined) sharedVar.stroke = context.stroke;
@@ -2457,6 +2466,7 @@ export default class LibraManager {
         const sharedVar = {};
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         const buildOptions = {
             inherit: "GeometricZoomInstrument",
             layers: [layer],
@@ -2694,6 +2704,7 @@ export default class LibraManager {
         };
         if (context.modifierKey !== undefined) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
+        if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         if (context.updateBrush !== undefined) sharedVar.updateBrush = context.updateBrush;
         const buildLayers = Array.isArray(context.layers) && context.layers.length ? context.layers : [layer];
         const buildOptions = {

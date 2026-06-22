@@ -19,7 +19,7 @@ if (
 const pagesJsContext = require.context('../pages', true, /\.js$/);
 const pagesJsonContext = require.context('../pages', true, /\.json$/);
 const modulesContext = require.context('./modules', false, /\.js$/);
-const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial']);
+const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'compose', 'user']);
 
 function nameFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -133,6 +133,12 @@ function setPageChrome(name) {
       ? 'Libra+ Gallery'
       : rawName === 'tutorial'
         ? 'Libra+ DSL Tutorial'
+      : rawName === 'tutorial-zh'
+        ? 'Libra+ DSL Tutorial (ZH)'
+      : rawName === 'compose'
+        ? 'Libra+ Compose Examples'
+      : rawName === 'user'
+        ? 'Libra+ User Study'
       : 'Libra+'
     : `Libra+ Demo · ${rawName}`;
 }
