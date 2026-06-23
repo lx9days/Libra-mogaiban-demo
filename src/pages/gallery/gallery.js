@@ -15,7 +15,7 @@ function escapeHtml(value) {
 }
 
 function demoHref(demo) {
-  return `?page=${encodeURIComponent(demo.id)}`;
+  return `?page=${encodeURIComponent(demo.comparePage || demo.id)}`;
 }
 
 function renderPreviewMarkup(demo) {
@@ -55,9 +55,10 @@ function renderDemoCard(demo) {
     .join('');
 
   return `
-    <article class="demo-card">
+    <article class="demo-card${demo.comparePage ? ' demo-card-compare' : ''}">
       <div class="demo-preview" data-tone="${escapeHtml(demo.tone)}">
         ${renderPreviewMarkup(demo)}
+        ${demo.compareBadge ? `<span class="demo-compare-badge">${escapeHtml(demo.compareBadge)}</span>` : ''}
       </div>
       <div class="demo-card-body">
         <div class="demo-card-heading">
@@ -65,11 +66,12 @@ function renderDemoCard(demo) {
             <h3 class="demo-card-title">${escapeHtml(demo.title)}</h3>
             <p class="demo-card-meta">${escapeHtml(demo.id)}</p>
           </div>
+          ${demo.comparePage ? '<span class="demo-card-mode">Compare</span>' : ''}
         </div>
         <p class="demo-card-description">${escapeHtml(demo.description)}</p>
         <div class="demo-tags">${tags}</div>
         <div class="demo-card-footer">
-          <a class="demo-link" href="${demoHref(demo)}">Open demo</a>
+          <a class="demo-link" href="${demoHref(demo)}">${demo.comparePage ? 'Open compare' : 'Open demo'}</a>
         </div>
       </div>
     </article>

@@ -4,6 +4,16 @@ import Libra from "libra-vis";
 const DEFAULT_MARGIN = { top: 30, right: 70, bottom: 40, left: 60 };
 const DEFAULT_WIDTH = 500 - DEFAULT_MARGIN.left - DEFAULT_MARGIN.right;
 const DEFAULT_HEIGHT = 340 - DEFAULT_MARGIN.top - DEFAULT_MARGIN.bottom;
+const CARS_DATA_URL = "https://raw.githubusercontent.com/vega/vega/main/docs/data/cars.json";
+
+let carsDataPromise = null;
+
+export async function loadCarsScatterData() {
+  if (!carsDataPromise) {
+    carsDataPromise = d3.json(CARS_DATA_URL);
+  }
+  return carsDataPromise;
+}
 
 export async function setupCarsScatter(options = {}) {
   const {
@@ -18,19 +28,25 @@ export async function setupCarsScatter(options = {}) {
     pointStroke = (d, { color }) => color(d[fieldColor]),
     pointFillOpacity = 1,
     pointStrokeWidth = 1,
+    data: providedData = null,
+    container = null,
+    clearContainer = true,
+    layerName = "mainLayer",
   } = options;
 
-  const url = "https://raw.githubusercontent.com/vega/vega/main/docs/data/cars.json";
-  const rawData = await d3.json(url);
+  const rawData = Array.isArray(providedData) ? providedData : await loadCarsScatterData();
   const data = rawData.filter(
     (d) => !!(d[fieldX] && d[fieldY])
   );
 
-  const container = document.getElementById("LibraPlayground");
-  if (container) container.innerHTML = "";
+  const mountNode = container || document.getElementById("LibraPlayground");
+  if (!mountNode) {
+    throw new Error("setupCarsScatter requires a mount container.");
+  }
+  if (clearContainer) mountNode.innerHTML = "";
 
   const svg = d3
-    .select("#LibraPlayground")
+    .select(mountNode)
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
@@ -119,7 +135,7 @@ export async function setupCarsScatter(options = {}) {
     .text((d) => d);
 
   const mainLayer = Libra.Layer.initialize("D3Layer", {
-    name: "mainLayer",
+    name: layerName,
     width,
     height,
     offset: { x: margin.left, y: margin.top },
@@ -154,7 +170,8 @@ export async function setupCarsScatter(options = {}) {
     fieldY,
     fieldColor,
     svg,
+    container: mountNode,
     mainLayer,
-    layersByName: { mainLayer },
+    layersByName: { [layerName]: mainLayer },
   };
 }

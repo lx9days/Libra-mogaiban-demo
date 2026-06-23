@@ -1,6 +1,6 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1', 'point-selection-compare', 'composed-double-group-selection-compare']);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
@@ -99,6 +99,8 @@ const PAGE_META = {
     preview: './public/showcase/previews/dust-magnet.gif',
     tone: 'ink',
     featured: true,
+    comparePage: 'dust-magnet-compare',
+    compareBadge: 'Libra+ vs Libra.js',
   },
   'group-selection': {
     title: 'Group Selection',
@@ -128,6 +130,8 @@ const PAGE_META = {
     description:
       'A composed double-brush example that stacks two group selection instruments on the same layer to compare composition with built-in remnant behavior.',
     tone: 'navy',
+    comparePage: 'composed-double-group-selection-compare',
+    compareBadge: 'DSL First Compare',
   },
   'group-selection-lens': {
     title: 'Group Selection + Lens',
@@ -359,6 +363,8 @@ const PAGE_META = {
     description:
       'A compact point selection demo that isolates low-level picking from chart-specific feedback.',
     tone: 'gold',
+    comparePage: 'point-selection-compare',
+    compareBadge: 'DSL vs Libra vs Vega-Lite vs D3',
   },
   'point-selection-link': {
     title: 'Linked Point Selection',
@@ -586,13 +592,13 @@ export function getShowcaseCatalog() {
   );
 
   catalogCache = ids
-    .map((id) => {
+    .flatMap((id) => {
       const meta = PAGE_META[id] || {};
       const category = meta.category || inferCategory(id);
       const triggers = meta.triggers || inferTriggers(id, category);
       const themes = meta.themes || inferThemes(id, category);
 
-      return {
+      const baseEntry = {
         id,
         title: meta.title || humanizePageId(id),
         category,
@@ -603,7 +609,23 @@ export function getShowcaseCatalog() {
         tone: meta.tone || 'gold',
         featured: meta.featured || FEATURED_ORDER.includes(id),
         isNewDsl: NEW_DSL_PAGES.has(id),
+        comparePage: null,
+        compareBadge: null,
       };
+
+      if (!meta.comparePage) return [baseEntry];
+
+      const compareEntry = {
+        ...baseEntry,
+        id: meta.comparePage,
+        title: `${baseEntry.title} Compare`,
+        description: `A side-by-side compare page for ${baseEntry.title}, showing Libra+, Libra.js, Vega-Lite, and D3 implementations when available.`,
+        comparePage: meta.comparePage,
+        compareBadge: meta.compareBadge || 'Compare',
+        featured: false,
+      };
+
+      return [baseEntry, compareEntry];
     })
     .sort((left, right) => {
       const leftRank = FEATURED_ORDER.indexOf(left.id);
