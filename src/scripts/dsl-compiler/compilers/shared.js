@@ -189,6 +189,19 @@ export function resolveCustomFeedbackFlow(customFeedbackFlow = {}, context = {})
 
 export function createPlan(spec, context, runtimeBuilderId, extra = {}) {
   const layers = resolveTargetLayers(spec, context);
+  const targetDescriptor =
+    spec.target && typeof spec.target === "object" && !Array.isArray(spec.target)
+      ? spec.target
+      : {};
+  const layerEntries =
+    targetDescriptor.pointerEvents !== undefined
+      ? layers.map((layer) => ({
+          layer,
+          options: {
+            pointerEvents: targetDescriptor.pointerEvents,
+          },
+        }))
+      : layers;
   const buildContext = {
     ...createBaseBuildContext(spec, context),
     ...(extra.buildContext || {}),
@@ -216,6 +229,7 @@ export function createPlan(spec, context, runtimeBuilderId, extra = {}) {
     trigger: spec.trigger,
     inherit: extra.inherit !== undefined ? extra.inherit : spec.inherit,
     layers,
+    layerEntries,
     buildContext,
     sharedVar,
     name: spec.name,

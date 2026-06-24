@@ -3,13 +3,33 @@ import { addDiagnostic } from "../context";
 import LibraManager from "../../../core/LibraManager";
 
 function forEachLayer(plan, callback) {
-  const layers = Array.isArray(plan.layers) ? plan.layers : [];
-  return layers.map((layer) => callback(layer)).filter((value) => value !== undefined);
+  const layers = Array.isArray(plan.layerEntries)
+    ? plan.layerEntries
+    : Array.isArray(plan.layers)
+      ? plan.layers
+      : [];
+  return layers
+    .map((entry) => {
+      const layer = entry && typeof entry === "object" && "layer" in entry ? entry.layer : entry;
+      return callback(layer, entry);
+    })
+    .filter((value) => value !== undefined);
 }
 
 function createLayerBuilder(executor) {
   return (plan, runtimeContext) =>
-    forEachLayer(plan, (layer) => executor(layer, plan.buildContext || {}, plan, runtimeContext));
+    forEachLayer(plan, (layer, layerEntry) =>
+      executor(
+        layer,
+        {
+          ...(plan.buildContext || {}),
+          layers: [layerEntry],
+          layerEntry,
+        },
+        plan,
+        runtimeContext
+      )
+    );
 }
 
 function getLensInstrumentName(buildContext = {}, plan = {}) {
@@ -242,7 +262,7 @@ function resolveTargetBrush(plan, layer, runtimeContext = {}) {
 }
 
 function runGenericInteraction(plan) {
-  const layers = Array.isArray(plan.layers) ? plan.layers : [];
+  const layers = Array.isArray(plan.layerEntries) ? plan.layerEntries : [];
   if (layers.length === 0) return null;
 
   // Derive inherit exclusively from trigger type

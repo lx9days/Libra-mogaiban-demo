@@ -21,6 +21,12 @@ export default class LibraManager {
 
         return true;
     }
+    static __resolveInteractionLayers(layer, context = {}) {
+        if (Array.isArray(context.layers) && context.layers.length) {
+            return context.layers;
+        }
+        return [layer];
+    }
     static updateLinkSelection(layer) {
         if (!layer || !Libra.GraphicalTransformer.findTransformerByLayer) return;
         const transformers = Libra.GraphicalTransformer.findTransformerByLayer(layer);
@@ -103,7 +109,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: `${triggerPascal}Instrument`,
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar: sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -208,7 +214,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: `${triggerPascal}Instrument`,
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar: sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -359,7 +365,7 @@ export default class LibraManager {
         };
         const buildOptions = {
             inherit: "ViewTransformPanInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -433,7 +439,7 @@ export default class LibraManager {
         };
         const buildOptions = {
             inherit: "ViewTransformZoomInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -586,7 +592,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: "LassoInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -1033,7 +1039,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: `Link${triggerPascal}Instrument`,
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar: sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -1519,7 +1525,7 @@ export default class LibraManager {
         });
         const buildOptions = {
             inherit: "ReorderInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             insert: [
                 {
                     find: "SelectionService",
@@ -1581,7 +1587,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: "PanInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar: sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -1610,7 +1616,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: isSemanticZoom ? "SemanticZoomInstrument" : "GeometricZoomInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar: sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -2387,7 +2393,7 @@ export default class LibraManager {
 
         const buildOptions = {
             inherit: "ExcentricLabelingInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar,
         };
         if (context.priority !== undefined) buildOptions.priority = context.priority;
@@ -2469,7 +2475,7 @@ export default class LibraManager {
         if (context.dslInstanceName) sharedVar.dslInstanceName = context.dslInstanceName;
         const buildOptions = {
             inherit: "GeometricZoomInstrument",
-            layers: [layer],
+            layers: LibraManager.__resolveInteractionLayers(layer, context),
             sharedVar,
             override: [{ find: "MouseWheelInteractor", actions: mouseWheelActions }],
         };

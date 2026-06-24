@@ -219,8 +219,15 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                         magnets: magnet,
                     },
                     evaluate({ magnets: currentMagnets, offsetx, offsety, result }) {
-                        if (result && result.length) {
-                            const datum = d3.select(result[0]).datum();
+                        const datum = result && result.length ? d3.select(result[0]).datum() : null;
+                        const isMagnetDatum =
+                            datum &&
+                            typeof datum === "object" &&
+                            typeof datum.x === "number" &&
+                            typeof datum.y === "number" &&
+                            typeof datum.property === "string";
+
+                        if (isMagnetDatum) {
                             datum.x = offsetx - 25;
                             datum.y = offsety - 25;
                         } else if (offsetx && offsety) {
@@ -314,7 +321,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "pointSelection",
             trigger: {
                 type: "click",
-                priority: 3,
+                priority: 2,
                 stopPropagation: true,
             },
             target: {
@@ -329,7 +336,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "pointSelection",
             trigger: {
                 type: "click",
-                priority: 2,
+                priority: 3,
                 stopPropagation: true,
             },
             target: {
@@ -412,7 +419,8 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 layer: "dustLayer",
             },
             feedback: {
-                lens: {
+                context: {
+                    updateLens: "scale",
                     zoom: {
                         step: 3,
                         minR: 12,
