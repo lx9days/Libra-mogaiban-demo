@@ -1,6 +1,6 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1', 'point-selection-compare', 'composed-double-group-selection-compare']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1', 'point-selection-compare', 'composed-double-group-selection-compare', 'teaser-simple-splom-compare']);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
@@ -324,6 +324,8 @@ const PAGE_META = {
     description:
       'A lighter SPLOM prototype used to validate linked brushing across repeated views.',
     tone: 'navy',
+    comparePage: 'teaser-simple-splom-compare',
+    compareBadge: 'Libra+ vs Libra.js vs Vega-Lite vs D3',
   },
   'teaser-Matrix': {
     title: 'Matrix Teaser',

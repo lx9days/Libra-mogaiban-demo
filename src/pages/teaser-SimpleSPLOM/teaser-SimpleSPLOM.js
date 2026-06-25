@@ -261,21 +261,53 @@ function renderSPLOM(svg, xAxisLayer, yAxisLayer, data, fields, scaleX, scaleY, 
 
       const attached = d3.select(cellLayer.getGraphic()).attr("data-panzoom-attached");
       if (!attached) {
+        const redrawFromTransform = (transform) => {
+          if (!transform) return;
+          const nextX = typeof transform.rescaleX === "function" ? transform.rescaleX(localX.copy()) : localX;
+          const nextY = typeof transform.rescaleY === "function" ? transform.rescaleY(localY.copy()) : localY;
+          const onRedraw = cellLayer.__panZoomOnRedraw;
+          if (typeof onRedraw === "function") onRedraw(nextX, nextY);
+        };
         const panZoomInteractions = [
           {
             instrument: "pan",
-            trigger: { type: "pan", modifierKey: "ctrl" },
-            target: { layer: layerName, stopPropagation: true, priority: 3 }
+            trigger: {
+              type: "pan",
+              modifierKey: "ctrl",
+              priority: 3,
+              stopPropagation: true,
+            },
+            target: { layer: layerName },
+            feedback: {
+              context: {
+                scaleX: localX,
+                scaleY: localY,
+                fixRange: true,
+                redraw: redrawFromTransform,
+              },
+            },
           },
           {
             instrument: "zoom",
-            trigger: { type: "zoom", modifierKey: "ctrl" },
-            target: { layer: layerName, stopPropagation: true, priority: 4 }
-          }
+            trigger: {
+              type: "zoom",
+              modifierKey: "ctrl",
+              priority: 4,
+              stopPropagation: true,
+            },
+            target: { layer: layerName },
+            feedback: {
+              context: {
+                scaleX: localX,
+                scaleY: localY,
+                fixRange: true,
+                redraw: redrawFromTransform,
+              },
+            },
+          },
         ];
         compileDSL(panZoomInteractions, {
           layersByName: { [layerName]: cellLayer },
-          scales: { x: localX, y: localY }
         }, { execute: true });
         const geometricTransformer = LibraManager.buildGeometricTransformer(cellLayer, {
           scaleX: localX,
@@ -398,8 +430,13 @@ async function mountInteraction(svg, xAxisLayer, yAxisLayer, names, scaleX, scal
       if (!sx || !sy) return null;
       return {
         instrument: "groupSelection",
-        trigger: { type: "brush", remnantKey: "shift" },
-        target: { layer: layerName, stopPropagation: true, priority: 2 },
+        trigger: {
+          type: "brush",
+          remnantKey: "shift",
+          priority: 2,
+          stopPropagation: true,
+        },
+        target: { layer: layerName },
         feedback: {
           redrawFunc: {
             highlight: { color: (d) => d ? color(d[fieldColor]) : "red" },

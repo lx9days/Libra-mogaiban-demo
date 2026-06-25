@@ -19,7 +19,7 @@ if (
 const pagesJsContext = require.context('../pages', true, /\.js$/);
 const pagesJsonContext = require.context('../pages', true, /\.json$/);
 const modulesContext = require.context('./modules', false, /\.js$/);
-const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'compose', 'user', 'point-selection-compare', 'composed-double-group-selection-compare', 'dust-magnet-compare']);
+const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'compose', 'user', 'point-selection-compare', 'composed-double-group-selection-compare', 'dust-magnet-compare', 'teaser-simple-splom-compare']);
 
 function nameFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -145,6 +145,8 @@ function setPageChrome(name) {
         ? 'Libra+ Composed Double Group Selection Compare'
       : rawName === 'dust-magnet-compare'
         ? 'Libra+ Dust & Magnet Compare'
+      : rawName === 'teaser-simple-splom-compare'
+        ? 'Libra+ Simple SPLOM Compare'
       : 'Libra+'
     : `Libra+ Demo · ${rawName}`;
 }
