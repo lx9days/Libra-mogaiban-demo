@@ -273,15 +273,22 @@ const CODE_EDITOR_ITEMS = [
 
 let codeEditors = [];
 
+const COMMUNICATION_VAR_COUNTS = {
+  ComposedDoubleGroupDslStatus: 0,
+  ComposedDoubleGroupLibraStatus: 2,
+  ComposedDoubleGroupVegaLiteStatus: 2,
+  ComposedDoubleGroupD3Status: 1,
+};
+
 const PANEL_HINTS = {
   ComposedDoubleGroupDslStatus:
-    "Explicit communication vars: 0. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
+    "Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
   ComposedDoubleGroupLibraStatus:
-    "Explicit communication vars: 2. Highlighted: brushStore, brushKey. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
+    "Highlighted: brushStore, brushKey. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
   ComposedDoubleGroupVegaLiteStatus:
-    "Explicit communication vars: 2. Highlighted: brush1, brush2. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
+    "Highlighted: brush1, brush2. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
   ComposedDoubleGroupD3Status:
-    "Explicit communication vars: 1. Highlighted: brushes. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
+    "Highlighted: brushes. Left drag uses GroupSelection1; Ctrl + drag uses GroupSelection2.",
 };
 
 function escapeHtml(value) {
@@ -368,7 +375,16 @@ function renderPage() {
 function setStatus(container, id, message, isError = false) {
   const node = container.querySelector(`#${id}`);
   if (!node) return;
-  node.textContent = message || "";
+  if (isError) {
+    node.textContent = message || "";
+  } else {
+    const count = COMMUNICATION_VAR_COUNTS[id];
+    const suffix =
+      Number.isFinite(count)
+        ? ` <span style="color:#c62828;font-weight:700;">Communication / coordination vars: ${count}.</span>`
+        : "";
+    node.innerHTML = `${escapeHtml(message || "")}${suffix}`;
+  }
   node.classList.toggle("is-error", isError);
   node.hidden = !message;
 }

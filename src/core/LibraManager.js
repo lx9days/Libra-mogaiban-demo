@@ -43,7 +43,9 @@ export default class LibraManager {
         if (!['click', 'hover'].includes(trigger)) return;
 
         const triggerPascal = trigger.charAt(0).toUpperCase() + trigger.slice(1);
-        const sharedVar = {};
+        const sharedVar = {
+            trigger: "lasso",
+        };
         const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
             ? context.link
             : {};
@@ -131,7 +133,9 @@ export default class LibraManager {
         if (trigger !== 'brush') return;
 
         const triggerPascal = trigger.charAt(0).toUpperCase() + trigger.slice(1);
-        const sharedVar = {};
+        const sharedVar = {
+            trigger,
+        };
         const highlight = context.Highlight !== undefined ? context.Highlight : context.highlight;
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
@@ -578,7 +582,9 @@ export default class LibraManager {
             LibraManager.__lassoInstrumentRegistered = true;
         }
 
-        const sharedVar = {};
+        const sharedVar = {
+            trigger: "lasso",
+        };
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
@@ -620,7 +626,9 @@ export default class LibraManager {
 
         if (!triggerPascal) return;
 
-        const sharedVar = {};
+        const sharedVar = {
+            trigger,
+        };
 
         const feedback = context.feedbackOptions || context["Feedback options"] || {};
         const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
@@ -1576,7 +1584,9 @@ export default class LibraManager {
         const trigger = context.Trigger.toLowerCase();
         if (trigger !== 'pan') return;
 
-        const sharedVar = {};
+        const sharedVar = {
+            trigger,
+        };
         if (context.ModifierKey) sharedVar.modifierKey = context.ModifierKey;
         if (context.modifierKey) sharedVar.modifierKey = context.modifierKey;
         if (context.dslInstrumentName) sharedVar.dslInstrumentName = context.dslInstrumentName;
