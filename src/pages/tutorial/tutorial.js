@@ -490,6 +490,29 @@ const MOVE_GALLERY_LABEL = 'Dust & Magnet';
 let tutorialScatterDataPromise = null;
 
 const TARGET_LAYER_OPTIONS = ['axisLayer', 'circleLayer', 'squareLayer'];
+const TARGET_SCENE = {
+  width: 560,
+  height: 300,
+  axis: {
+    left: 52,
+    baseline: 222,
+    right: 316,
+    top: 52,
+    tickXs: [104, 156, 208, 260],
+    tickYs: [170, 126, 82],
+  },
+  circle: {
+    cx: 124,
+    cy: 132,
+    r: 20,
+  },
+  square: {
+    x: 236,
+    y: 112,
+    size: 40,
+    rx: 6,
+  },
+};
 
 // #region debug-point A:scatter-brush-debug
 const DEBUG_SCATTER_BRUSH_URL = 'http://127.0.0.1:7777/event';
@@ -643,47 +666,47 @@ function installTutorialBrushDebug(scene) {
 const TARGET_VIS_LINES = [
   'const axisLayer = Libra.Layer.initialize("D3Layer", {',
   '  name: "tutorialAxisLayer",',
-  '  width: 560,',
-  '  height: 220,',
+  `  width: ${TARGET_SCENE.width},`,
+  `  height: ${TARGET_SCENE.height},`,
   '  container: svg.node(),',
   '});',
   '',
   'const circleLayer = Libra.Layer.initialize("D3Layer", {',
   '  name: "tutorialCircleLayer",',
-  '  width: 560,',
-  '  height: 220,',
+  `  width: ${TARGET_SCENE.width},`,
+  `  height: ${TARGET_SCENE.height},`,
   '  container: svg.node(),',
   '});',
   '',
   'const squareLayer = Libra.Layer.initialize("D3Layer", {',
   '  name: "tutorialSquareLayer",',
-  '  width: 560,',
-  '  height: 220,',
+  `  width: ${TARGET_SCENE.width},`,
+  `  height: ${TARGET_SCENE.height},`,
   '  container: svg.node(),',
   '});',
   '',
   'd3.select(axisLayer.getGraphic())',
   '  .append("line")',
   '  .attr("class", "mark")',
-  '  .attr("x1", 44)',
-  '  .attr("y1", 170)',
-  '  .attr("x2", 304)',
-  '  .attr("y2", 170);',
+  `  .attr("x1", ${TARGET_SCENE.axis.left})`,
+  `  .attr("y1", ${TARGET_SCENE.axis.baseline})`,
+  `  .attr("x2", ${TARGET_SCENE.axis.right})`,
+  `  .attr("y2", ${TARGET_SCENE.axis.baseline});`,
   '',
   'd3.select(circleLayer.getGraphic())',
   '  .append("circle")',
   '  .attr("class", "mark")',
-  '  .attr("cx", 108)',
-  '  .attr("cy", 102)',
-  '  .attr("r", 20);',
+  `  .attr("cx", ${TARGET_SCENE.circle.cx})`,
+  `  .attr("cy", ${TARGET_SCENE.circle.cy})`,
+  `  .attr("r", ${TARGET_SCENE.circle.r});`,
   '',
   'd3.select(squareLayer.getGraphic())',
   '  .append("rect")',
   '  .attr("class", "mark")',
-  '  .attr("x", 220)',
-  '  .attr("y", 82)',
-  '  .attr("width", 40)',
-  '  .attr("height", 40);',
+  `  .attr("x", ${TARGET_SCENE.square.x})`,
+  `  .attr("y", ${TARGET_SCENE.square.y})`,
+  `  .attr("width", ${TARGET_SCENE.square.size})`,
+  `  .attr("height", ${TARGET_SCENE.square.size});`,
   '',
   'const layersByName = { axisLayer, circleLayer, squareLayer };',
 ];
@@ -952,8 +975,8 @@ function createTutorialScatterScene(container, data = []) {
   mountNode.innerHTML = '';
 
   const fullWidth = 560;
-  const fullHeight = 220;
-  const margin = { top: 18, right: 168, bottom: 42, left: 48 };
+  const fullHeight = 360;
+  const margin = { top: 24, right: 168, bottom: 52, left: 48 };
   const width = fullWidth - margin.left - margin.right;
   const height = fullHeight - margin.top - margin.bottom;
   const unique = `tutorial-scatter-${Date.now()}-${Math.round(Math.random() * 100000)}`;
@@ -1234,8 +1257,7 @@ function createTargetTutorialScene(container, targetLayer) {
 
   mountNode.innerHTML = '';
 
-  const width = 560;
-  const height = 220;
+  const { width, height, axis, circle, square } = TARGET_SCENE;
   const unique = `tutorial-${Date.now()}-${Math.round(Math.random() * 100000)}`;
 
   const svg = d3
@@ -1274,42 +1296,42 @@ function createTargetTutorialScene(container, targetLayer) {
   axisGraphic
     .append('line')
     .attr('class', 'mark')
-    .attr('x1', 44)
-    .attr('y1', 170)
-    .attr('x2', 304)
-    .attr('y2', 170)
+    .attr('x1', axis.left)
+    .attr('y1', axis.baseline)
+    .attr('x2', axis.right)
+    .attr('y2', axis.baseline)
     .attr('stroke', '#66758a')
     .attr('stroke-width', 2.5);
 
   axisGraphic
     .append('line')
     .attr('class', 'mark')
-    .attr('x1', 44)
-    .attr('y1', 170)
-    .attr('x2', 44)
-    .attr('y2', 38)
+    .attr('x1', axis.left)
+    .attr('y1', axis.baseline)
+    .attr('x2', axis.left)
+    .attr('y2', axis.top)
     .attr('stroke', '#66758a')
     .attr('stroke-width', 2.5);
 
-  [96, 148, 200, 252].forEach((x) => {
+  axis.tickXs.forEach((x) => {
     axisGraphic
       .append('line')
       .attr('class', 'mark')
       .attr('x1', x)
-      .attr('y1', 170)
+      .attr('y1', axis.baseline)
       .attr('x2', x)
-      .attr('y2', 178)
+      .attr('y2', axis.baseline + 8)
       .attr('stroke', '#8b98aa')
       .attr('stroke-width', 2);
   });
 
-  [126, 82, 38].forEach((y) => {
+  axis.tickYs.forEach((y) => {
     axisGraphic
       .append('line')
       .attr('class', 'mark')
-      .attr('x1', 36)
+      .attr('x1', axis.left - 8)
       .attr('y1', y)
-      .attr('x2', 44)
+      .attr('x2', axis.left)
       .attr('y2', y)
       .attr('stroke', '#8b98aa')
       .attr('stroke-width', 2);
@@ -1317,8 +1339,8 @@ function createTargetTutorialScene(container, targetLayer) {
 
   axisGraphic
     .append('text')
-    .attr('x', 302)
-    .attr('y', 192)
+    .attr('x', axis.right - 2)
+    .attr('y', axis.baseline + 24)
     .attr('fill', '#516074')
     .attr('font-size', 12)
     .attr('font-weight', 600)
@@ -1326,8 +1348,8 @@ function createTargetTutorialScene(container, targetLayer) {
 
   axisGraphic
     .append('text')
-    .attr('x', 28)
-    .attr('y', 48)
+    .attr('x', axis.left - 24)
+    .attr('y', axis.top + 10)
     .attr('fill', '#516074')
     .attr('font-size', 12)
     .attr('font-weight', 600)
@@ -1337,9 +1359,9 @@ function createTargetTutorialScene(container, targetLayer) {
     .append('circle')
     .attr('class', 'mark')
     .datum({ layer: 'circleLayer', shape: 'circle' })
-    .attr('cx', 108)
-    .attr('cy', 102)
-    .attr('r', 20)
+    .attr('cx', circle.cx)
+    .attr('cy', circle.cy)
+    .attr('r', circle.r)
     .attr('fill', '#315d8d')
     .attr('stroke', '#1d3557')
     .attr('stroke-width', 2);
@@ -1348,11 +1370,11 @@ function createTargetTutorialScene(container, targetLayer) {
     .append('rect')
     .attr('class', 'mark')
     .datum({ layer: 'squareLayer', shape: 'square' })
-    .attr('x', 220)
-    .attr('y', 82)
-    .attr('width', 40)
-    .attr('height', 40)
-    .attr('rx', 6)
+    .attr('x', square.x)
+    .attr('y', square.y)
+    .attr('width', square.size)
+    .attr('height', square.size)
+    .attr('rx', square.rx)
     .attr('fill', '#d9881f')
     .attr('stroke', '#8f5404')
     .attr('stroke-width', 2);
@@ -1397,7 +1419,6 @@ function bindTargetPlayground(container) {
   const activeNode = container.querySelector('#TutorialTargetActive');
   const statusNode = container.querySelector('#TutorialTargetStatus');
   const layerButtons = Array.from(container.querySelectorAll('.tutorial-target-button'));
-  const layerNotes = Array.from(container.querySelectorAll('.tutorial-layer-item'));
 
   const state = {
     targetLayer: 'circleLayer',
@@ -1418,13 +1439,6 @@ function bindTargetPlayground(container) {
     if (activeNode) {
       activeNode.textContent = state.targetLayer;
     }
-  }
-
-  function syncNotes() {
-    layerNotes.forEach((node) => {
-      const layerName = node.dataset.layerItem;
-      node.classList.toggle('is-target', layerName === state.targetLayer);
-    });
   }
 
   function renderScene() {
@@ -1448,7 +1462,6 @@ function bindTargetPlayground(container) {
     if (input && input.value !== state.targetLayer) input.value = state.targetLayer;
     syncButtons();
     syncCode();
-    syncNotes();
     renderScene();
   }
 
@@ -1560,48 +1573,31 @@ export default function initTutorialPage() {
           <div class="tutorial-target-visual">
             <div id="TutorialTargetMount" class="tutorial-target-stage" aria-label="Target layer tutorial visualization"></div>
 
-            <div class="tutorial-layer-list">
-              <div class="tutorial-layer-item" data-layer-item="axisLayer">
-                <strong>axisLayer</strong>
-                <span>Axis lines and ticks</span>
+            <div class="tutorial-target-editor">
+              <div class="tutorial-target-head">
+                <strong>Interaction Configuration</strong>
+                <span class="tutorial-target-badge">point-selection · hover</span>
               </div>
-              <div class="tutorial-layer-item" data-layer-item="circleLayer">
-                <strong>circleLayer</strong>
-                <span>Circle mark</span>
+
+              <label class="tutorial-target-label" for="TutorialTargetInput">Edit target.layer</label>
+              <input
+                id="TutorialTargetInput"
+                class="tutorial-target-input"
+                type="text"
+                value="circleLayer"
+                spellcheck="false"
+              >
+
+              <div class="tutorial-target-buttons">
+                ${renderTargetButtons(TARGET_LAYER_OPTIONS)}
               </div>
-              <div class="tutorial-layer-item" data-layer-item="squareLayer">
-                <strong>squareLayer</strong>
-                <span>Square mark</span>
-              </div>
+
+              <p class="tutorial-target-help">
+                Current target layer:
+                <code id="TutorialTargetActive">circleLayer</code>
+              </p>
+              <p id="TutorialTargetStatus" class="tutorial-target-status"></p>
             </div>
-          </div>
-        </div>
-
-        <div class="tutorial-target-config">
-          <div class="tutorial-target-editor">
-            <div class="tutorial-target-head">
-              <strong>Interaction Configuration</strong>
-              <span class="tutorial-target-badge">point-selection · hover</span>
-            </div>
-
-            <label class="tutorial-target-label" for="TutorialTargetInput">Edit target.layer</label>
-            <input
-              id="TutorialTargetInput"
-              class="tutorial-target-input"
-              type="text"
-              value="circleLayer"
-              spellcheck="false"
-            >
-
-            <div class="tutorial-target-buttons">
-              ${renderTargetButtons(TARGET_LAYER_OPTIONS)}
-            </div>
-
-            <p class="tutorial-target-help">
-              Current target layer:
-              <code id="TutorialTargetActive">circleLayer</code>
-            </p>
-            <p id="TutorialTargetStatus" class="tutorial-target-status"></p>
           </div>
 
           <div class="tutorial-code-panel">
@@ -1716,7 +1712,7 @@ export default function initTutorialPage() {
               </div>
             </div>
 
-            <div id="TutorialInstrumentMount" class="tutorial-target-stage" aria-label="Instrument playground scatter plot"></div>
+            <div id="TutorialInstrumentMount" class="tutorial-target-stage tutorial-playground-canvas" aria-label="Instrument playground scatter plot"></div>
 
             <div class="tutorial-playground-toggles">
               ${renderPlaygroundToggleStrip(getPlaygroundExamples())}

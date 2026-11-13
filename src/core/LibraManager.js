@@ -44,7 +44,7 @@ export default class LibraManager {
 
         const triggerPascal = trigger.charAt(0).toUpperCase() + trigger.slice(1);
         const sharedVar = {
-            trigger: "lasso",
+            trigger,
         };
         const link = context.link && typeof context.link === "object" && !Array.isArray(context.link)
             ? context.link
@@ -1108,11 +1108,20 @@ export default class LibraManager {
                 scaleY: null,
                 copyFrom: null
             },
-            evaluate({ startx, starty, currentx, currenty, dragging, startOffsetX, startOffsetY, self }) {
+            evaluate({ startx, starty, currentx, currenty, dragging, startOffsetX, startOffsetY, dragSession, self }) {
                 const direction = self.getSharedVar("direction");
                 const scaleX = self.getSharedVar("scaleX");
                 const scaleY = self.getSharedVar("scaleY");
                 const copyFrom = self.getSharedVar("copyFrom");
+
+                if (!dragging) {
+                    self._reorderCopyCache = null;
+                    return { dragging: false };
+                }
+                const cached = self._reorderCopyCache;
+                if (cached && cached.dragSession === dragSession) {
+                    return { ...cached, dragging, dx: currentx - startx, dy: currenty - starty };
+                }
 
                 if (direction === "x" && scaleX) {
                     const bandwidth = scaleX.bandwidth();
@@ -1161,7 +1170,8 @@ export default class LibraManager {
                         }
                     }
 
-                    return { rectSelection, dx: currentx - startx, dragging, direction: "x", finalCopyFromLayer };
+                    self._reorderCopyCache = { rectSelection, dragSession, direction: "x", finalCopyFromLayer };
+                    return { ...self._reorderCopyCache, dx: currentx - startx, dragging };
                 } else if (direction === "y" && scaleY) {
                     const bandwidth = scaleY.bandwidth();
                     const targetRow = scaleY.domain().find(name => {
@@ -1208,7 +1218,8 @@ export default class LibraManager {
                             });
                         }
                     }
-                    return { rectSelection, dy: currenty - starty, dragging, direction: "y", finalCopyFromLayer: finalCopyFromLayer };
+                    self._reorderCopyCache = { rectSelection, dragSession, direction: "y", finalCopyFromLayer };
+                    return { ...self._reorderCopyCache, dy: currenty - starty, dragging };
                 }
                 return { dragging };
             }
@@ -1342,77 +1353,58 @@ export default class LibraManager {
                     const result = transformer.getSharedVar("result");
                     const copyFrom = transformer.getSharedVar("copyFrom");
 
-                    if (result && result.rectSelection && copyFrom) {
-                        const finalCopyFromLayer = result.finalCopyFromLayer;
+                    const containerLayer = layer.getLayerFromQueue("copyLayer");
+                    const g = d3.select(containerLayer.getGraphic());
+                    let copyGroup = g.select(".copy-group");
+                    if (!result?.dragging || !copyFrom) {
+                        copyGroup.remove();
+                        transformer._reorderCopySelection = null;
+                        return;
+                    }
+                    if (!result.rectSelection || !result.finalCopyFromLayer) return;
 
-
-                        if (!finalCopyFromLayer) return;
-                            let containerLayer = layer.getLayerFromQueue("copyLayer");
-
-
-
-                        const g = d3.select(containerLayer.getGraphic());
-
-
-                        // 使用 .copy-group 容器来管理复制的元素，避免每次重绘都堆积
-                        let copyGroup = g.select(".copy-group");
-                        if (copyGroup.empty()) {
-                            copyGroup = g.append("g").attr("class", "copy-group");
-                        }
-
-                        // 清空旧的复制内容
-                        copyGroup.html("");
-                        if (!result.dragging) return;
-
-                        // 过滤掉主容器，避免复制整个图表
+                    if (copyGroup.empty() || transformer._reorderCopySelection !== result.rectSelection) {
+                        copyGroup.remove();
+                        copyGroup = g.append("g").attr("class", "copy-group")
+                            .style("pointer-events", "none");
                         const nodesToCopy = result.rectSelection.filter(node => !d3.select(node).classed("main-group"));
-
-                        // 过滤掉子节点，避免重复复制（例如选中了 group 又选中了 group 内的 line）
                         const selectionSet = new Set(nodesToCopy);
-                        const topLevelNodes = nodesToCopy.filter(node => !selectionSet.has(node.parentNode));
-
-                        // 遍历 DOM 元素数组并进行复制
-                        topLevelNodes.forEach((node) => {
-                            // 使用 cloneNode(true) 进行深拷贝
-                            const clone = node.cloneNode(true);
-                            // 获取原始 transform (针对 Parallel Coordinate 等基于 transform 定位的图表)
-                            const originalTransform = d3.select(node).attr("transform") || "";
-
-                            // 计算来源容器相对于目标容器的坐标偏移
-                            let containerOffset = { x: 0, y: 0 };
-                            try {
-                                const sourceNode = node.parentNode;
-                                const targetNode = copyGroup.node();
-                                if (sourceNode && targetNode && sourceNode.getScreenCTM && targetNode.getScreenCTM) {
-                                    const sourceCTM = sourceNode.getScreenCTM();
-                                    const targetCTM = targetNode.getScreenCTM();
-                                    // 目标容器的逆矩阵
-                                    const targetInverse = targetCTM.inverse();
-                                    // 组合矩阵：Source -> Screen -> TargetLocal
-                                    const combinedMatrix = targetInverse.multiply(sourceCTM);
-                                    
-                                    // 矩阵的 e 和 f 分别代表 x 和 y 的平移量
-                                    containerOffset.x = combinedMatrix.e;
-                                    containerOffset.y = combinedMatrix.f;
+                        const topLevelNodes = nodesToCopy.filter(node => {
+                            for (let parent = node.parentNode; parent; parent = parent.parentNode) {
+                                if (selectionSet.has(parent)) return false;
+                            }
+                            return true;
+                        });
+                        const targetInverse = copyGroup.node().getScreenCTM()?.inverse();
+                        const offsetsByParent = new Map();
+                        const fragment = document.createDocumentFragment();
+                        topLevelNodes.forEach(node => {
+                            const sourceNode = node.parentNode;
+                            let containerOffset = offsetsByParent.get(sourceNode);
+                            if (!containerOffset) {
+                                containerOffset = { x: 0, y: 0 };
+                                const sourceCTM = sourceNode?.getScreenCTM?.();
+                                if (sourceCTM && targetInverse) {
+                                    const matrix = targetInverse.multiply(sourceCTM);
+                                    containerOffset = { x: matrix.e, y: matrix.f };
                                 }
-                            } catch (e) {
-                                // Ignore transient matrix calculation failures during layout fallback.
+                                offsetsByParent.set(sourceNode, containerOffset);
                             }
-
-                            // 可选：添加一些样式区别，例如半透明
-                            let transform = "";
-                            if (result.direction === "x") {
-                                transform = `translate(${result.dx + containerOffset.x}, ${containerOffset.y}) ${originalTransform}`;
-                            } else {
-                                transform = `translate(${containerOffset.x}, ${result.dy + containerOffset.y}) ${originalTransform}`;
-                            }
+                            const clone = node.cloneNode(true);
+                            const originalTransform = node.getAttribute("transform") || "";
                             d3.select(clone)
-                                .attr("transform", transform) // 应用偏移
+                                .attr("transform", `translate(${containerOffset.x}, ${containerOffset.y}) ${originalTransform}`)
                                 .style("opacity", 0.5)
                                 .style("pointer-events", "none");
-                            copyGroup.node().appendChild(clone);
+                            fragment.appendChild(clone);
                         });
+                        copyGroup.node().appendChild(fragment);
+                        transformer._reorderCopySelection = result.rectSelection;
                     }
+                    // The snapshot is stable for this gesture; only move its container.
+                    const dx = result.direction === "x" ? result.dx : 0;
+                    const dy = result.direction === "y" ? result.dy : 0;
+                    copyGroup.attr("transform", `translate(${dx || 0}, ${dy || 0})`);
                 },
             }
         );
@@ -1430,6 +1422,8 @@ export default class LibraManager {
                                 y: inputEvent.clientY,
                                 startx: inputEvent.clientX,
                                 starty: inputEvent.clientY,
+                                dragSession: (instrument._reorderDragSession = (instrument._reorderDragSession || 0) + 1),
+                                dragging: 1,
                                 startOffsetX: layerOffsetX,
                                 startOffsetY: layerOffsetY,
                                 currentx: inputEvent.clientX,
@@ -1510,6 +1504,7 @@ export default class LibraManager {
                                 currenty: event.clientY,
                                 endx: 0,
                                 endy: 0,
+                                dragging: 0,
                                 offsetx: 0,
                                 offsety: 0,
                                 skipPicking: false,

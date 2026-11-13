@@ -14,6 +14,8 @@ let magnet = [];
 let properties = [];
 let tickUpdate = null;
 let originColor = null;
+let lassoSelectionIds = [];
+let lassoPoints = [];
 
 async function loadData() {
     data = await d3.json("/public/data/cars.json");
@@ -46,8 +48,9 @@ async function loadData() {
         }
     }
 
-    data = data.slice(0, 50).map((d) => ({
+    data = data.slice(0, 50).map((d, index) => ({
         ...d,
+        __dustId: index,
         x: WIDTH / 2,
         y: HEIGHT / 2,
     }));
@@ -118,16 +121,19 @@ function renderMainVisualization() {
     return [backgroundLayer, dustLayer, magnetLayer];
 }
 
-function renderDust(dustData = data) {
+function renderDust(dustData = data, selectedIds = lassoSelectionIds) {
+    const selectedSet = new Set(selectedIds);
     d3.select("#LibraPlayground svg .dust")
         .selectAll("circle")
-        .data(dustData)
+        .data(dustData, (d) => d.__dustId)
         .join("circle")
         .attr("cx", (d) => d.x)
         .attr("cy", (d) => d.y)
-        .attr("stroke", "#000")
-        .attr("fill", "#B9B9B9")
-        .attr("r", 10);
+        .attr("stroke", (d) => (selectedSet.has(d.__dustId) ? "#c62828" : "#000"))
+        .attr("stroke-width", (d) => (selectedSet.has(d.__dustId) ? 2 : 1))
+        .attr("fill", (d) => (selectedSet.has(d.__dustId) ? "#ff8a80" : "#B9B9B9"))
+        .attr("opacity", (d) => (selectedSet.has(d.__dustId) ? 1 : 0.9))
+        .attr("r", (d) => (selectedSet.has(d.__dustId) ? 11 : 10));
 }
 
 function renderMagnet(magnetData = magnet) {
@@ -156,6 +162,43 @@ function renderMagnet(magnetData = magnet) {
         );
 }
 
+function getLayerLocalPoint(layer, clientX, clientY) {
+    if (!layer || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+        return null;
+    }
+
+    const graphic = layer.getGraphic?.();
+    if (!graphic) return null;
+
+    const rect = graphic.getBoundingClientRect();
+    return [clientX - rect.left, clientY - rect.top];
+}
+
+function renderLassoOverlay(layer, points = lassoPoints) {
+    const graphic = layer?.getGraphic?.();
+    if (!graphic) return;
+
+    const overlay = d3
+        .select(graphic)
+        .selectAll(".lasso-overlay")
+        .data([null])
+        .join("g")
+        .attr("class", "lasso-overlay")
+        .style("pointer-events", "none");
+
+    overlay.selectAll("*").remove();
+    if (!Array.isArray(points) || points.length < 2) return;
+
+    overlay
+        .append("path")
+        .attr("d", d3.line().curve(d3.curveLinearClosed)(points))
+        .attr("fill", "#64b5f6")
+        .attr("fill-opacity", 0.18)
+        .attr("stroke", "#1976d2")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "5,3");
+}
+
 async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
     Libra.helpers.globalHubManager.createHub("magnet-hub", "generic");
 
@@ -166,6 +209,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             sharedVar: { result: data },
             redraw({ transformer }) {
                 const dusts = transformer.getSharedVar("result");
+                data = dusts;
                 renderDust(dusts);
                 dustLayer.postUpdate();
             },
@@ -180,6 +224,30 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             redraw({ transformer }) {
                 const magnets = transformer.getSharedVar("result");
                 renderMagnet(magnets);
+            },
+        }
+    );
+
+    const lassoTransformer = Libra.GraphicalTransformer.initialize(
+        "DustLassoTransformer",
+        {
+            layer: dustLayer,
+            sharedVar: {
+                result: {
+                    points: [],
+                    selectedIds: [],
+                },
+            },
+            redraw({ transformer }) {
+                const result = transformer.getSharedVar("result") || {};
+                lassoPoints = Array.isArray(result.points) ? result.points : [];
+                lassoSelectionIds = Array.isArray(result.selectedIds)
+                    ? result.selectedIds
+                    : [];
+
+                renderDust(data, lassoSelectionIds);
+                renderLassoOverlay(bgLayer, lassoPoints);
+                dustLayer.postUpdate();
             },
         }
     );
@@ -230,15 +298,6 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                         if (isMagnetDatum) {
                             datum.x = offsetx - 25;
                             datum.y = offsety - 25;
-                        } else if (offsetx && offsety) {
-                            currentMagnets.push({
-                                x: offsetx - 25,
-                                y: offsety - 25,
-                                property:
-                                    properties[
-                                    currentMagnets.length % properties.length
-                                    ],
-                            });
                         }
 
                         const hub = Libra.helpers.globalHubManager.getHub("magnet-hub");
@@ -294,6 +353,108 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
         },
     ];
 
+    const lassoInsertFlows = [
+        {
+            find: "SelectionService",
+            flow: [
+                {
+                    comp: "DustLassoService",
+                    name: "DustLassoService",
+                    sharedVar: {
+                        points: [],
+                        dragging: false,
+                        layer: bgLayer,
+                    },
+                    evaluate({
+                        layer,
+                        self,
+                        x,
+                        y,
+                        startx,
+                        starty,
+                        currentx,
+                        currenty,
+                        endx,
+                        endy,
+                        skipPicking,
+                    }) {
+                        const isDragStart =
+                            !skipPicking &&
+                            Number.isFinite(x) &&
+                            Number.isFinite(y) &&
+                            Number.isFinite(startx) &&
+                            Number.isFinite(starty) &&
+                            currentx === startx &&
+                            currenty === starty;
+                        const isDragEnd =
+                            !skipPicking &&
+                            (!Number.isFinite(x) || x === 0) &&
+                            (!Number.isFinite(y) || y === 0) &&
+                            Number.isFinite(endx) &&
+                            Number.isFinite(endy);
+
+                        const point = getLayerLocalPoint(layer, currentx, currenty);
+                        let points = Array.isArray(self.getSharedVar("points"))
+                            ? [...self.getSharedVar("points")]
+                            : [];
+                        let dragging = self.getSharedVar("dragging") === true;
+
+                        if (isDragStart) {
+                            points = point ? [point] : [];
+                            dragging = true;
+                        } else if (dragging && point) {
+                            const lastPoint = points[points.length - 1];
+                            if (
+                                !lastPoint ||
+                                Math.hypot(
+                                    lastPoint[0] - point[0],
+                                    lastPoint[1] - point[1]
+                                ) > 3
+                            ) {
+                                points.push(point);
+                            }
+                        }
+
+                        if (isDragEnd) {
+                            const endPoint = getLayerLocalPoint(layer, endx, endy);
+                            const lastPoint = points[points.length - 1];
+                            if (
+                                endPoint &&
+                                (!lastPoint ||
+                                    Math.hypot(
+                                        lastPoint[0] - endPoint[0],
+                                        lastPoint[1] - endPoint[1]
+                                    ) > 3)
+                            ) {
+                                points.push(endPoint);
+                            }
+                            dragging = false;
+                        }
+
+                        const selectedIds =
+                            points.length >= 3
+                                ? data
+                                    .filter((dust) =>
+                                        d3.polygonContains(points, [dust.x, dust.y])
+                                    )
+                                    .map((dust) => dust.__dustId)
+                                : [];
+
+                        self.setSharedVar("points", points);
+                        self.setSharedVar("dragging", dragging);
+
+                        return {
+                            points,
+                            selectedIds,
+                            dragging,
+                        };
+                    },
+                },
+                lassoTransformer,
+            ],
+        },
+    ];
+
     const interactions = [
         // {
         //     Name: "lensMain",
@@ -304,7 +465,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             instrument: "move",
             trigger: {
                 type: "drag",
-                priority: 4,
+                priority: 7,
                 stopPropagation: true,
             },
             target: {
@@ -318,6 +479,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             },
         },
         {
+            name: "createMagnet",
             instrument: "pointSelection",
             trigger: {
                 type: "click",
@@ -328,8 +490,8 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 layer: "bgLayer",
             },
             feedback: {},
-            customFeedbackFlow: { 
-                insert: commonInsertFlows 
+            customFeedbackFlow: {
+                remove: [{ find: "SelectionTransformer" }],
             },
         },
         {
@@ -354,7 +516,7 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
             trigger: {
                 type: "brush",
                 modifierKey: "Shift",
-                priority: 5,
+                priority: 8,
                 stopPropagation: true,
             },
             target: {
@@ -368,6 +530,25 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
                 },
             },
         },
+        // Unfinished lasso interaction: keep its configuration for future work.
+        /* {
+            name: "dustLassoByMove",
+            instrument: "move",
+            trigger: {
+                type: "drag",
+                priority: 6,
+                // Let a stationary mouseup reach the click interactions.
+                stopPropagation: false,
+            },
+            target: {
+                layer: "bgLayer",
+            },
+            feedback: {},
+            customFeedbackFlow: {
+                insert: lassoInsertFlows,
+                remove: [{ find: "SelectionTransformer" }],
+            },
+        }, */
         {
             name: "dustLens",
             instrument: "lens",
@@ -435,9 +616,19 @@ async function mountInteraction(bgLayer, dustLayer, magnetLayer) {
     //     layersByName: { bgLayer, dustLayer, magnetLayer },
     // });
 
-    await compileDSL(newDSLinteractions, {
+    const compiled = await compileDSL(newDSLinteractions, {
         layersByName: { bgLayer, dustLayer, magnetLayer },
     }, { execute: true });
+
+    // Commit only a confirmed click, not the SelectionService's press/release
+    // evaluations: the same background press may become a lasso drag.
+    const createMagnetIndex = compiled.compilePlans.findIndex((plan) => plan.name === "createMagnet");
+    const [createMagnetInstrument] = compiled.executions[createMagnetIndex];
+    createMagnetInstrument.on("click", ({ event }) => {
+        const [x, y] = d3.pointer(event, bgLayer.getGraphic());
+        magnet.push({ x: x - 25, y: y - 25, property: properties[magnet.length % properties.length] });
+        renderMagnet();
+    });
 
     const labelLayer = dustLayer.getLayerFromQueue("LabelLayer");
     const lensLayer = dustLayer.getLayerFromQueue("LensLayer");

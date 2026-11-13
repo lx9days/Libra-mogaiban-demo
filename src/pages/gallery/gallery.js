@@ -78,6 +78,34 @@ function renderDemoCard(demo) {
   `;
 }
 
+function renderSectionNotes(items) {
+  return items
+    .map((item) => `<p>${escapeHtml(item)}</p>`)
+    .join('');
+}
+
+function renderGallerySection({ eyebrow, title, notes, countLabel, demos, emptyText }) {
+  return `
+    <section class="gallery-section">
+      <div class="gallery-section-head">
+        <div class="gallery-section-copy">
+          <span class="eyebrow">${escapeHtml(eyebrow)}</span>
+          <h2 class="section-title">${escapeHtml(title)}</h2>
+          <div class="gallery-section-notes">
+            ${renderSectionNotes(notes)}
+          </div>
+        </div>
+        <span class="gallery-section-count">${escapeHtml(countLabel)}</span>
+      </div>
+      ${
+        demos.length
+          ? `<div class="gallery-grid">${demos.map((demo) => renderDemoCard(demo)).join('')}</div>`
+          : `<div class="empty-state">${escapeHtml(emptyText)}</div>`
+      }
+    </section>
+  `;
+}
+
 function filterDemos(demos, state) {
   const query = state.query.trim().toLowerCase();
 
@@ -112,7 +140,7 @@ export default function initGalleryPage() {
   const container = document.getElementById('LibraPlayground');
   if (!container) return;
 
-  const demos = getShowcaseCatalog().filter(demo => demo.isNewDsl);
+  const demos = getShowcaseCatalog().filter((demo) => demo.isNewDsl);
   const categoryOptions = ['All', ...uniqueOptions(demos, 'category', CATEGORY_ORDER)];
   const triggerOptions = ['All', ...uniqueOptions(demos, 'triggers', TRIGGER_ORDER)];
   const themeOptions = ['All', ...uniqueOptions(demos, 'themes', THEME_ORDER)];
@@ -171,7 +199,7 @@ export default function initGalleryPage() {
         </div>
       </section>
 
-      <section id="GalleryResults" class="gallery-grid" aria-live="polite"></section>
+      <section id="GalleryResults" class="gallery-results" aria-live="polite"></section>
     </div>
   `;
 
@@ -190,7 +218,9 @@ export default function initGalleryPage() {
 
   function renderResults() {
     const visibleDemos = filterDemos(demos, state);
-    countNode.textContent = `${visibleDemos.length} of ${demos.length} demos`;
+    const compareDemos = visibleDemos.filter((demo) => !!demo.comparePage);
+    const libraPlusDemos = visibleDemos.filter((demo) => !demo.comparePage);
+    countNode.textContent = `${visibleDemos.length} demos | ${compareDemos.length} compare | ${libraPlusDemos.length} Libra+`;
     syncChipState();
 
     if (!visibleDemos.length) {
@@ -202,7 +232,32 @@ export default function initGalleryPage() {
       return;
     }
 
-    resultsNode.innerHTML = visibleDemos.map((demo) => renderDemoCard(demo)).join('');
+    resultsNode.innerHTML = [
+      renderGallerySection({
+        eyebrow: 'Compare Zone',
+        title: 'Implementation Comparisons Across Libra+, Libra, Vega-Lite, and D3',
+        notes: [
+          'These compare pages focus on the same interaction technique and place multiple implementations side by side.',
+          'Use this area to inspect how Libra+ organizes trigger, target, feedback, and context differently from lower-level or chart-specific implementations.',
+          'The goal is not only visual parity, but also to reveal differences in reuse, composition cost, and how much interaction logic must be wired manually.',
+        ],
+        countLabel: `${compareDemos.length} compare page${compareDemos.length === 1 ? '' : 's'}`,
+        demos: compareDemos,
+        emptyText: 'No compare pages match the current filters.',
+      }),
+      renderGallerySection({
+        eyebrow: 'Libra+ Examples',
+        title: 'Runnable Libra+ Examples With Interaction-Oriented Variables Made Explicit',
+        notes: [
+          'These examples foreground Libra+ implementations directly instead of a side-by-side compare view.',
+          'Each example is intended to make reusable interaction structure visible, especially variables used for conflict resolution, coordination between instruments, and data passing across layers.',
+          'Browse this area when you want to study how a concrete Libra+ example encodes shared state, linking context, or coordination metadata in executable code.',
+        ],
+        countLabel: `${libraPlusDemos.length} Libra+ demo${libraPlusDemos.length === 1 ? '' : 's'}`,
+        demos: libraPlusDemos,
+        emptyText: 'No Libra+ examples match the current filters.',
+      }),
+    ].join('');
   }
 
   container.addEventListener('click', (event) => {
