@@ -1,13 +1,12 @@
 const pagesContext = require.context('../pages', true, /\.js$/);
 
-const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1', 'point-selection-compare', 'composed-double-group-selection-compare', 'teaser-simple-splom-compare', 'vegalite-bar-hover']);
+const EXCLUDED_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'user', 'ParallelCoordinate', 'brush-zoom1', 'point-selection-compare', 'composed-double-group-selection-compare', 'teaser-simple-splom-compare', ]);
 
 export const NEW_DSL_PAGES = new Set([
   'DimpVis',
   'Dust&Magnet',
   'pan&zoom',
   'group-selection-lens',
-  'screenshot-composition',
   'group-selection',
   'builtIn-double-group-selection',
   'composed-double-group-selection',
@@ -31,19 +30,7 @@ export const NEW_DSL_PAGES = new Set([
   'brush-zoom',
   'brush-zoom1',
   'brush-move',
-  'vega-bar-hover',
-  'vegalite-bar-hover',
-  'flint-bar-hover',
-  'flint-scatter-click',
-  'flint-donut-click',
-  'flint-heatmap-hover',
-  'flint-grouped-bar-click',
-  'flint-scatter-brush',
-  'flint-scatter-pan-zoom',
-  'llm-interaction-guesser',
-  'llm-interaction-guesser-bar',
-  'llm-interaction-guesser-line'
-]);
+  ]);
 
 const FEATURED_ORDER = [
   'edge-lens',
@@ -80,15 +67,6 @@ export const THEME_ORDER = [
 ];
 
 const PAGE_META = {
-  'screenshot-composition': {
-    title: 'Screenshot · Selection + Lens + Pan & Zoom',
-    category: 'Composite',
-    triggers: ['Brush', 'Hover', 'Pan', 'Zoom'],
-    themes: ['Compose', 'Lens', 'Conflict'],
-    description:
-      'A screenshot example combining group selection and an inspection lens with pan and zoom. Hover to inspect, drag to brush, Ctrl-drag to pan, and Ctrl-scroll to zoom.',
-    tone: 'navy',
-  },
   'edge-lens': {
     title: 'Edge Lens',
     category: 'Visual Aid',
@@ -438,117 +416,6 @@ const PAGE_META = {
     description:
       'A compact chart sandbox used to test interaction logic against a simpler visual baseline.',
     tone: 'gold',
-  },
-  'vega-bar-hover': {
-    title: 'Vega Bar Hover',
-    category: 'Selection',
-    triggers: ['Hover'],
-    themes: ['Reuse'],
-    description:
-      'A minimal Vega bar chart wrapped as a VegaLayer so Libra+ can mount hover-based point selection on generated SVG marks.',
-    tone: 'gold',
-  },
-  'vegalite-bar-hover': {
-    title: 'Flint Bar Hover',
-    category: 'Selection',
-    triggers: ['Hover'],
-    themes: ['Reuse'],
-    description:
-      'A Flint-generated Vega-Lite bar chart wired into VegaLayer with a shared mark scope, used to validate the minimum Flint + Libra+ hover pipeline.',
-    tone: 'navy',
-  },
-  'flint-bar-hover': {
-    title: 'Flint Bar Hover',
-    category: 'Selection',
-    triggers: ['Hover'],
-    themes: ['Reuse'],
-    description:
-      'A minimal Flint bar chart that uses a shared VegaLayer scope so Libra+ hover can highlight every generated bar.',
-    tone: 'navy',
-  },
-  'flint-scatter-click': {
-    title: 'Flint Scatter Click',
-    category: 'Selection',
-    triggers: ['Click'],
-    themes: ['Reuse'],
-    description:
-      'A Flint scatterplot wired into VegaLayer so Libra+ click selection can target generated points without hand-written D3 marks.',
-    tone: 'gold',
-  },
-  'flint-donut-click': {
-    title: 'Flint Donut Click',
-    category: 'Selection',
-    triggers: ['Click'],
-    themes: ['Reuse'],
-    description:
-      'A Flint donut chart used to verify that Libra+ click highlighting still works on radial marks generated through Vega-Lite.',
-    tone: 'ink',
-  },
-  'flint-heatmap-hover': {
-    title: 'Flint Heatmap Hover',
-    category: 'Selection',
-    triggers: ['Hover'],
-    themes: ['Reuse'],
-    description:
-      'A Flint heatmap example showing that Libra+ hover can target individual cells once VegaLayer is bound to the shared mark scope.',
-    tone: 'navy',
-  },
-  'flint-grouped-bar-click': {
-    title: 'Flint Grouped Bar Click',
-    category: 'Selection',
-    triggers: ['Click'],
-    themes: ['Reuse'],
-    description:
-      'A grouped-bar example that checks whether Libra+ click selection can distinguish subgroup bars emitted by Flint.',
-    tone: 'gold',
-  },
-  'flint-scatter-brush': {
-    title: 'Flint Scatter Brush',
-    category: 'Selection',
-    triggers: ['Brush'],
-    themes: ['Reuse'],
-    description:
-      'A Flint scatterplot used to test whether Libra+ group selection can brush SVG points generated through VegaLayer.',
-    tone: 'navy',
-  },
-  'flint-scatter-pan-zoom': {
-    title: 'Flint Scatter Pan Zoom',
-    category: 'Navigation',
-    triggers: ['Drag', 'Zoom'],
-    themes: ['Reuse'],
-    description:
-      'A Flint scatterplot prototype that tries Libra+ pan and zoom on VegaLayer by driving a geometric transformer with shared linear scales.',
-    tone: 'ink',
-  },
-  'llm-interaction-guesser': {
-    title: 'LLM Interaction Guesser Scatter',
-    category: 'Prototype',
-    triggers: ['Hover', 'Click', 'Brush', 'Pan', 'Zoom'],
-    themes: ['Compose', 'Guidance'],
-    description:
-      'A static scatter plot interaction lab that records raw events and asks an OpenAI-compatible LLM endpoint to guess the user’s intended interaction semantics.',
-    preview: '',
-    tone: 'navy',
-  },
-  'llm-interaction-guesser-bar': {
-    title: 'LLM Interaction Guesser Bar',
-    category: 'Prototype',
-    triggers: ['Hover', 'Click', 'Brush', 'Pan', 'Zoom'],
-    themes: ['Compose', 'Guidance'],
-    description:
-      'A static bar chart interaction lab for comparing how the same demonstrated gesture sequence is interpreted on categorical marks.',
-    preview: '',
-    tone: 'gold',
-  },
-  'llm-interaction-guesser-line': {
-    title: 'LLM Interaction Guesser Line',
-    category: 'Prototype',
-    triggers: ['Hover', 'Click', 'Brush', 'Pan', 'Zoom'],
-    themes: ['Compose', 'Guidance'],
-    description:
-      'A static line chart interaction lab for comparing how the same demonstrated gesture sequence is interpreted on connected marks.',
-    preview: '',
-    tone: 'navy',
   },
   'SimpleCategoricalPlots': {
     title: 'Simple Categorical Plots',

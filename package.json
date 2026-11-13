@@ -67,7 +67,6 @@
     "core-js": "^3.26.1",
     "d3": "^7.9.0",
     "excentric-labeling": "^3.0.4",
-    "flint-chart": "file:../flint-chart/packages/flint-js",
     "libra-vis": "file:../Libra",
     "monaco-editor": "^0.54.0",
     "vega-embed": "^7.1.0"

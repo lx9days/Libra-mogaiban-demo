@@ -17,3 +17,4 @@ yarn.lock
 .vscode
 .idea
 src/pages/llm-interaction-guesser/private-config.local.js
+.local/

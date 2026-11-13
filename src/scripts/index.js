@@ -19,7 +19,7 @@ if (
 const pagesJsContext = require.context('../pages', true, /\.js$/);
 const pagesJsonContext = require.context('../pages', true, /\.json$/);
 const modulesContext = require.context('./modules', false, /\.js$/);
-const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'compose', 'user', 'point-selection-compare', 'composed-double-group-selection-compare', 'dust-magnet-compare', 'teaser-simple-splom-compare', 'vega-bar-hover', 'vegalite-bar-hover', 'flint-bar-hover', 'flint-scatter-click', 'flint-donut-click', 'flint-heatmap-hover', 'flint-grouped-bar-click', 'flint-scatter-brush', 'flint-scatter-pan-zoom', 'llm-interaction-guesser', 'llm-interaction-guesser-bar', 'llm-interaction-guesser-line']);
+const SHOWCASE_PAGES = new Set(['home', 'gallery', 'gallery2', 'tutorial', 'tutorial-zh', 'compose', 'user', 'point-selection-compare', 'composed-double-group-selection-compare', 'dust-magnet-compare', 'teaser-simple-splom-compare']);
 
 function nameFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -100,20 +100,6 @@ function findMatchingKey(keys, name, { fallbackTo } = {}) {
 let pageInit = null;
 let jsonEditor = null;
 let jsonChangeTimer = null;
-let liveJsonEditor = null;
-let liveJsonRevision = 0;
-
-function showJsonStatus(message, isError = false) {
-  let status = document.getElementById('JsonStatus');
-  if (!status) {
-    status = document.createElement('div');
-    status.id = 'JsonStatus';
-    status.setAttribute('role', 'status');
-    document.getElementById('JsonColumn').prepend(status);
-  }
-  status.textContent = message;
-  status.style.color = isError ? '#b42318' : '#27643a';
-}
 
 function clearEditors() {
   if (jsonEditor) jsonEditor.setValue('');
@@ -184,24 +170,16 @@ function ensureJsonMonaco() {
     // JSON 变更时，重新装配（去抖）
     jsonEditor.onDidChangeModelContent(() => {
       if (jsonChangeTimer) clearTimeout(jsonChangeTimer);
-      const revision = ++liveJsonRevision;
-      if (liveJsonEditor) liveJsonEditor.cancel();
-      jsonChangeTimer = setTimeout(async () => {
+      jsonChangeTimer = setTimeout(() => {
         try {
           const text = jsonEditor.getValue();
           const parsed = text ? JSON.parse(text) : null;
-          if (liveJsonEditor) {
-            showJsonStatus('正在应用…');
-            await liveJsonEditor.apply(parsed);
-            if (revision === liveJsonRevision) showJsonStatus('已应用 · 修改后自动执行；$ref 保留函数和比例尺引用');
-          } else if (typeof pageInit === 'function') {
+          if (typeof pageInit === 'function') {
             cleanupCanvas();
             pageInit(parsed);
           }
         } catch (e) {
-          if (liveJsonEditor && revision === liveJsonRevision) {
-            showJsonStatus(`未应用：${e.message}`, true);
-          }
+          // 解析失败时不打断输入
         }
       }, 300);
     });
@@ -264,7 +242,6 @@ async function loadFromPages(name) {
   try {
     // 通过 context 同步加载，避免动态表达式上下文解析失败
     const jsMod = jsKey ? pagesJsContext(jsKey) : null;
-    if (jsMod?.previewOnly) return true;
     // const jsonMod = jsonKey ? pagesJsonContext(jsonKey) : null;
 
     // const data = jsonMod ? (jsonMod.default ?? jsonMod) : null;
@@ -279,11 +256,7 @@ async function loadFromPages(name) {
       clearEditors();
     }
 
-    if (jsMod?.liveEditor) {
-      liveJsonEditor = jsMod.liveEditor;
-      monaco.editor.setModelLanguage(ensureJsonMonaco().getModel(), 'json');
-      renderJson(liveJsonEditor.initialValue());
-    } else if (typeof init === 'function') {
+    if (typeof init === 'function') {
       cleanupCanvas();
       pageInit = init;
       init(/* data */);
